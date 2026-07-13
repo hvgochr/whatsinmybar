@@ -1,0 +1,92 @@
+name: whatsinmybar
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - whatsinmybar
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: dev
+      APP_SECRET: dev-only-change-me
+      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+      DATABASE_URL: 'postgresql://app:app@postgres:5432/whatsinmybar?serverVersion=16&charset=utf8'
+      DEFAULT_URI: 'http://localhost:8080'
+    ports:
+      - "127.0.0.1:8000:80"
+    volumes:
+      - ./apps/api:/app
+      - api_vendor:/app/vendor
+      - api_var:/app/var
+    networks:
+      - whatsinmybar
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web/Dockerfile
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      NUXT_HOST: 0.0.0.0
+      NUXT_PORT: "3000"
+      NUXT_PUBLIC_API_BASE: /api
+      PNPM_HOME: /pnpm
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - web_node_modules:/app/node_modules
+      - web_nuxt:/app/.nuxt
+      - web_pnpm_store:/pnpm/store
+    networks:
+      - whatsinmybar
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: whatsinmybar
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d whatsinmybar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - whatsinmybar
+
+networks:
+  whatsinmybar:
+
+volumes:
+  api_var:
+  api_vendor:
+  caddy_config:
+  caddy_data:
+  postgres_data:
+  web_node_modules:
+  web_nuxt:
+  web_pnpm_store:

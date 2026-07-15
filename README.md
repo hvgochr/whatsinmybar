@@ -5,6 +5,7 @@ A community platform to discover, create and share cocktail recipes.
 
 - [Functional and technical specifications](docs/specifications.md)
 - [Docker development environment](docs/docker-dev.md)
+- [Backend quality baseline](docs/backend-quality.md)
 
 ## Development
 

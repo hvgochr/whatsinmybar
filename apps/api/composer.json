@@ -1,4 +1,6 @@
 {
+    "name": "whatsinmybar/api",
+    "description": "Symfony API Platform backend for whatsinmybar.",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",
@@ -66,12 +68,30 @@
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
         },
+        "check": [
+            "@check:composer",
+            "@security:audit",
+            "@cs:check",
+            "@phpstan",
+            "@test",
+            "@db:validate",
+            "@migrations:dry-run"
+        ],
+        "check:composer": "composer validate --strict",
+        "cs:check": "php-cs-fixer fix --dry-run --diff --verbose",
+        "cs:fix": "php-cs-fixer fix --verbose",
+        "db:create": "php bin/console doctrine:database:create --if-not-exists --no-interaction",
+        "db:validate": "php bin/console doctrine:schema:validate --no-interaction",
+        "migrations:dry-run": "if find migrations -maxdepth 1 -name 'Version*.php' | grep -q .; then php bin/console doctrine:migrations:migrate --dry-run --no-interaction; else echo 'No migrations registered; skipping dry-run.'; fi",
+        "phpstan": "APP_ENV=dev php bin/console cache:clear --no-interaction && phpstan analyse --memory-limit=1G",
         "post-install-cmd": [
             "@auto-scripts"
         ],
         "post-update-cmd": [
             "@auto-scripts"
-        ]
+        ],
+        "security:audit": "composer audit",
+        "test": "APP_ENV=test php bin/phpunit"
     },
     "conflict": {
         "symfony/symfony": "*"
@@ -83,6 +103,13 @@
         }
     },
     "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpunit/phpunit": "^13.2",
+        "symfony/browser-kit": "8.1.*",
+        "symfony/css-selector": "8.1.*",
         "symfony/maker-bundle": "^1.67"
     }
 }

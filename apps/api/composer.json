@@ -14,6 +14,8 @@
         "doctrine/doctrine-bundle": "^3.2",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
+        "gesdinet/jwt-refresh-token-bundle": "^2.0",
+        "lexik/jwt-authentication-bundle": "^3.2",
         "nelmio/cors-bundle": "^2.6",
         "phpdocumentor/reflection-docblock": "^6.0",
         "phpstan/phpdoc-parser": "^2.3",
@@ -74,6 +76,8 @@
             "@cs:check",
             "@phpstan",
             "@test",
+            "@db:create",
+            "@db:migrate",
             "@db:validate",
             "@migrations:dry-run"
         ],
@@ -81,6 +85,7 @@
         "cs:check": "php-cs-fixer fix --dry-run --diff --verbose",
         "cs:fix": "php-cs-fixer fix --verbose",
         "db:create": "php bin/console doctrine:database:create --if-not-exists --no-interaction",
+        "db:migrate": "php bin/console doctrine:migrations:migrate --no-interaction",
         "db:validate": "php bin/console doctrine:schema:validate --no-interaction",
         "migrations:dry-run": "if find migrations -maxdepth 1 -name 'Version*.php' | grep -q .; then php bin/console doctrine:migrations:migrate --dry-run --no-interaction; else echo 'No migrations registered; skipping dry-run.'; fi",
         "phpstan": "APP_ENV=dev php bin/console cache:clear --no-interaction && phpstan analyse --memory-limit=1G",
@@ -91,7 +96,11 @@
             "@auto-scripts"
         ],
         "security:audit": "composer audit",
-        "test": "APP_ENV=test php bin/phpunit"
+        "test": [
+            "@test:prepare",
+            "APP_ENV=test php bin/phpunit"
+        ],
+        "test:prepare": "APP_ENV=test php bin/console doctrine:database:create --if-not-exists --no-interaction && APP_ENV=test php bin/console doctrine:migrations:migrate --no-interaction"
     },
     "conflict": {
         "symfony/symfony": "*"

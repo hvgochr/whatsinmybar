@@ -28,6 +28,7 @@ docker compose run --rm api composer cs:fix
 docker compose run --rm api composer phpstan
 docker compose run --rm api composer test
 docker compose run --rm api composer db:create
+docker compose run --rm api composer db:migrate
 docker compose run --rm api composer db:validate
 docker compose run --rm api composer migrations:dry-run
 ```
@@ -46,6 +47,7 @@ PHP-CS-Fixer dry-run
 PHPStan
 PHPUnit
 doctrine:database:create
+doctrine:migrations:migrate
 doctrine:schema:validate
 doctrine:migrations:migrate --dry-run
 ```

@@ -137,5 +137,4 @@ class Category
     {
         $this->updatedAt = new \DateTimeImmutable();
     }
-
 }

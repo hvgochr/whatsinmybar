@@ -144,5 +144,4 @@ class Ingredient
     {
         $this->updatedAt = new \DateTimeImmutable();
     }
-
 }

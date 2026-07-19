@@ -10,6 +10,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\IngredientRepository;
+use App\Util\SlugNormalizer;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -86,7 +87,7 @@ class Ingredient
         $this->name = trim($name);
 
         if ('' === $this->slug) {
-            $this->slug = self::slugify($this->name);
+            $this->slug = SlugNormalizer::normalize($this->name);
         }
     }
 
@@ -97,7 +98,7 @@ class Ingredient
 
     public function setSlug(string $slug): void
     {
-        $this->slug = self::slugify($slug);
+        $this->slug = SlugNormalizer::normalize($slug);
     }
 
     public function containsAlcohol(): bool
@@ -124,7 +125,7 @@ class Ingredient
     public function prepareForInsert(): void
     {
         if ('' === $this->slug) {
-            $this->slug = self::slugify($this->name);
+            $this->slug = SlugNormalizer::normalize($this->name);
         }
     }
 
@@ -134,11 +135,4 @@ class Ingredient
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    private static function slugify(string $value): string
-    {
-        $value = mb_strtolower(trim($value));
-        $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
-
-        return trim($value, '-');
-    }
 }

@@ -10,6 +10,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\CategoryRepository;
+use App\Util\SlugNormalizer;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
@@ -88,7 +89,7 @@ class Category
         $this->name = trim($name);
 
         if ('' === $this->slug) {
-            $this->slug = self::slugify($this->name);
+            $this->slug = SlugNormalizer::normalize($this->name);
         }
     }
 
@@ -99,7 +100,7 @@ class Category
 
     public function setSlug(string $slug): void
     {
-        $this->slug = self::slugify($slug);
+        $this->slug = SlugNormalizer::normalize($slug);
     }
 
     public function getDescription(): ?string
@@ -127,7 +128,7 @@ class Category
     public function prepareForInsert(): void
     {
         if ('' === $this->slug) {
-            $this->slug = self::slugify($this->name);
+            $this->slug = SlugNormalizer::normalize($this->name);
         }
     }
 
@@ -137,11 +138,4 @@ class Category
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    private static function slugify(string $value): string
-    {
-        $value = mb_strtolower(trim($value));
-        $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
-
-        return trim($value, '-');
-    }
 }

@@ -106,6 +106,16 @@ class Ingredient
         return $this->containsAlcohol;
     }
 
+    public function getContainsAlcohol(): bool
+    {
+        return $this->containsAlcohol;
+    }
+
+    public function isContainsAlcohol(): bool
+    {
+        return $this->containsAlcohol;
+    }
+
     public function setContainsAlcohol(bool $containsAlcohol): void
     {
         $this->containsAlcohol = $containsAlcohol;

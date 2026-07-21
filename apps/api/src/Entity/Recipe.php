@@ -139,12 +139,21 @@ class Recipe
     #[Groups(['recipe:read'])]
     private Collection $steps;
 
+    /**
+     * @var Collection<int, RecipeIngredient>
+     */
+    #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: RecipeIngredient::class, cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    #[Groups(['recipe:read'])]
+    private Collection $recipeIngredients;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
         $this->categories = new ArrayCollection();
         $this->steps = new ArrayCollection();
+        $this->recipeIngredients = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -353,6 +362,38 @@ class Recipe
         if ($this->steps->removeElement($step) && $step->getRecipe() === $this) {
             $step->setRecipe(null);
         }
+    }
+
+    /**
+     * @return Collection<int, RecipeIngredient>
+     */
+    public function getRecipeIngredients(): Collection
+    {
+        return $this->recipeIngredients;
+    }
+
+    public function addRecipeIngredient(RecipeIngredient $recipeIngredient): void
+    {
+        if (!$this->recipeIngredients->contains($recipeIngredient)) {
+            $this->recipeIngredients->add($recipeIngredient);
+            $recipeIngredient->setRecipe($this);
+            $this->recalculateContainsAlcohol();
+        }
+    }
+
+    public function removeRecipeIngredient(RecipeIngredient $recipeIngredient): void
+    {
+        if ($this->recipeIngredients->removeElement($recipeIngredient) && $recipeIngredient->getRecipe() === $this) {
+            $recipeIngredient->setRecipe(null);
+            $this->recalculateContainsAlcohol();
+        }
+    }
+
+    public function recalculateContainsAlcohol(): void
+    {
+        $this->containsAlcoholComputed = $this->recipeIngredients->exists(
+            static fn (int $key, RecipeIngredient $recipeIngredient): bool => $recipeIngredient->containsAlcohol(),
+        );
     }
 
     public function canBeViewedBy(?UserInterface $user): bool

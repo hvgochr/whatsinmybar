@@ -34,6 +34,9 @@ final readonly class RecipeIngredientProcessor implements ProcessorInterface
         }
 
         $recipe = $data->getRecipe();
+        if (null !== $recipe && !$recipe->getRecipeIngredients()->contains($data)) {
+            $recipe->addRecipeIngredient($data);
+        }
 
         if ($operation instanceof DeleteOperationInterface) {
             $result = $this->removeProcessor->process($data, $operation, $uriVariables, $context);

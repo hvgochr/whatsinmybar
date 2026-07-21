@@ -16,6 +16,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  */
 final readonly class RecipeProcessor implements ProcessorInterface
 {
+    /**
+     * @param ProcessorInterface<Recipe, Recipe> $persistProcessor
+     */
     public function __construct(
         #[Autowire(service: 'api_platform.doctrine.orm.state.persist_processor')]
         private ProcessorInterface $persistProcessor,
@@ -27,12 +30,8 @@ final readonly class RecipeProcessor implements ProcessorInterface
      * @param array<string, mixed> $uriVariables
      * @param array<string, mixed> $context
      */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?Recipe
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Recipe
     {
-        if (!$data instanceof Recipe) {
-            return null;
-        }
-
         if ($operation instanceof DeleteOperationInterface) {
             $data->softDelete();
         }
@@ -46,9 +45,6 @@ final readonly class RecipeProcessor implements ProcessorInterface
             $data->setAuthor($user);
         }
 
-        /** @var Recipe $recipe */
-        $recipe = $this->persistProcessor->process($data, $operation, $uriVariables, $context);
-
-        return $recipe;
+        return $this->persistProcessor->process($data, $operation, $uriVariables, $context);
     }
 }

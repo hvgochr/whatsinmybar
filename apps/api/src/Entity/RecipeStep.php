@@ -19,10 +19,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new GetCollection(security: "is_granted('ROLE_ADMIN')"),
-        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and object.getRecipe().canBeManagedBy(user)"),
-        new Get(security: "object.getRecipe() and object.getRecipe().canBeViewedBy(user)"),
-        new Patch(security: "object.getRecipe() and object.getRecipe().canBeManagedBy(user)"),
-        new Delete(security: "object.getRecipe() and object.getRecipe().canBeManagedBy(user)"),
+        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)'),
+        new Get(security: 'object.getRecipe() and object.getRecipe().canBeViewedBy(user)'),
+        new Patch(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)'),
+        new Delete(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)'),
     ],
     normalizationContext: ['groups' => ['recipe_step:read']],
     denormalizationContext: ['groups' => ['recipe_step:write']],

@@ -21,10 +21,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new GetCollection(security: "is_granted('ROLE_ADMIN')"),
-        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and object.getRecipe().canBeManagedBy(user)", processor: RecipeIngredientProcessor::class),
-        new Get(security: "object.getRecipe() and object.getRecipe().canBeViewedBy(user)"),
-        new Patch(security: "object.getRecipe() and object.getRecipe().canBeManagedBy(user)", processor: RecipeIngredientProcessor::class),
-        new Delete(security: "object.getRecipe() and object.getRecipe().canBeManagedBy(user)", processor: RecipeIngredientProcessor::class),
+        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)', processor: RecipeIngredientProcessor::class),
+        new Get(security: 'object.getRecipe() and object.getRecipe().canBeViewedBy(user)'),
+        new Patch(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)', processor: RecipeIngredientProcessor::class),
+        new Delete(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)', processor: RecipeIngredientProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe_ingredient:read']],
     denormalizationContext: ['groups' => ['recipe_ingredient:write']],
@@ -97,7 +97,7 @@ class RecipeIngredient
         return $this->quantity;
     }
 
-    public function setQuantity(null|float|int|string $quantity): void
+    public function setQuantity(float|int|string|null $quantity): void
     {
         $this->quantity = null === $quantity ? null : number_format((float) $quantity, 2, '.', '');
     }

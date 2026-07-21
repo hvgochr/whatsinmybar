@@ -35,9 +35,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [
         new GetCollection(),
         new Post(security: "is_granted('ROLE_USER')", processor: RecipeProcessor::class),
-        new Get(security: "object.canBeViewedBy(user)"),
-        new Patch(security: "object.canBeManagedBy(user)", processor: RecipeProcessor::class),
-        new Delete(security: "object.canBeManagedBy(user)", processor: RecipeProcessor::class),
+        new Get(security: 'object.canBeViewedBy(user)'),
+        new Patch(security: 'object.canBeManagedBy(user)', processor: RecipeProcessor::class),
+        new Delete(security: 'object.canBeManagedBy(user)', processor: RecipeProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe:read']],
     denormalizationContext: ['groups' => ['recipe:write']],

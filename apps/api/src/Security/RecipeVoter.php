@@ -25,10 +25,6 @@ final class RecipeVoter extends Voter
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
     {
-        if (!$subject instanceof Recipe) {
-            return false;
-        }
-
         return match ($attribute) {
             RecipeAccess::View => $this->canView($subject, $token),
             RecipeAccess::Manage => $this->canManage($subject, $token),

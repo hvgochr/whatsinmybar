@@ -113,6 +113,9 @@ final class AlcoholRestrictionApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
     }
 
+    /**
+     * @param list<string> $roles
+     */
     private function loginAsUser(KernelBrowser $client, \DateTimeImmutable $birthDate, array $roles = []): string
     {
         $password = 'very-secure-password';

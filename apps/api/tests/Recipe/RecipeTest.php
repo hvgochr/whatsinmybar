@@ -52,4 +52,17 @@ final class RecipeTest extends TestCase
         self::assertCount(1, $recipe->getCategories());
     }
 
+    public function testAlcoholFlagUsesOverrideBeforeComputedValue(): void
+    {
+        $recipe = new Recipe();
+        $recipe->setContainsAlcoholComputed(true);
+
+        self::assertTrue($recipe->containsAlcohol());
+        self::assertTrue($recipe->getContainsAlcohol());
+
+        $recipe->setContainsAlcoholOverride(false);
+
+        self::assertFalse($recipe->containsAlcohol());
+        self::assertFalse($recipe->getContainsAlcohol());
+    }
 }

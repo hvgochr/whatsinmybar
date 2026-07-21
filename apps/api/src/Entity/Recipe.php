@@ -285,6 +285,12 @@ class Recipe
         return $this->containsAlcoholOverride ?? $this->containsAlcoholComputed;
     }
 
+    #[Groups(['recipe:read'])]
+    public function getContainsAlcohol(): bool
+    {
+        return $this->containsAlcohol();
+    }
+
     public function getImagePath(): ?string
     {
         return $this->imagePath;

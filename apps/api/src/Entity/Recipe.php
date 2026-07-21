@@ -131,11 +131,20 @@ class Recipe
     #[Groups(['recipe:read', 'recipe:write'])]
     private Collection $categories;
 
+    /**
+     * @var Collection<int, RecipeStep>
+     */
+    #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: RecipeStep::class, cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    #[Groups(['recipe:read'])]
+    private Collection $steps;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
         $this->categories = new ArrayCollection();
+        $this->steps = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -321,6 +330,29 @@ class Recipe
     public function removeCategory(Category $category): void
     {
         $this->categories->removeElement($category);
+    }
+
+    /**
+     * @return Collection<int, RecipeStep>
+     */
+    public function getSteps(): Collection
+    {
+        return $this->steps;
+    }
+
+    public function addStep(RecipeStep $step): void
+    {
+        if (!$this->steps->contains($step)) {
+            $this->steps->add($step);
+            $step->setRecipe($this);
+        }
+    }
+
+    public function removeStep(RecipeStep $step): void
+    {
+        if ($this->steps->removeElement($step) && $step->getRecipe() === $this) {
+            $step->setRecipe(null);
+        }
     }
 
     public function canBeViewedBy(?UserInterface $user): bool

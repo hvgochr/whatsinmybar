@@ -87,6 +87,30 @@ final class AlcoholRestrictionApiTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertContains($recipe->getSlug(), $this->collectionSlugs($client));
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug());
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertFalse($payload['containsAlcohol']);
+    }
+
+    public function testOverrideTrueMakesComputedNonAlcoholicRecipeRestricted(): void
+    {
+        $client = static::createClient();
+        $recipe = $this->createPublishedRecipe(containsAlcohol: false);
+        $recipe->setContainsAlcoholOverride(true);
+        $this->flush();
+
+        $client->request('GET', '/api/recipes');
+
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($recipe->getSlug(), $this->collectionSlugs($client));
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug());
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
     }
 
     private function loginAsUser(KernelBrowser $client, \DateTimeImmutable $birthDate, array $roles = []): string

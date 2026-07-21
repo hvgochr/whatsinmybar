@@ -20,7 +20,6 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -395,40 +394,6 @@ class Recipe
         $this->containsAlcoholComputed = $this->recipeIngredients->exists(
             static fn (int $key, RecipeIngredient $recipeIngredient): bool => $recipeIngredient->containsAlcohol(),
         );
-    }
-
-    public function canBeViewedBy(?UserInterface $user): bool
-    {
-        if (null !== $this->deletedAt) {
-            return false;
-        }
-
-        if (RecipeStatus::Published === $this->status) {
-            return true;
-        }
-
-        return $this->canBeManagedBy($user);
-    }
-
-    public function canBeManagedBy(?UserInterface $user): bool
-    {
-        if (!$user instanceof User) {
-            return false;
-        }
-
-        if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
-            return true;
-        }
-
-        if (null === $this->author) {
-            return false;
-        }
-
-        if (null === $this->author->getId() || null === $user->getId()) {
-            return $this->author === $user;
-        }
-
-        return $this->author->getId() === $user->getId();
     }
 
     #[ORM\PrePersist]

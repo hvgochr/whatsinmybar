@@ -8,13 +8,16 @@ use ApiPlatform\Metadata\Operation;
 use App\Entity\Recipe;
 use App\Entity\User;
 use App\Enum\RecipeStatus;
+use App\Security\AlcoholAccessPolicy;
 use Doctrine\ORM\QueryBuilder;
 use Symfony\Bundle\SecurityBundle\Security;
 
 final readonly class RecipeVisibilityExtension implements QueryCollectionExtensionInterface
 {
-    public function __construct(private Security $security)
-    {
+    public function __construct(
+        private Security $security,
+        private AlcoholAccessPolicy $alcoholAccessPolicy,
+    ) {
     }
 
     /**
@@ -29,13 +32,13 @@ final readonly class RecipeVisibilityExtension implements QueryCollectionExtensi
 
         $rootAlias = $queryBuilder->getRootAliases()[0];
         $queryBuilder->andWhere(sprintf('%s.deletedAt IS NULL', $rootAlias));
+        $user = $this->security->getUser();
 
         if ($this->security->isGranted('ROLE_ADMIN')) {
             return;
         }
 
         $publishedParameter = $queryNameGenerator->generateParameterName('published_status');
-        $user = $this->security->getUser();
 
         if ($user instanceof User) {
             $authorParameter = $queryNameGenerator->generateParameterName('author');
@@ -48,5 +51,12 @@ final readonly class RecipeVisibilityExtension implements QueryCollectionExtensi
         }
 
         $queryBuilder->setParameter($publishedParameter, RecipeStatus::Published);
+
+        if (!$this->alcoholAccessPolicy->canAccessAlcohol($user)) {
+            $queryBuilder->andWhere(sprintf(
+                '%1$s.containsAlcoholOverride = false OR (%1$s.containsAlcoholOverride IS NULL AND %1$s.containsAlcoholComputed = false)',
+                $rootAlias,
+            ));
+        }
     }
 }

@@ -10,6 +10,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Enum\IngredientUnit;
 use App\Repository\RecipeIngredientRepository;
+use App\Security\RecipeAccess;
 use App\State\RecipeIngredientProcessor;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -21,10 +22,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new GetCollection(security: "is_granted('ROLE_ADMIN')"),
-        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)', processor: RecipeIngredientProcessor::class),
-        new Get(security: 'object.getRecipe() and object.getRecipe().canBeViewedBy(user)'),
-        new Patch(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)', processor: RecipeIngredientProcessor::class),
-        new Delete(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)', processor: RecipeIngredientProcessor::class),
+        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipeIngredientProcessor::class),
+        new Get(security: "object.getRecipe() and is_granted('".RecipeAccess::View."', object.getRecipe())"),
+        new Patch(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipeIngredientProcessor::class),
+        new Delete(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipeIngredientProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe_ingredient:read']],
     denormalizationContext: ['groups' => ['recipe_ingredient:write']],

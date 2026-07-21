@@ -4,7 +4,6 @@ namespace App\Tests\Recipe;
 
 use App\Entity\Category;
 use App\Entity\Recipe;
-use App\Entity\User;
 use App\Enum\RecipeStatus;
 use PHPUnit\Framework\TestCase;
 
@@ -32,32 +31,13 @@ final class RecipeTest extends TestCase
         self::assertSame($publishedAt, $recipe->getPublishedAt());
     }
 
-    public function testPublishedRecipeIsVisibleUntilDeleted(): void
+    public function testSoftDeleteSetsDeletedAt(): void
     {
         $recipe = new Recipe();
-        $recipe->setStatus(RecipeStatus::Published);
-
-        self::assertTrue($recipe->canBeViewedBy(null));
 
         $recipe->softDelete();
 
-        self::assertFalse($recipe->canBeViewedBy(null));
-    }
-
-    public function testDraftRecipeIsOnlyVisibleToAuthorOrAdmin(): void
-    {
-        $author = $this->user('author@example.com', 'author');
-        $otherUser = $this->user('reader@example.com', 'reader');
-        $admin = $this->user('admin@example.com', 'admin');
-        $admin->setRoles(['ROLE_ADMIN']);
-
-        $recipe = new Recipe();
-        $recipe->setAuthor($author);
-
-        self::assertFalse($recipe->canBeViewedBy(null));
-        self::assertFalse($recipe->canBeViewedBy($otherUser));
-        self::assertTrue($recipe->canBeViewedBy($author));
-        self::assertTrue($recipe->canBeViewedBy($admin));
+        self::assertInstanceOf(\DateTimeImmutable::class, $recipe->getDeletedAt());
     }
 
     public function testCategoriesAreUnique(): void
@@ -72,8 +52,17 @@ final class RecipeTest extends TestCase
         self::assertCount(1, $recipe->getCategories());
     }
 
-    private function user(string $email, string $username): User
+    public function testAlcoholFlagUsesOverrideBeforeComputedValue(): void
     {
-        return new User($email, $username, new \DateTimeImmutable('1990-01-01'));
+        $recipe = new Recipe();
+        $recipe->setContainsAlcoholComputed(true);
+
+        self::assertTrue($recipe->containsAlcohol());
+        self::assertTrue($recipe->getContainsAlcohol());
+
+        $recipe->setContainsAlcoholOverride(false);
+
+        self::assertFalse($recipe->containsAlcohol());
+        self::assertFalse($recipe->getContainsAlcohol());
     }
 }

@@ -12,6 +12,7 @@ use ApiPlatform\Metadata\Post;
 use App\Enum\RecipeDifficulty;
 use App\Enum\RecipeStatus;
 use App\Repository\RecipeRepository;
+use App\Security\RecipeAccess;
 use App\State\RecipeProcessor;
 use App\Util\SlugNormalizer;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -19,7 +20,6 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -35,9 +35,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [
         new GetCollection(),
         new Post(security: "is_granted('ROLE_USER')", processor: RecipeProcessor::class),
-        new Get(security: 'object.canBeViewedBy(user)'),
-        new Patch(security: 'object.canBeManagedBy(user)', processor: RecipeProcessor::class),
-        new Delete(security: 'object.canBeManagedBy(user)', processor: RecipeProcessor::class),
+        new Get(security: "is_granted('".RecipeAccess::View."', object)"),
+        new Patch(security: "is_granted('".RecipeAccess::Manage."', object)", processor: RecipeProcessor::class),
+        new Delete(security: "is_granted('".RecipeAccess::Manage."', object)", processor: RecipeProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe:read']],
     denormalizationContext: ['groups' => ['recipe:write']],
@@ -285,6 +285,12 @@ class Recipe
         return $this->containsAlcoholOverride ?? $this->containsAlcoholComputed;
     }
 
+    #[Groups(['recipe:read'])]
+    public function getContainsAlcohol(): bool
+    {
+        return $this->containsAlcohol();
+    }
+
     public function getImagePath(): ?string
     {
         return $this->imagePath;
@@ -394,40 +400,6 @@ class Recipe
         $this->containsAlcoholComputed = $this->recipeIngredients->exists(
             static fn (int $key, RecipeIngredient $recipeIngredient): bool => $recipeIngredient->containsAlcohol(),
         );
-    }
-
-    public function canBeViewedBy(?UserInterface $user): bool
-    {
-        if (null !== $this->deletedAt) {
-            return false;
-        }
-
-        if (RecipeStatus::Published === $this->status) {
-            return true;
-        }
-
-        return $this->canBeManagedBy($user);
-    }
-
-    public function canBeManagedBy(?UserInterface $user): bool
-    {
-        if (!$user instanceof User) {
-            return false;
-        }
-
-        if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
-            return true;
-        }
-
-        if (null === $this->author) {
-            return false;
-        }
-
-        if (null === $this->author->getId() || null === $user->getId()) {
-            return $this->author === $user;
-        }
-
-        return $this->author->getId() === $user->getId();
     }
 
     #[ORM\PrePersist]

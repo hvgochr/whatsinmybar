@@ -12,6 +12,7 @@ use ApiPlatform\Metadata\Post;
 use App\Enum\RecipeDifficulty;
 use App\Enum\RecipeStatus;
 use App\Repository\RecipeRepository;
+use App\Security\RecipeAccess;
 use App\State\RecipeProcessor;
 use App\Util\SlugNormalizer;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -35,9 +36,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [
         new GetCollection(),
         new Post(security: "is_granted('ROLE_USER')", processor: RecipeProcessor::class),
-        new Get(security: 'object.canBeViewedBy(user)'),
-        new Patch(security: 'object.canBeManagedBy(user)', processor: RecipeProcessor::class),
-        new Delete(security: 'object.canBeManagedBy(user)', processor: RecipeProcessor::class),
+        new Get(security: "is_granted('".RecipeAccess::View."', object)"),
+        new Patch(security: "is_granted('".RecipeAccess::Manage."', object)", processor: RecipeProcessor::class),
+        new Delete(security: "is_granted('".RecipeAccess::Manage."', object)", processor: RecipeProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe:read']],
     denormalizationContext: ['groups' => ['recipe:write']],

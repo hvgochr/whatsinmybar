@@ -9,6 +9,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\RecipeStepRepository;
+use App\Security\RecipeAccess;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -19,10 +20,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new GetCollection(security: "is_granted('ROLE_ADMIN')"),
-        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)'),
-        new Get(security: 'object.getRecipe() and object.getRecipe().canBeViewedBy(user)'),
-        new Patch(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)'),
-        new Delete(security: 'object.getRecipe() and object.getRecipe().canBeManagedBy(user)'),
+        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())"),
+        new Get(security: "object.getRecipe() and is_granted('".RecipeAccess::View."', object.getRecipe())"),
+        new Patch(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())"),
+        new Delete(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())"),
     ],
     normalizationContext: ['groups' => ['recipe_step:read']],
     denormalizationContext: ['groups' => ['recipe_step:write']],

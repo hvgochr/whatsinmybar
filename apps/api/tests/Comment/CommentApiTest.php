@@ -126,6 +126,64 @@ final class CommentApiTest extends WebTestCase
         self::assertNull($hidden['message']);
     }
 
+    public function testNonAdminCannotUpdateModerationStatus(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $commentId = $this->createComment($client, $token, $recipe, 'Visible comment');
+
+        $client->jsonRequest('PATCH', '/api/comments/'.$commentId, [
+            'moderationStatus' => 'hidden',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testParentMustBelongToSameRecipe(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $token = $this->loginAsUser($client);
+        $firstRecipe = $this->createRecipe(RecipeStatus::Published);
+        $secondRecipe = $this->createRecipe(RecipeStatus::Published);
+        $parentId = $this->createComment($client, $token, $firstRecipe, 'Parent comment');
+
+        $client->jsonRequest('POST', '/api/recipes/'.$secondRecipe->getSlug().'/comments', [
+            'message' => 'Invalid reply.',
+            'parentId' => $parentId,
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
+    public function testMinorCannotReadOrCreateCommentsOnAlcoholicRecipe(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $minorToken = $this->loginAsUser($client, birthDate: new \DateTimeImmutable('2012-01-01'));
+        $recipe = $this->createRecipe(RecipeStatus::Published, containsAlcohol: true);
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug().'/comments', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$minorToken,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+
+        $client->jsonRequest('POST', '/api/recipes/'.$recipe->getSlug().'/comments', [
+            'message' => 'I should not see this recipe.',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$minorToken,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
     public function testDraftRecipeCannotBeCommented(): void
     {
         $client = static::createClient();
@@ -161,10 +219,10 @@ final class CommentApiTest extends WebTestCase
     /**
      * @param list<string> $roles
      */
-    private function loginAsUser(KernelBrowser $client, array $roles = []): string
+    private function loginAsUser(KernelBrowser $client, array $roles = [], ?\DateTimeImmutable $birthDate = null): string
     {
         $password = 'very-secure-password';
-        $user = $this->createUser($password, $roles);
+        $user = $this->createUser($password, $roles, $birthDate);
 
         $client->jsonRequest('POST', '/api/auth/login', [
             'email' => $user->getEmail(),
@@ -182,7 +240,7 @@ final class CommentApiTest extends WebTestCase
     /**
      * @param list<string> $roles
      */
-    private function createUser(string $password, array $roles = []): User
+    private function createUser(string $password, array $roles = [], ?\DateTimeImmutable $birthDate = null): User
     {
         $container = static::getContainer();
         $entityManager = $container->get(EntityManagerInterface::class);
@@ -192,7 +250,7 @@ final class CommentApiTest extends WebTestCase
         $user = new User(
             sprintf('comment-api-%s@example.com', $suffix),
             sprintf('comment_api_%s', $suffix),
-            new \DateTimeImmutable('1990-01-01'),
+            $birthDate ?? new \DateTimeImmutable('1990-01-01'),
         );
         $user->setRoles($roles);
         $user->setPassword($passwordHasher->hashPassword($user, $password));
@@ -203,7 +261,7 @@ final class CommentApiTest extends WebTestCase
         return $user;
     }
 
-    private function createRecipe(RecipeStatus $status): Recipe
+    private function createRecipe(RecipeStatus $status, bool $containsAlcohol = false): Recipe
     {
         $author = $this->createUser('very-secure-password');
         $suffix = bin2hex(random_bytes(6));
@@ -212,6 +270,7 @@ final class CommentApiTest extends WebTestCase
         $recipe->setTitle(sprintf('Comment API Recipe %s', $suffix));
         $recipe->setDescription('Recipe used to test comment API endpoints.');
         $recipe->setStatus($status);
+        $recipe->setContainsAlcoholComputed($containsAlcohol);
 
         $entityManager = static::getContainer()->get(EntityManagerInterface::class);
         $entityManager->persist($recipe);

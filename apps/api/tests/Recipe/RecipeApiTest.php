@@ -55,6 +55,7 @@ final class RecipeApiTest extends WebTestCase
     public function testPublishedRecipeIsVisibleInPublicCollection(): void
     {
         $client = static::createClient();
+        $this->clearRecipes();
         $token = $this->loginAsUser($client);
         $suffix = bin2hex(random_bytes(4));
         $slug = sprintf('public-negroni-%s', $suffix);
@@ -77,7 +78,7 @@ final class RecipeApiTest extends WebTestCase
         self::assertSame('published', $recipe['status']);
         self::assertNotNull($recipe['publishedAt']);
 
-        $client->request('GET', '/api/recipes');
+        $client->request('GET', '/api/recipes?pagination=false');
 
         self::assertResponseIsSuccessful();
 
@@ -205,6 +206,15 @@ final class RecipeApiTest extends WebTestCase
         $entityManager->flush();
 
         return $ingredient;
+    }
+
+    private function clearRecipes(): void
+    {
+        $connection = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+
+        foreach (['favorite', 'recipe_ingredient', 'recipe_step', 'recipe_category', 'recipe'] as $table) {
+            $connection->executeStatement(sprintf('DELETE FROM %s', $table));
+        }
     }
 
     /**

@@ -16,10 +16,11 @@ final class AlcoholRestrictionApiTest extends WebTestCase
     public function testAnonymousUserCannotSeeAlcoholicRecipesInCollectionOrDetail(): void
     {
         $client = static::createClient();
+        $this->clearRecipes();
         $alcoholicRecipe = $this->createPublishedRecipe(containsAlcohol: true);
         $nonAlcoholicRecipe = $this->createPublishedRecipe(containsAlcohol: false);
 
-        $client->request('GET', '/api/recipes');
+        $client->request('GET', '/api/recipes?pagination=false');
 
         self::assertResponseIsSuccessful();
 
@@ -35,11 +36,12 @@ final class AlcoholRestrictionApiTest extends WebTestCase
     public function testMinorUserCannotSeeAlcoholicRecipesInCollectionOrDetail(): void
     {
         $client = static::createClient();
+        $this->clearRecipes();
         $minorToken = $this->loginAsUser($client, new \DateTimeImmutable('2012-01-01'));
         $alcoholicRecipe = $this->createPublishedRecipe(containsAlcohol: true);
         $nonAlcoholicRecipe = $this->createPublishedRecipe(containsAlcohol: false);
 
-        $client->request('GET', '/api/recipes', server: [
+        $client->request('GET', '/api/recipes?pagination=false', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$minorToken,
         ]);
 
@@ -59,10 +61,11 @@ final class AlcoholRestrictionApiTest extends WebTestCase
     public function testAdultUserCanSeeAlcoholicRecipesInCollectionAndDetail(): void
     {
         $client = static::createClient();
+        $this->clearRecipes();
         $adultToken = $this->loginAsUser($client, new \DateTimeImmutable('1990-01-01'));
         $alcoholicRecipe = $this->createPublishedRecipe(containsAlcohol: true);
 
-        $client->request('GET', '/api/recipes', server: [
+        $client->request('GET', '/api/recipes?pagination=false', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$adultToken,
         ]);
 
@@ -79,11 +82,12 @@ final class AlcoholRestrictionApiTest extends WebTestCase
     public function testOverrideFalseMakesComputedAlcoholicRecipeVisibleToRestrictedUsers(): void
     {
         $client = static::createClient();
+        $this->clearRecipes();
         $recipe = $this->createPublishedRecipe(containsAlcohol: true);
         $recipe->setContainsAlcoholOverride(false);
         $this->flush();
 
-        $client->request('GET', '/api/recipes');
+        $client->request('GET', '/api/recipes?pagination=false');
 
         self::assertResponseIsSuccessful();
         self::assertContains($recipe->getSlug(), $this->collectionSlugs($client));
@@ -99,11 +103,12 @@ final class AlcoholRestrictionApiTest extends WebTestCase
     public function testOverrideTrueMakesComputedNonAlcoholicRecipeRestricted(): void
     {
         $client = static::createClient();
+        $this->clearRecipes();
         $recipe = $this->createPublishedRecipe(containsAlcohol: false);
         $recipe->setContainsAlcoholOverride(true);
         $this->flush();
 
-        $client->request('GET', '/api/recipes');
+        $client->request('GET', '/api/recipes?pagination=false');
 
         self::assertResponseIsSuccessful();
         self::assertNotContains($recipe->getSlug(), $this->collectionSlugs($client));
@@ -179,6 +184,15 @@ final class AlcoholRestrictionApiTest extends WebTestCase
     private function flush(): void
     {
         static::getContainer()->get(EntityManagerInterface::class)->flush();
+    }
+
+    private function clearRecipes(): void
+    {
+        $connection = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+
+        foreach (['favorite', 'recipe_ingredient', 'recipe_step', 'recipe_category', 'recipe'] as $table) {
+            $connection->executeStatement(sprintf('DELETE FROM %s', $table));
+        }
     }
 
     /**

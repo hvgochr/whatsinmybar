@@ -28,6 +28,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(name: 'idx_recipe_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_recipe_published_at', columns: ['published_at'])]
 #[ORM\Index(name: 'idx_recipe_author', columns: ['author_id'])]
+#[ORM\Index(name: 'idx_recipe_favorite_count', columns: ['favorite_count'])]
 #[ORM\Index(name: 'idx_recipe_alcohol_visibility', columns: ['contains_alcohol_computed', 'contains_alcohol_override'])]
 #[ORM\HasLifecycleCallbacks]
 #[UniqueEntity(fields: ['slug'])]
@@ -121,6 +122,10 @@ class Recipe
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $deletedAt = null;
 
+    #[ORM\Column(options: ['default' => 0])]
+    #[Groups(['recipe:read'])]
+    private int $favoriteCount = 0;
+
     /**
      * @var Collection<int, Category>
      */
@@ -147,6 +152,12 @@ class Recipe
     #[Groups(['recipe:read'])]
     private Collection $recipeIngredients;
 
+    /**
+     * @var Collection<int, Favorite>
+     */
+    #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: Favorite::class, orphanRemoval: true)]
+    private Collection $favorites;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -154,6 +165,7 @@ class Recipe
         $this->categories = new ArrayCollection();
         $this->steps = new ArrayCollection();
         $this->recipeIngredients = new ArrayCollection();
+        $this->favorites = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -327,6 +339,21 @@ class Recipe
         $this->deletedAt = new \DateTimeImmutable();
     }
 
+    public function getFavoriteCount(): int
+    {
+        return $this->favoriteCount;
+    }
+
+    public function incrementFavoriteCount(): void
+    {
+        ++$this->favoriteCount;
+    }
+
+    public function decrementFavoriteCount(): void
+    {
+        $this->favoriteCount = max(0, $this->favoriteCount - 1);
+    }
+
     /**
      * @return Collection<int, Category>
      */
@@ -400,6 +427,14 @@ class Recipe
         $this->containsAlcoholComputed = $this->recipeIngredients->exists(
             static fn (int $key, RecipeIngredient $recipeIngredient): bool => $recipeIngredient->containsAlcohol(),
         );
+    }
+
+    /**
+     * @return Collection<int, Favorite>
+     */
+    public function getFavorites(): Collection
+    {
+        return $this->favorites;
     }
 
     #[ORM\PrePersist]

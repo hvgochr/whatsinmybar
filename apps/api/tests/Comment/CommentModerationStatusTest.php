@@ -16,4 +16,12 @@ final class CommentModerationStatusTest extends TestCase
             'removed',
         ], array_map(static fn (CommentModerationStatus $status): string => $status->value, CommentModerationStatus::cases()));
     }
+
+    public function testOnlyVisibleCommentsExposeTheirMessagePublicly(): void
+    {
+        self::assertTrue(CommentModerationStatus::Visible->isPubliclyReadable());
+        self::assertFalse(CommentModerationStatus::Hidden->isPubliclyReadable());
+        self::assertFalse(CommentModerationStatus::PendingReview->isPubliclyReadable());
+        self::assertFalse(CommentModerationStatus::Removed->isPubliclyReadable());
+    }
 }

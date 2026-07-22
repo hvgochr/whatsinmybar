@@ -158,6 +158,12 @@ class Recipe
     #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: Favorite::class, orphanRemoval: true)]
     private Collection $favorites;
 
+    /**
+     * @var Collection<int, Comment>
+     */
+    #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: Comment::class, orphanRemoval: true)]
+    private Collection $comments;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -166,6 +172,7 @@ class Recipe
         $this->steps = new ArrayCollection();
         $this->recipeIngredients = new ArrayCollection();
         $this->favorites = new ArrayCollection();
+        $this->comments = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -435,6 +442,14 @@ class Recipe
     public function getFavorites(): Collection
     {
         return $this->favorites;
+    }
+
+    /**
+     * @return Collection<int, Comment>
+     */
+    public function getComments(): Collection
+    {
+        return $this->comments;
     }
 
     #[ORM\PrePersist]

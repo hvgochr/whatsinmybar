@@ -42,6 +42,15 @@ final class FavoriteApiTest extends WebTestCase
         self::assertTrue($secondAdd['favorited']);
         self::assertFalse($secondAdd['changed']);
 
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug(), server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $recipePayload = $this->jsonResponse($client);
+        self::assertSame(1, $recipePayload['favoriteCount']);
+
         $client->request('DELETE', '/api/recipes/'.$recipe->getSlug().'/favorite', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
         ]);

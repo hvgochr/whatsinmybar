@@ -6,6 +6,7 @@ use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -73,6 +74,42 @@ final class CurrentProfileApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
     }
 
+    public function testUserCanUploadAvatar(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $avatar = $this->pngUpload();
+
+        $client->request('POST', '/api/me/avatar', files: [
+            'avatar' => $avatar,
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsString($payload['avatarPath']);
+        self::assertMatchesRegularExpression('#^/uploads/avatars/[a-f0-9]{32}\.png$#', $payload['avatarPath']);
+    }
+
+    public function testAvatarUploadRejectsUnsupportedFiles(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $filePath = tempnam(sys_get_temp_dir(), 'avatar-upload');
+        self::assertIsString($filePath);
+        file_put_contents($filePath, 'not an image');
+
+        $client->request('POST', '/api/me/avatar', files: [
+            'avatar' => new UploadedFile($filePath, 'avatar.txt', 'text/plain', test: true),
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
     private function loginAsUser(KernelBrowser $client): string
     {
         $password = 'very-secure-password';
@@ -109,6 +146,18 @@ final class CurrentProfileApiTest extends WebTestCase
         $entityManager->flush();
 
         return $user;
+    }
+
+    private function pngUpload(): UploadedFile
+    {
+        $filePath = tempnam(sys_get_temp_dir(), 'avatar-upload');
+        self::assertIsString($filePath);
+
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', true);
+        self::assertIsString($png);
+        file_put_contents($filePath, $png);
+
+        return new UploadedFile($filePath, 'avatar.png', 'image/png', test: true);
     }
 
     /**

@@ -29,4 +29,15 @@ final class UserRepository extends ServiceEntityRepository implements PasswordUp
 
         $this->getEntityManager()->flush();
     }
+
+    public function findOnePublicByUsername(string $username): ?User
+    {
+        return $this->createQueryBuilder('user')
+            ->andWhere('user.username = :username')
+            ->andWhere('user.deletedAt IS NULL')
+            ->setParameter('username', $username)
+            ->getQuery()
+            ->getOneOrNullResult()
+        ;
+    }
 }

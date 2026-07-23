@@ -123,7 +123,7 @@ class Recipe
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $deletedAt = null;
 
-    #[ORM\Column(length: 30, enumType: RecipeModerationStatus::class)]
+    #[ORM\Column(length: 30, enumType: RecipeModerationStatus::class, options: ['default' => 'visible'])]
     #[Groups(['recipe:read', 'recipe:write'])]
     private RecipeModerationStatus $moderationStatus = RecipeModerationStatus::Visible;
 

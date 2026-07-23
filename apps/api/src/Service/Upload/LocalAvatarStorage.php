@@ -18,7 +18,7 @@ final readonly class LocalAvatarStorage implements AvatarStorageInterface
     public function store(UploadedFile $file): string
     {
         $size = $file->getSize();
-        if (null === $size || $size <= 0 || $size > self::MAX_SIZE_BYTES) {
+        if (false === $size || $size <= 0 || $size > self::MAX_SIZE_BYTES) {
             throw new BadRequestHttpException('Avatar file size must be between 1 byte and 2 MB.');
         }
 

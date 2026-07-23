@@ -1,0 +1,31 @@
+<?php
+
+namespace App\Repository;
+
+use App\Entity\Report;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Persistence\ManagerRegistry;
+
+/**
+ * @extends ServiceEntityRepository<Report>
+ */
+final class ReportRepository extends ServiceEntityRepository
+{
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, Report::class);
+    }
+
+    /**
+     * @return list<Report>
+     */
+    public function findLatest(): array
+    {
+        return $this->createQueryBuilder('report')
+            ->orderBy('report.createdAt', 'DESC')
+            ->addOrderBy('report.id', 'DESC')
+            ->getQuery()
+            ->getResult()
+        ;
+    }
+}

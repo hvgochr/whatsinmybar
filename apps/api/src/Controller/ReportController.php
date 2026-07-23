@@ -1,0 +1,231 @@
+<?php
+
+namespace App\Controller;
+
+use App\Entity\Comment;
+use App\Entity\Recipe;
+use App\Entity\Report;
+use App\Entity\User;
+use App\Enum\CommentModerationStatus;
+use App\Enum\RecipeModerationStatus;
+use App\Enum\ReportReason;
+use App\Enum\ReportStatus;
+use App\Enum\ReportTargetType;
+use App\Repository\CommentRepository;
+use App\Repository\RecipeRepository;
+use App\Repository\ReportRepository;
+use App\Repository\UserRepository;
+use App\Security\RecipeAccess;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
+
+final class ReportController extends AbstractController
+{
+    #[Route('/api/reports', name: 'api_reports_create', methods: ['POST'])]
+    public function create(
+        Request $request,
+        #[CurrentUser] ?User $user,
+        RecipeRepository $recipeRepository,
+        CommentRepository $commentRepository,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException('Authentication required.');
+        }
+
+        $payload = $this->decodeJson($request);
+        $targetType = $this->targetType((string) ($payload['targetType'] ?? ''));
+        $targetId = (int) ($payload['targetId'] ?? 0);
+        $reason = $this->reason((string) ($payload['reason'] ?? ''));
+
+        $this->assertTargetCanBeReported($targetType, $targetId, $recipeRepository, $commentRepository, $userRepository);
+
+        $report = new Report($user, $targetType, $targetId, $reason);
+        $report->setMessage(isset($payload['message']) ? (string) $payload['message'] : null);
+
+        $entityManager->persist($report);
+        $entityManager->flush();
+
+        return $this->json($this->payload($report), JsonResponse::HTTP_CREATED);
+    }
+
+    #[Route('/api/admin/reports', name: 'api_admin_reports_list', methods: ['GET'])]
+    public function list(ReportRepository $reportRepository): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+
+        return $this->json([
+            'items' => array_map(
+                fn (Report $report): array => $this->payload($report),
+                $reportRepository->findLatest(),
+            ),
+        ]);
+    }
+
+    #[Route('/api/admin/reports/{id}', name: 'api_admin_reports_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    public function update(
+        Report $report,
+        Request $request,
+        #[CurrentUser] ?User $user,
+        RecipeRepository $recipeRepository,
+        CommentRepository $commentRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException('Authentication required.');
+        }
+
+        $payload = $this->decodeJson($request);
+
+        if (array_key_exists('status', $payload)) {
+            $report->review($this->status((string) $payload['status']), $user);
+        }
+
+        if (array_key_exists('moderationStatus', $payload)) {
+            $this->applyModerationStatus($report, (string) $payload['moderationStatus'], $recipeRepository, $commentRepository);
+        }
+
+        $entityManager->flush();
+
+        return $this->json($this->payload($report));
+    }
+
+    private function assertTargetCanBeReported(
+        ReportTargetType $targetType,
+        int $targetId,
+        RecipeRepository $recipeRepository,
+        CommentRepository $commentRepository,
+        UserRepository $userRepository,
+    ): void {
+        if ($targetId <= 0) {
+            throw new BadRequestHttpException('Report targetId must be positive.');
+        }
+
+        match ($targetType) {
+            ReportTargetType::Recipe => $this->assertRecipeCanBeReported($targetId, $recipeRepository),
+            ReportTargetType::Comment => $this->assertCommentCanBeReported($targetId, $commentRepository),
+            ReportTargetType::User => $this->assertUserCanBeReported($targetId, $userRepository),
+        };
+    }
+
+    private function assertRecipeCanBeReported(int $targetId, RecipeRepository $recipeRepository): void
+    {
+        $recipe = $recipeRepository->find($targetId);
+        if (!$recipe instanceof Recipe || null !== $recipe->getDeletedAt()) {
+            throw $this->createNotFoundException('Report target not found.');
+        }
+
+        $this->denyAccessUnlessGranted(RecipeAccess::View, $recipe);
+    }
+
+    private function assertCommentCanBeReported(int $targetId, CommentRepository $commentRepository): void
+    {
+        $comment = $commentRepository->find($targetId);
+        if (!$comment instanceof Comment) {
+            throw $this->createNotFoundException('Report target not found.');
+        }
+
+        $this->denyAccessUnlessGranted(RecipeAccess::View, $comment->getRecipe());
+    }
+
+    private function assertUserCanBeReported(int $targetId, UserRepository $userRepository): void
+    {
+        if (!$userRepository->find($targetId) instanceof User) {
+            throw $this->createNotFoundException('Report target not found.');
+        }
+    }
+
+    private function applyModerationStatus(
+        Report $report,
+        string $moderationStatus,
+        RecipeRepository $recipeRepository,
+        CommentRepository $commentRepository,
+    ): void {
+        match ($report->getTargetType()) {
+            ReportTargetType::Recipe => $this->applyRecipeModerationStatus($report->getTargetId(), $moderationStatus, $recipeRepository),
+            ReportTargetType::Comment => $this->applyCommentModerationStatus($report->getTargetId(), $moderationStatus, $commentRepository),
+            ReportTargetType::User => throw new BadRequestHttpException('User moderation actions are not implemented yet.'),
+        };
+    }
+
+    private function applyRecipeModerationStatus(int $targetId, string $moderationStatus, RecipeRepository $recipeRepository): void
+    {
+        $recipe = $recipeRepository->find($targetId);
+        if (!$recipe instanceof Recipe) {
+            throw $this->createNotFoundException('Report target not found.');
+        }
+
+        $recipe->setModerationStatus(RecipeModerationStatus::tryFrom($moderationStatus) ?? throw new BadRequestHttpException('Invalid moderation status.'));
+    }
+
+    private function applyCommentModerationStatus(int $targetId, string $moderationStatus, CommentRepository $commentRepository): void
+    {
+        $comment = $commentRepository->find($targetId);
+        if (!$comment instanceof Comment) {
+            throw $this->createNotFoundException('Report target not found.');
+        }
+
+        $comment->setModerationStatus(CommentModerationStatus::tryFrom($moderationStatus) ?? throw new BadRequestHttpException('Invalid moderation status.'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payload(Report $report): array
+    {
+        return [
+            'id' => $report->getId(),
+            'reporterUsername' => $report->getReporter()->getUsername(),
+            'targetType' => $report->getTargetType()->value,
+            'targetId' => $report->getTargetId(),
+            'reason' => $report->getReason()->value,
+            'message' => $report->getMessage(),
+            'status' => $report->getStatus()->value,
+            'reviewedByUsername' => $report->getReviewedBy()?->getUsername(),
+            'reviewedAt' => $report->getReviewedAt()?->format(DATE_ATOM),
+            'createdAt' => $report->getCreatedAt()->format(DATE_ATOM),
+            'updatedAt' => $report->getUpdatedAt()->format(DATE_ATOM),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeJson(Request $request): array
+    {
+        try {
+            $payload = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new BadRequestHttpException('Invalid JSON body.');
+        }
+
+        if (!is_array($payload)) {
+            throw new BadRequestHttpException('Expected a JSON object.');
+        }
+
+        return $payload;
+    }
+
+    private function targetType(string $value): ReportTargetType
+    {
+        return ReportTargetType::tryFrom($value) ?? throw new BadRequestHttpException('Invalid report target type.');
+    }
+
+    private function reason(string $value): ReportReason
+    {
+        return ReportReason::tryFrom($value) ?? throw new BadRequestHttpException('Invalid report reason.');
+    }
+
+    private function status(string $value): ReportStatus
+    {
+        return ReportStatus::tryFrom($value) ?? throw new BadRequestHttpException('Invalid report status.');
+    }
+}

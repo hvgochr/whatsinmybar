@@ -1,0 +1,312 @@
+<?php
+
+namespace App\Tests\Report;
+
+use App\Entity\Comment;
+use App\Entity\Recipe;
+use App\Entity\User;
+use App\Enum\CommentModerationStatus;
+use App\Enum\RecipeModerationStatus;
+use App\Enum\RecipeStatus;
+use App\Repository\CommentRepository;
+use App\Repository\RecipeRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+
+final class ReportApiTest extends WebTestCase
+{
+    public function testUserCanCreateReportForVisibleRecipe(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+
+        $client->jsonRequest('POST', '/api/reports', [
+            'targetType' => 'recipe',
+            'targetId' => $recipe->getId(),
+            'reason' => 'spam',
+            'message' => ' This looks like spam. ',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $payload = $this->jsonResponse($client);
+        self::assertSame('recipe', $payload['targetType']);
+        self::assertSame($recipe->getId(), $payload['targetId']);
+        self::assertSame('spam', $payload['reason']);
+        self::assertSame('This looks like spam.', $payload['message']);
+        self::assertSame('open', $payload['status']);
+        self::assertNull($payload['reviewedByUsername']);
+        self::assertNull($payload['reviewedAt']);
+    }
+
+    public function testAdminCanListAndReviewReports(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $reporterToken = $this->loginAsUser($client);
+        $adminToken = $this->loginAsUser($client, roles: ['ROLE_ADMIN']);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $reportId = $this->createRecipeReport($client, $reporterToken, $recipe);
+
+        $client->request('GET', '/api/admin/reports', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $items = $this->jsonResponse($client)['items'];
+        self::assertIsArray($items);
+        self::assertNotEmpty($items);
+        self::assertSame($reportId, $items[0]['id']);
+
+        $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
+            'status' => 'reviewing',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertSame('reviewing', $payload['status']);
+        self::assertIsString($payload['reviewedByUsername']);
+        self::assertIsString($payload['reviewedAt']);
+    }
+
+    public function testAdminCanApplyRecipeModerationFromReport(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $reporterToken = $this->loginAsUser($client);
+        $adminToken = $this->loginAsUser($client, roles: ['ROLE_ADMIN']);
+        $readerToken = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $reportId = $this->createRecipeReport($client, $reporterToken, $recipe);
+
+        $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
+            'status' => 'resolved',
+            'moderationStatus' => 'hidden',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertSame('resolved', $payload['status']);
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->clear();
+
+        $storedRecipe = static::getContainer()->get(RecipeRepository::class)->find($recipe->getId());
+        self::assertInstanceOf(Recipe::class, $storedRecipe);
+        self::assertSame(RecipeModerationStatus::Hidden, $storedRecipe->getModerationStatus());
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug(), server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$readerToken,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testAdminCanApplyCommentModerationFromReport(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $reporterToken = $this->loginAsUser($client);
+        $adminToken = $this->loginAsUser($client, roles: ['ROLE_ADMIN']);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $comment = $this->createComment($recipe);
+        $reportId = $this->createCommentReport($client, $reporterToken, $comment);
+
+        $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
+            'status' => 'resolved',
+            'moderationStatus' => 'hidden',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertSame('resolved', $payload['status']);
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->clear();
+
+        $storedComment = static::getContainer()->get(CommentRepository::class)->find($comment->getId());
+        self::assertInstanceOf(Comment::class, $storedComment);
+        self::assertSame(CommentModerationStatus::Hidden, $storedComment->getModerationStatus());
+    }
+
+    public function testNonAdminCannotListReports(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $token = $this->loginAsUser($client);
+
+        $client->request('GET', '/api/admin/reports', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testMinorCannotReportAlcoholicRecipe(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $token = $this->loginAsUser($client, birthDate: new \DateTimeImmutable('2012-01-01'));
+        $recipe = $this->createRecipe(RecipeStatus::Published, containsAlcohol: true);
+
+        $client->jsonRequest('POST', '/api/reports', [
+            'targetType' => 'recipe',
+            'targetId' => $recipe->getId(),
+            'reason' => 'wrong_alcohol_classification',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    private function createRecipeReport(KernelBrowser $client, string $token, Recipe $recipe): int
+    {
+        $client->jsonRequest('POST', '/api/reports', [
+            'targetType' => 'recipe',
+            'targetId' => $recipe->getId(),
+            'reason' => 'spam',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsInt($payload['id']);
+
+        return $payload['id'];
+    }
+
+    private function createCommentReport(KernelBrowser $client, string $token, Comment $comment): int
+    {
+        $client->jsonRequest('POST', '/api/reports', [
+            'targetType' => 'comment',
+            'targetId' => $comment->getId(),
+            'reason' => 'abuse',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsInt($payload['id']);
+
+        return $payload['id'];
+    }
+
+    /**
+     * @param list<string> $roles
+     */
+    private function loginAsUser(KernelBrowser $client, array $roles = [], ?\DateTimeImmutable $birthDate = null): string
+    {
+        $password = 'very-secure-password';
+        $user = $this->createUser($password, $roles, $birthDate);
+
+        $client->jsonRequest('POST', '/api/auth/login', [
+            'email' => $user->getEmail(),
+            'password' => $password,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsString($payload['token']);
+
+        return $payload['token'];
+    }
+
+    /**
+     * @param list<string> $roles
+     */
+    private function createUser(string $password, array $roles = [], ?\DateTimeImmutable $birthDate = null): User
+    {
+        $container = static::getContainer();
+        $entityManager = $container->get(EntityManagerInterface::class);
+        $passwordHasher = $container->get(UserPasswordHasherInterface::class);
+        $suffix = bin2hex(random_bytes(6));
+
+        $user = new User(
+            sprintf('report-api-%s@example.com', $suffix),
+            sprintf('report_api_%s', $suffix),
+            $birthDate ?? new \DateTimeImmutable('1990-01-01'),
+        );
+        $user->setRoles($roles);
+        $user->setPassword($passwordHasher->hashPassword($user, $password));
+
+        $entityManager->persist($user);
+        $entityManager->flush();
+
+        return $user;
+    }
+
+    private function createRecipe(RecipeStatus $status, bool $containsAlcohol = false): Recipe
+    {
+        $author = $this->createUser('very-secure-password');
+        $suffix = bin2hex(random_bytes(6));
+        $recipe = new Recipe();
+        $recipe->setAuthor($author);
+        $recipe->setTitle(sprintf('Report API Recipe %s', $suffix));
+        $recipe->setDescription('Recipe used to test report API endpoints.');
+        $recipe->setStatus($status);
+        $recipe->setContainsAlcoholComputed($containsAlcohol);
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist($recipe);
+        $entityManager->flush();
+
+        return $recipe;
+    }
+
+    private function createComment(Recipe $recipe): Comment
+    {
+        $author = $this->createUser('very-secure-password');
+        $comment = new Comment($recipe, $author);
+        $comment->setMessage('Comment to report.');
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist($comment);
+        $entityManager->flush();
+
+        return $comment;
+    }
+
+    private function clearReportsAndContent(): void
+    {
+        $connection = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+
+        foreach (['report', 'comment', 'favorite', 'recipe_ingredient', 'recipe_step', 'recipe_category', 'recipe'] as $table) {
+            $connection->executeStatement(sprintf('DELETE FROM %s', $table));
+        }
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function jsonResponse(KernelBrowser $client): array
+    {
+        $payload = json_decode((string) $client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertIsArray($payload);
+
+        return $payload;
+    }
+}

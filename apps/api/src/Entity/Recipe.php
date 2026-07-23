@@ -10,6 +10,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Enum\RecipeDifficulty;
+use App\Enum\RecipeModerationStatus;
 use App\Enum\RecipeStatus;
 use App\Repository\RecipeRepository;
 use App\Security\RecipeAccess;
@@ -121,6 +122,10 @@ class Recipe
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $deletedAt = null;
+
+    #[ORM\Column(length: 30, enumType: RecipeModerationStatus::class)]
+    #[Groups(['recipe:read', 'recipe:write'])]
+    private RecipeModerationStatus $moderationStatus = RecipeModerationStatus::Visible;
 
     #[ORM\Column(options: ['default' => 0])]
     #[Groups(['recipe:read'])]
@@ -344,6 +349,17 @@ class Recipe
     public function softDelete(): void
     {
         $this->deletedAt = new \DateTimeImmutable();
+        $this->moderationStatus = RecipeModerationStatus::Removed;
+    }
+
+    public function getModerationStatus(): RecipeModerationStatus
+    {
+        return $this->moderationStatus;
+    }
+
+    public function setModerationStatus(RecipeModerationStatus $moderationStatus): void
+    {
+        $this->moderationStatus = $moderationStatus;
     }
 
     public function getFavoriteCount(): int

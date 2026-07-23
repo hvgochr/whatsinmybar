@@ -7,6 +7,7 @@ use ApiPlatform\Doctrine\Orm\Util\QueryNameGeneratorInterface;
 use ApiPlatform\Metadata\Operation;
 use App\Entity\Recipe;
 use App\Entity\User;
+use App\Enum\RecipeModerationStatus;
 use App\Enum\RecipeStatus;
 use App\Security\AlcoholAccessPolicy;
 use Doctrine\ORM\QueryBuilder;
@@ -39,18 +40,23 @@ final readonly class RecipeVisibilityExtension implements QueryCollectionExtensi
         }
 
         $publishedParameter = $queryNameGenerator->generateParameterName('published_status');
+        $visibleModerationParameter = $queryNameGenerator->generateParameterName('visible_moderation_status');
 
         if ($user instanceof User) {
             $authorParameter = $queryNameGenerator->generateParameterName('author');
             $queryBuilder
-                ->andWhere(sprintf('%s.status = :%s OR %s.author = :%s', $rootAlias, $publishedParameter, $rootAlias, $authorParameter))
+                ->andWhere(sprintf('(%s.status = :%s OR %s.author = :%s)', $rootAlias, $publishedParameter, $rootAlias, $authorParameter))
                 ->setParameter($authorParameter, $user)
             ;
         } else {
             $queryBuilder->andWhere(sprintf('%s.status = :%s', $rootAlias, $publishedParameter));
         }
 
-        $queryBuilder->setParameter($publishedParameter, RecipeStatus::Published);
+        $queryBuilder
+            ->andWhere(sprintf('%s.moderationStatus = :%s', $rootAlias, $visibleModerationParameter))
+            ->setParameter($publishedParameter, RecipeStatus::Published)
+            ->setParameter($visibleModerationParameter, RecipeModerationStatus::Visible)
+        ;
 
         if (!$this->alcoholAccessPolicy->canAccessAlcohol($user)) {
             $queryBuilder->andWhere(sprintf(

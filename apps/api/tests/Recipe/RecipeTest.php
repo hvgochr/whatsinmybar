@@ -4,6 +4,7 @@ namespace App\Tests\Recipe;
 
 use App\Entity\Category;
 use App\Entity\Recipe;
+use App\Enum\RecipeModerationStatus;
 use App\Enum\RecipeStatus;
 use PHPUnit\Framework\TestCase;
 
@@ -38,6 +39,7 @@ final class RecipeTest extends TestCase
         $recipe->softDelete();
 
         self::assertInstanceOf(\DateTimeImmutable::class, $recipe->getDeletedAt());
+        self::assertSame(RecipeModerationStatus::Removed, $recipe->getModerationStatus());
     }
 
     public function testCategoriesAreUnique(): void

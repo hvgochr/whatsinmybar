@@ -4,6 +4,7 @@ namespace App\Tests\Security;
 
 use App\Entity\Recipe;
 use App\Entity\User;
+use App\Enum\RecipeModerationStatus;
 use App\Enum\RecipeStatus;
 use App\Security\AlcoholAccessPolicy;
 use App\Security\RecipeAccess;
@@ -45,6 +46,19 @@ final class RecipeVoterTest extends TestCase
         $admin = new User('admin@example.com', 'admin', new \DateTimeImmutable('2012-01-01'));
         $admin->setRoles(['ROLE_ADMIN']);
 
+        self::assertSame(VoterInterface::ACCESS_GRANTED, $this->vote($recipe, $admin, RecipeAccess::View));
+    }
+
+    public function testHiddenRecipeIsOnlyVisibleToAdmin(): void
+    {
+        $recipe = $this->publishedRecipe(containsAlcohol: false);
+        $recipe->setModerationStatus(RecipeModerationStatus::Hidden);
+        $adult = new User('adult@example.com', 'adult', new \DateTimeImmutable('1990-01-01'));
+        $admin = new User('admin-hidden@example.com', 'admin_hidden', new \DateTimeImmutable('1990-01-01'));
+        $admin->setRoles(['ROLE_ADMIN']);
+
+        self::assertSame(VoterInterface::ACCESS_DENIED, $this->vote($recipe, null, RecipeAccess::View));
+        self::assertSame(VoterInterface::ACCESS_DENIED, $this->vote($recipe, $adult, RecipeAccess::View));
         self::assertSame(VoterInterface::ACCESS_GRANTED, $this->vote($recipe, $admin, RecipeAccess::View));
     }
 

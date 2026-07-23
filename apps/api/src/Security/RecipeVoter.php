@@ -4,6 +4,7 @@ namespace App\Security;
 
 use App\Entity\Recipe;
 use App\Entity\User;
+use App\Enum\RecipeModerationStatus;
 use App\Enum\RecipeStatus;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
@@ -38,6 +39,13 @@ final class RecipeVoter extends Voter
             return false;
         }
 
+        $user = $token->getUser();
+        $isAdmin = $user instanceof User && in_array('ROLE_ADMIN', $user->getRoles(), true);
+
+        if (RecipeModerationStatus::Visible !== $recipe->getModerationStatus() && !$isAdmin) {
+            return false;
+        }
+
         if ($recipe->containsAlcohol() && !$this->alcoholAccessPolicy->canAccessAlcohol($token->getUser())) {
             return false;
         }
@@ -55,10 +63,6 @@ final class RecipeVoter extends Voter
             return false;
         }
 
-        if ($recipe->containsAlcohol() && !$this->alcoholAccessPolicy->canAccessAlcohol($token->getUser())) {
-            return false;
-        }
-
         $user = $token->getUser();
         if (!$user instanceof User) {
             return false;
@@ -66,6 +70,14 @@ final class RecipeVoter extends Voter
 
         if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
             return true;
+        }
+
+        if (RecipeModerationStatus::Visible !== $recipe->getModerationStatus()) {
+            return false;
+        }
+
+        if ($recipe->containsAlcohol() && !$this->alcoholAccessPolicy->canAccessAlcohol($user)) {
+            return false;
         }
 
         $author = $recipe->getAuthor();

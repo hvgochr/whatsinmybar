@@ -467,12 +467,18 @@ POST   /auth/register
 POST   /auth/login
 POST   /auth/refresh
 POST   /auth/logout
+GET    /me
+PATCH  /me
+POST   /me/avatar
+GET    /users/{username}
 
 GET    /recipes
 POST   /recipes
 GET    /recipes/{slug}
 PATCH  /recipes/{id}
 DELETE /recipes/{id}
+POST   /recipes/{slug}/image
+DELETE /recipes/{slug}/image
 
 POST   /recipes/{id}/publish
 POST   /recipes/{id}/archive
@@ -549,6 +555,8 @@ Stored image types:
 
 - user avatars;
 - recipe main images.
+
+V1 upload endpoints accept multipart image files and return public paths. Direct JSON writes to image path fields should be rejected or ignored so MIME type and file size validation cannot be bypassed.
 
 The API should validate:
 

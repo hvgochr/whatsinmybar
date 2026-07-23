@@ -9,6 +9,8 @@
 parameters:
     app.avatar_uploads_dir: '%kernel.project_dir%/public/uploads/avatars'
     app.avatar_public_path_prefix: '/uploads/avatars'
+    app.recipe_image_uploads_dir: '%kernel.project_dir%/public/uploads/recipes'
+    app.recipe_image_public_path_prefix: '/uploads/recipes'
 
 services:
     # default configuration for services in *this* file
@@ -22,12 +24,26 @@ services:
         resource: '../src/'
 
     App\Service\Upload\AvatarStorageInterface:
-        alias: App\Service\Upload\LocalAvatarStorage
+        alias: 'app.upload.avatar_storage'
 
-    App\Service\Upload\LocalAvatarStorage:
+    App\Service\Upload\RecipeImageStorageInterface:
+        alias: 'app.upload.recipe_image_storage'
+
+    app.upload.avatar_storage:
+        class: App\Service\Upload\LocalImageStorage
         arguments:
             $targetDirectory: '%app.avatar_uploads_dir%'
             $publicPathPrefix: '%app.avatar_public_path_prefix%'
+            $maxSizeBytes: 2097152
+            $label: 'Avatar'
+
+    app.upload.recipe_image_storage:
+        class: App\Service\Upload\LocalImageStorage
+        arguments:
+            $targetDirectory: '%app.recipe_image_uploads_dir%'
+            $publicPathPrefix: '%app.recipe_image_public_path_prefix%'
+            $maxSizeBytes: 5242880
+            $label: 'Recipe image'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
@@ -35,3 +51,4 @@ services:
 when@test:
     parameters:
         app.avatar_uploads_dir: '%kernel.project_dir%/var/test-uploads/avatars'
+        app.recipe_image_uploads_dir: '%kernel.project_dir%/var/test-uploads/recipes'

@@ -22,7 +22,6 @@ final class CurrentProfileApiTest extends WebTestCase
             'username' => $newUsername,
             'birthDate' => '1988-05-20',
             'bio' => ' Updated bio ',
-            'avatarPath' => ' /uploads/avatars/updated.jpg ',
         ], server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
         ]);
@@ -33,7 +32,7 @@ final class CurrentProfileApiTest extends WebTestCase
         self::assertSame($newUsername, $payload['username']);
         self::assertSame('1988-05-20', $payload['birthDate']);
         self::assertSame('Updated bio', $payload['bio']);
-        self::assertSame('/uploads/avatars/updated.jpg', $payload['avatarPath']);
+        self::assertNull($payload['avatarPath']);
 
         $client->request('GET', '/api/users/'.$newUsername);
 
@@ -42,6 +41,20 @@ final class CurrentProfileApiTest extends WebTestCase
         $publicPayload = $this->jsonResponse($client);
         self::assertSame($newUsername, $publicPayload['username']);
         self::assertSame('Updated bio', $publicPayload['bio']);
+    }
+
+    public function testProfileUpdateRejectsDirectAvatarPathWrites(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+
+        $client->jsonRequest('PATCH', '/api/me', [
+            'avatarPath' => '/uploads/avatars/manual.jpg',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     public function testProfileUpdateValidatesUniqueUsername(): void

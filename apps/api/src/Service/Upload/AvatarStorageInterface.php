@@ -2,9 +2,6 @@
 
 namespace App\Service\Upload;
 
-use Symfony\Component\HttpFoundation\File\UploadedFile;
-
-interface AvatarStorageInterface
+interface AvatarStorageInterface extends ImageStorageInterface
 {
-    public function store(UploadedFile $file): string;
 }

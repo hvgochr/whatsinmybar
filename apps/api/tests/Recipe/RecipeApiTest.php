@@ -28,6 +28,7 @@ final class RecipeApiTest extends WebTestCase
             'preparationTimeMinutes' => 5,
             'servings' => 1,
             'status' => 'draft',
+            'imagePath' => '/uploads/recipes/manual.jpg',
             'categories' => ['/api/categories/'.$category->getSlug()],
         ], server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
@@ -39,6 +40,7 @@ final class RecipeApiTest extends WebTestCase
         self::assertSame($slug, $recipe['slug']);
         self::assertSame('medium', $recipe['difficulty']);
         self::assertSame('draft', $recipe['status']);
+        self::assertNull($recipe['imagePath']);
         self::assertNotEmpty($recipe['authorUsername']);
 
         $client->request('GET', '/api/recipes/'.$slug);

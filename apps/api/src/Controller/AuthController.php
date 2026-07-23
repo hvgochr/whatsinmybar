@@ -121,7 +121,6 @@ final class AuthController extends AbstractController
                 ]),
                 'birthDate' => new Assert\Optional([new Assert\NotBlank(), new Assert\Date()]),
                 'bio' => new Assert\Optional([new Assert\Length(max: 1000)]),
-                'avatarPath' => new Assert\Optional([new Assert\Length(max: 255)]),
             ],
             allowExtraFields: false,
             allowMissingFields: true,
@@ -146,10 +145,6 @@ final class AuthController extends AbstractController
 
         if (array_key_exists('bio', $payload)) {
             $user->setBio(null === $payload['bio'] ? null : (string) $payload['bio']);
-        }
-
-        if (array_key_exists('avatarPath', $payload)) {
-            $user->setAvatarPath(null === $payload['avatarPath'] ? null : (string) $payload['avatarPath']);
         }
 
         $userViolations = $validator->validate($user);

@@ -105,7 +105,7 @@ class Recipe
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255)]
-    #[Groups(['recipe:read', 'recipe:write'])]
+    #[Groups(['recipe:read'])]
     private ?string $imagePath = null;
 
     #[ORM\Column(nullable: true)]

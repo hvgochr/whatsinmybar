@@ -66,8 +66,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function __construct(string $email, string $username, \DateTimeImmutable $birthDate)
     {
-        $this->email = mb_strtolower($email);
-        $this->username = $username;
+        $this->setEmail($email);
+        $this->setUsername($username);
         $this->birthDate = $birthDate;
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
@@ -85,7 +85,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setEmail(string $email): void
     {
-        $this->email = mb_strtolower($email);
+        $this->email = mb_strtolower(trim($email));
     }
 
     public function getUsername(): string
@@ -95,7 +95,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setUsername(string $username): void
     {
-        $this->username = $username;
+        $this->username = trim($username);
     }
 
     public function getUserIdentifier(): string
@@ -149,7 +149,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setBio(?string $bio): void
     {
-        $this->bio = $bio;
+        $bio = null === $bio ? null : trim($bio);
+        $this->bio = '' === $bio ? null : $bio;
     }
 
     public function getAvatarPath(): ?string
@@ -159,7 +160,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setAvatarPath(?string $avatarPath): void
     {
-        $this->avatarPath = $avatarPath;
+        $avatarPath = null === $avatarPath ? null : trim($avatarPath);
+        $this->avatarPath = '' === $avatarPath ? null : $avatarPath;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

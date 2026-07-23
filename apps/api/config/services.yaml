@@ -7,6 +7,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    app.avatar_uploads_dir: '%kernel.project_dir%/public/uploads/avatars'
+    app.avatar_public_path_prefix: '/uploads/avatars'
 
 services:
     # default configuration for services in *this* file
@@ -19,5 +21,17 @@ services:
     App\:
         resource: '../src/'
 
+    App\Service\Upload\AvatarStorageInterface:
+        alias: App\Service\Upload\LocalAvatarStorage
+
+    App\Service\Upload\LocalAvatarStorage:
+        arguments:
+            $targetDirectory: '%app.avatar_uploads_dir%'
+            $publicPathPrefix: '%app.avatar_public_path_prefix%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+when@test:
+    parameters:
+        app.avatar_uploads_dir: '%kernel.project_dir%/var/test-uploads/avatars'

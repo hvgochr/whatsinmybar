@@ -24,7 +24,7 @@ http://localhost:8080
 
 Caddy forwards:
 
-- `/api`, Symfony profiler routes, and Symfony assets to the API container;
+- `/api`, `/uploads`, Symfony profiler routes, and Symfony assets to the API container;
 - every other request to the Nuxt container.
 
 ## Start The Stack
@@ -62,6 +62,12 @@ docker compose exec api php bin/console doctrine:migrations:migrate
 ```
 
 Composer dependencies are installed automatically when the API container starts and are stored in the `api_vendor` Docker volume.
+
+Uploaded files are stored in the `api_uploads` Docker volume mounted at:
+
+```text
+/app/public/uploads
+```
 
 ## Frontend Commands
 

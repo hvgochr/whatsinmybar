@@ -10,6 +10,7 @@ use App\Enum\RecipeModerationStatus;
 use App\Enum\RecipeStatus;
 use App\Repository\CommentRepository;
 use App\Repository\RecipeRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -146,6 +147,46 @@ final class ReportApiTest extends WebTestCase
         self::assertSame(CommentModerationStatus::Hidden, $storedComment->getModerationStatus());
     }
 
+    public function testAdminCanApplyUserModerationFromReport(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $reporterToken = $this->loginAsUser($client);
+        $adminToken = $this->loginAsUser($client, roles: ['ROLE_ADMIN']);
+        $targetUser = $this->createUser('very-secure-password');
+        $reportId = $this->createUserReport($client, $reporterToken, $targetUser);
+
+        $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
+            'status' => 'resolved',
+            'moderationStatus' => 'removed',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->clear();
+
+        $storedUser = static::getContainer()->get(UserRepository::class)->find($targetUser->getId());
+        self::assertInstanceOf(User::class, $storedUser);
+        self::assertNotNull($storedUser->getDeletedAt());
+
+        $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
+            'moderationStatus' => 'visible',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $entityManager->clear();
+
+        $storedUser = static::getContainer()->get(UserRepository::class)->find($targetUser->getId());
+        self::assertInstanceOf(User::class, $storedUser);
+        self::assertNull($storedUser->getDeletedAt());
+    }
+
     public function testNonAdminCannotListReports(): void
     {
         $client = static::createClient();
@@ -200,6 +241,24 @@ final class ReportApiTest extends WebTestCase
         $client->jsonRequest('POST', '/api/reports', [
             'targetType' => 'comment',
             'targetId' => $comment->getId(),
+            'reason' => 'abuse',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsInt($payload['id']);
+
+        return $payload['id'];
+    }
+
+    private function createUserReport(KernelBrowser $client, string $token, User $user): int
+    {
+        $client->jsonRequest('POST', '/api/reports', [
+            'targetType' => 'user',
+            'targetId' => $user->getId(),
             'reason' => 'abuse',
         ], server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,

@@ -469,6 +469,7 @@ POST   /auth/refresh
 POST   /auth/logout
 GET    /me
 PATCH  /me
+PATCH  /me/password
 POST   /me/avatar
 GET    /users/{username}
 

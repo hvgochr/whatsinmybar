@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Service\Account\PasswordChanger;
 use App\Service\Upload\AvatarStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -155,6 +156,42 @@ final class AuthController extends AbstractController
         $entityManager->flush();
 
         return $this->json($this->userPayload($user));
+    }
+
+    #[Route('/api/me/password', name: 'api_me_password_update', methods: ['PATCH'])]
+    public function updatePassword(
+        Request $request,
+        #[CurrentUser] ?User $user,
+        ValidatorInterface $validator,
+        PasswordChanger $passwordChanger,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Authentication required.'], JsonResponse::HTTP_UNAUTHORIZED);
+        }
+
+        $payload = $this->decodeJson($request);
+
+        $violations = $validator->validate($payload, new Assert\Collection(
+            fields: [
+                'currentPassword' => new Assert\Required([new Assert\NotBlank(), new Assert\Length(max: 4096)]),
+                'newPassword' => new Assert\Required([new Assert\NotBlank(), new Assert\Length(min: 12, max: 4096)]),
+            ],
+            allowExtraFields: false,
+        ));
+
+        if ($violations->count() > 0) {
+            return $this->validationErrorResponse($violations);
+        }
+
+        $result = $passwordChanger->change($user, (string) $payload['currentPassword'], (string) $payload['newPassword']);
+        if (!$result->changed) {
+            throw new BadRequestHttpException('Current password is invalid.');
+        }
+
+        $entityManager->flush();
+
+        return $this->json(['changed' => true]);
     }
 
     /**

@@ -509,6 +509,18 @@ PATCH  /admin/reports/{id}
 
 Exact API Platform route shapes may differ, but the contract should preserve these capabilities.
 
+Recipe collection query parameters:
+
+- `q`: case-insensitive SQL text search on title, description, and slug;
+- `category`: category slug;
+- `ingredient`: ingredient slug;
+- `alcohol`: boolean value, filtered after access-control restrictions;
+- `author`: author username;
+- `minFavorites`: minimum favorite count;
+- `publishedAfter`: `YYYY-MM-DD`, inclusive;
+- `publishedBefore`: `YYYY-MM-DD`, inclusive;
+- `sort`: `popular`, `newest`, or `oldest`.
+
 ## 8. Frontend
 
 Frontend stack:

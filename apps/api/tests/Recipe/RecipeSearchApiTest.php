@@ -140,6 +140,37 @@ final class RecipeSearchApiTest extends WebTestCase
         self::assertSame([$new->getSlug(), $old->getSlug()], $this->collectionSlugs($client));
     }
 
+    public function testAlcoholFilterStillRespectsAccessPolicy(): void
+    {
+        $client = static::createClient();
+        $this->clearRecipesAndTaxonomy();
+        $adult = $this->createUser();
+        $adultToken = $this->loginAsUser($client, $adult);
+        $alcoholic = $this->createRecipe(title: 'Alcoholic Search', containsAlcohol: true);
+        $nonAlcoholic = $this->createRecipe(title: 'Zero Proof Search', containsAlcohol: false);
+
+        $client->request('GET', '/api/recipes?'.http_build_query([
+            'pagination' => 'false',
+            'alcohol' => 'true',
+        ]));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->collectionSlugs($client));
+
+        $client->request('GET', '/api/recipes?'.http_build_query([
+            'pagination' => 'false',
+            'alcohol' => 'true',
+        ]), server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adultToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $slugs = $this->collectionSlugs($client);
+        self::assertContains($alcoholic->getSlug(), $slugs);
+        self::assertNotContains($nonAlcoholic->getSlug(), $slugs);
+    }
+
     public function testInvalidSearchFilterReturnsBadRequest(): void
     {
         $client = static::createClient();
@@ -170,6 +201,21 @@ final class RecipeSearchApiTest extends WebTestCase
         $entityManager->flush();
 
         return $user;
+    }
+
+    private function loginAsUser(KernelBrowser $client, User $user): string
+    {
+        $client->jsonRequest('POST', '/api/auth/login', [
+            'email' => $user->getEmail(),
+            'password' => 'very-secure-password',
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsString($payload['token']);
+
+        return $payload['token'];
     }
 
     private function createCategory(string $name): Category

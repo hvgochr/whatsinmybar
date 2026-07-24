@@ -15,4 +15,17 @@ final class IngredientRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Ingredient::class);
     }
+
+    /**
+     * @return list<Ingredient>
+     */
+    public function findLatestForAdmin(): array
+    {
+        return $this->createQueryBuilder('ingredient')
+            ->orderBy('ingredient.updatedAt', 'DESC')
+            ->addOrderBy('ingredient.id', 'DESC')
+            ->getQuery()
+            ->getResult()
+        ;
+    }
 }

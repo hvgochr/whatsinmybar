@@ -15,4 +15,17 @@ final class CategoryRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Category::class);
     }
+
+    /**
+     * @return list<Category>
+     */
+    public function findLatestForAdmin(): array
+    {
+        return $this->createQueryBuilder('category')
+            ->orderBy('category.updatedAt', 'DESC')
+            ->addOrderBy('category.id', 'DESC')
+            ->getQuery()
+            ->getResult()
+        ;
+    }
 }

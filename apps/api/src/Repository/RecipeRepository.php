@@ -15,4 +15,19 @@ final class RecipeRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Recipe::class);
     }
+
+    /**
+     * @return list<Recipe>
+     */
+    public function findLatestForAdmin(): array
+    {
+        return $this->createQueryBuilder('recipe')
+            ->leftJoin('recipe.author', 'author')
+            ->addSelect('author')
+            ->orderBy('recipe.updatedAt', 'DESC')
+            ->addOrderBy('recipe.id', 'DESC')
+            ->getQuery()
+            ->getResult()
+        ;
+    }
 }

@@ -40,4 +40,17 @@ final class UserRepository extends ServiceEntityRepository implements PasswordUp
             ->getOneOrNullResult()
         ;
     }
+
+    /**
+     * @return list<User>
+     */
+    public function findLatestForAdmin(): array
+    {
+        return $this->createQueryBuilder('user')
+            ->orderBy('user.createdAt', 'DESC')
+            ->addOrderBy('user.id', 'DESC')
+            ->getQuery()
+            ->getResult()
+        ;
+    }
 }

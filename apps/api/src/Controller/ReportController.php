@@ -75,6 +75,7 @@ final class ReportController extends AbstractController
         #[CurrentUser] ?User $user,
         RecipeRepository $recipeRepository,
         CommentRepository $commentRepository,
+        UserRepository $userRepository,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
@@ -90,7 +91,7 @@ final class ReportController extends AbstractController
         }
 
         if (array_key_exists('moderationStatus', $payload)) {
-            $this->applyModerationStatus($report, (string) $payload['moderationStatus'], $recipeRepository, $commentRepository);
+            $this->applyModerationStatus($report, (string) $payload['moderationStatus'], $recipeRepository, $commentRepository, $userRepository);
         }
 
         $entityManager->flush();
@@ -148,11 +149,12 @@ final class ReportController extends AbstractController
         string $moderationStatus,
         RecipeRepository $recipeRepository,
         CommentRepository $commentRepository,
+        UserRepository $userRepository,
     ): void {
         match ($report->getTargetType()) {
             ReportTargetType::Recipe => $this->applyRecipeModerationStatus($report->getTargetId(), $moderationStatus, $recipeRepository),
             ReportTargetType::Comment => $this->applyCommentModerationStatus($report->getTargetId(), $moderationStatus, $commentRepository),
-            ReportTargetType::User => throw new BadRequestHttpException('User moderation actions are not implemented yet.'),
+            ReportTargetType::User => $this->applyUserModerationStatus($report->getTargetId(), $moderationStatus, $userRepository),
         };
     }
 
@@ -174,6 +176,20 @@ final class ReportController extends AbstractController
         }
 
         $comment->setModerationStatus(CommentModerationStatus::tryFrom($moderationStatus) ?? throw new BadRequestHttpException('Invalid moderation status.'));
+    }
+
+    private function applyUserModerationStatus(int $targetId, string $moderationStatus, UserRepository $userRepository): void
+    {
+        $user = $userRepository->find($targetId);
+        if (!$user instanceof User) {
+            throw $this->createNotFoundException('Report target not found.');
+        }
+
+        match ($moderationStatus) {
+            RecipeModerationStatus::Visible->value => $user->setDeletedAt(null),
+            RecipeModerationStatus::Removed->value => $user->setDeletedAt(new \DateTimeImmutable()),
+            default => throw new BadRequestHttpException('User moderation status must be visible or removed.'),
+        };
     }
 
     /**

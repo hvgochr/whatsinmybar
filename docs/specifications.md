@@ -500,14 +500,22 @@ GET    /ingredients
 POST   /reports
 
 GET    /admin/users
+PATCH  /admin/users/{id}
 GET    /admin/recipes
+PATCH  /admin/recipes/{slug}
 GET    /admin/categories
+POST   /admin/categories
+PATCH  /admin/categories/{slug}
 GET    /admin/ingredients
+POST   /admin/ingredients
+PATCH  /admin/ingredients/{slug}
 GET    /admin/reports
 PATCH  /admin/reports/{id}
 ```
 
 Exact API Platform route shapes may differ, but the contract should preserve these capabilities.
+
+User reports can apply profile moderation through `PATCH /admin/reports/{id}` with `moderationStatus=removed` to soft-delete a profile or `moderationStatus=visible` to restore it.
 
 Recipe collection query parameters:
 

@@ -63,6 +63,14 @@ docker compose exec api php bin/console doctrine:migrations:migrate
 
 Composer dependencies are installed automatically when the API container starts and are stored in the `api_vendor` Docker volume.
 
+Seed local development data:
+
+```bash
+docker compose exec api php bin/console app:seed:dev
+```
+
+Seeded accounts use the password `very-secure-password`.
+
 Uploaded files are stored in the `api_uploads` Docker volume mounted at:
 
 ```text

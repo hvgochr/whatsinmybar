@@ -29,6 +29,10 @@ services:
     App\Service\Upload\RecipeImageStorageInterface:
         alias: 'app.upload.recipe_image_storage'
 
+    App\Command\SeedDevDataCommand:
+        arguments:
+            $environment: '%kernel.environment%'
+
     app.upload.avatar_storage:
         class: App\Service\Upload\LocalImageStorage
         arguments:

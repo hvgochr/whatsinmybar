@@ -79,6 +79,8 @@ final class AuthControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
 
         $payload = $this->jsonResponse($client);
+        self::assertSame('validation_failed', $payload['error']['code']);
+        self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $payload['error']['status']);
         self::assertArrayHasKey('errors', $payload);
         self::assertNotEmpty($payload['errors']);
     }

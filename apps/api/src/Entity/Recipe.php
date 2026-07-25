@@ -279,6 +279,16 @@ class Recipe
         }
     }
 
+    public function publish(): void
+    {
+        $this->setStatus(RecipeStatus::Published);
+    }
+
+    public function archive(): void
+    {
+        $this->setStatus(RecipeStatus::Archived);
+    }
+
     public function containsAlcoholComputed(): bool
     {
         return $this->containsAlcoholComputed;

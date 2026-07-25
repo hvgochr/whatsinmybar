@@ -476,19 +476,19 @@ GET    /users/{username}
 GET    /recipes
 POST   /recipes
 GET    /recipes/{slug}
-PATCH  /recipes/{id}
-DELETE /recipes/{id}
+PATCH  /recipes/{slug}
+DELETE /recipes/{slug}
 POST   /recipes/{slug}/image
 DELETE /recipes/{slug}/image
 
-POST   /recipes/{id}/publish
-POST   /recipes/{id}/archive
+POST   /recipes/{slug}/publish
+POST   /recipes/{slug}/archive
 
-POST   /recipes/{id}/favorite
-DELETE /recipes/{id}/favorite
+POST   /recipes/{slug}/favorite
+DELETE /recipes/{slug}/favorite
 
-GET    /recipes/{id}/comments
-POST   /recipes/{id}/comments
+GET    /recipes/{slug}/comments
+POST   /recipes/{slug}/comments
 PATCH  /comments/{id}
 DELETE /comments/{id}
 
@@ -516,6 +516,8 @@ PATCH  /admin/reports/{id}
 Exact API Platform route shapes may differ, but the contract should preserve these capabilities.
 
 User reports can apply profile moderation through `PATCH /admin/reports/{id}` with `moderationStatus=removed` to soft-delete a profile or `moderationStatus=visible` to restore it.
+
+Recipe workflow endpoints return simple JSON payloads for the updated recipe workflow state. Full recipe creation, update, detail, and collection responses remain backed by API Platform serialization for V1.
 
 Recipe collection query parameters:
 

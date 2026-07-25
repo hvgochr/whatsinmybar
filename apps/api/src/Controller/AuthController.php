@@ -241,6 +241,14 @@ final class AuthController extends AbstractController
             ];
         }
 
-        return $this->json(['errors' => $errors], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        return $this->json([
+            'error' => [
+                'status' => JsonResponse::HTTP_UNPROCESSABLE_ENTITY,
+                'code' => 'validation_failed',
+                'message' => 'Validation failed.',
+                'violations' => $errors,
+            ],
+            'errors' => $errors,
+        ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

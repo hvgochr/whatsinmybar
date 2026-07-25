@@ -57,6 +57,11 @@ final class RecipeWorkflowApiTest extends WebTestCase
         ]);
 
         self::assertResponseIsSuccessful();
+
+        $client->request('GET', '/api/recipes?pagination=false');
+
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($recipe->getSlug(), $this->collectionSlugs($client));
     }
 
     public function testNonAuthorCannotPublishRecipe(): void
@@ -103,6 +108,13 @@ final class RecipeWorkflowApiTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+
+        $client->request('GET', '/api/recipes?pagination=false', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($slug, $this->collectionSlugs($client));
     }
 
     private function loginAsUser(KernelBrowser $client, User $user): string
@@ -162,6 +174,35 @@ final class RecipeWorkflowApiTest extends WebTestCase
         foreach (['report', 'comment', 'favorite', 'recipe_ingredient', 'recipe_step', 'recipe_category', 'recipe'] as $table) {
             $connection->executeStatement(sprintf('DELETE FROM %s', $table));
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function collectionSlugs(KernelBrowser $client): array
+    {
+        return array_map(
+            static fn (array $recipe): string => (string) $recipe['slug'],
+            $this->collectionItems($client),
+        );
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function collectionItems(KernelBrowser $client): array
+    {
+        $payload = $this->jsonResponse($client);
+
+        if (isset($payload['member']) && is_array($payload['member'])) {
+            return $payload['member'];
+        }
+
+        if (isset($payload['hydra:member']) && is_array($payload['hydra:member'])) {
+            return $payload['hydra:member'];
+        }
+
+        return array_is_list($payload) ? $payload : [];
     }
 
     /**

@@ -3,7 +3,6 @@
 namespace App\Controller;
 
 use App\Entity\Recipe;
-use App\Enum\RecipeStatus;
 use App\Repository\RecipeRepository;
 use App\Security\RecipeAccess;
 use Doctrine\ORM\EntityManagerInterface;
@@ -19,7 +18,7 @@ final class RecipeWorkflowController extends AbstractController
         $recipe = $this->findRecipe($slug, $recipeRepository);
         $this->denyAccessUnlessGranted(RecipeAccess::Manage, $recipe);
 
-        $recipe->setStatus(RecipeStatus::Published);
+        $recipe->publish();
         $entityManager->flush();
 
         return $this->json($this->payload($recipe));
@@ -31,7 +30,7 @@ final class RecipeWorkflowController extends AbstractController
         $recipe = $this->findRecipe($slug, $recipeRepository);
         $this->denyAccessUnlessGranted(RecipeAccess::Manage, $recipe);
 
-        $recipe->setStatus(RecipeStatus::Archived);
+        $recipe->archive();
         $entityManager->flush();
 
         return $this->json($this->payload($recipe));

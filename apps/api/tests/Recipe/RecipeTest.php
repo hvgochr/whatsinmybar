@@ -23,12 +23,24 @@ final class RecipeTest extends TestCase
     {
         $recipe = new Recipe();
 
-        $recipe->setStatus(RecipeStatus::Published);
+        $recipe->publish();
         $publishedAt = $recipe->getPublishedAt();
         $recipe->setStatus(RecipeStatus::Draft);
-        $recipe->setStatus(RecipeStatus::Published);
+        $recipe->publish();
 
         self::assertInstanceOf(\DateTimeImmutable::class, $publishedAt);
+        self::assertSame($publishedAt, $recipe->getPublishedAt());
+    }
+
+    public function testArchiveSetsArchivedStatusWithoutClearingPublishedAt(): void
+    {
+        $recipe = new Recipe();
+
+        $recipe->publish();
+        $publishedAt = $recipe->getPublishedAt();
+        $recipe->archive();
+
+        self::assertSame(RecipeStatus::Archived, $recipe->getStatus());
         self::assertSame($publishedAt, $recipe->getPublishedAt());
     }
 

@@ -1,75 +1,65 @@
-# Nuxt Minimal Starter
+# whatsinmybar web
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Nuxt frontend for the whatsinmybar application.
 
 ## Setup
 
-Make sure to install dependencies:
+Install dependencies:
 
 ```bash
-# npm
-npm install
-
-# pnpm
 pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+Start the development server:
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
 pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-## Production
-
-Build the application for production:
+In Docker development, use the root compose stack and open Caddy:
 
 ```bash
-# npm
-npm run build
+docker compose up
+```
 
-# pnpm
+```text
+http://localhost:8080
+```
+
+## API Client
+
+The frontend API layer is exposed through:
+
+```ts
+const api = useApi()
+const auth = useAuth()
+```
+
+`useApi()` provides typed endpoint groups for auth, account, recipes, comments, favorites, reports, and admin workflows.
+
+`useAuth()` owns the browser session workflow:
+
+- access token: Nuxt state, kept in memory only
+- refresh token: session cookie named `wimb_refresh_token`
+- no token is written to `localStorage`
+- `401` API responses trigger one refresh attempt, then the original request is replayed
+- failed refresh clears the token state
+
+Runtime API URLs:
+
+```text
+NUXT_API_BASE_URL=http://api/api
+NUXT_PUBLIC_API_BASE_URL=/api
+```
+
+`NUXT_API_BASE_URL` is used when Nuxt runs server-side. `NUXT_PUBLIC_API_BASE_URL` is used by the browser and should usually stay behind the reverse proxy.
+
+## Quality
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test:unit
 pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+pnpm test:e2e:install
 ```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.

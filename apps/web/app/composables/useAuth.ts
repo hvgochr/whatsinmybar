@@ -18,6 +18,10 @@ export function useAuth() {
     currentUser.value = null
   }
 
+  const setCurrentUser = (user: User): void => {
+    currentUser.value = user
+  }
+
   const fetchCurrentUser = async (): Promise<User> => {
     try {
       currentUser.value = await api.account.me()
@@ -79,7 +83,8 @@ export function useAuth() {
     login,
     refreshSession,
     register,
-    restoreSession
+    restoreSession,
+    setCurrentUser
   }
 }
 

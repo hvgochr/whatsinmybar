@@ -12,7 +12,10 @@ describe('App', () => {
             template: '<a><slot /></a>'
           },
           NuxtPage: true,
-          NuxtRouteAnnouncer: true
+          NuxtRouteAnnouncer: true,
+          UiButton: {
+            template: '<span><slot /></span>'
+          }
         }
       }
     })

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import UiButton from '../components/ui/button/Button.vue'
+import UiInput from '../components/ui/input/Input.vue'
 import { toFormErrors } from '../utils/api-errors'
 
 const auth = useAuth()
@@ -70,34 +72,32 @@ async function submitLogin() {
           <CommonFormAlert v-if="formError" :message="formError" tone="error" />
 
           <CommonFormField id="login-email" v-slot="field" label="Email" :error="fieldErrors.email">
-            <input
+            <UiInput
               id="login-email"
               v-model="form.email"
               v-bind="field"
               autocomplete="email"
-              class="field-input"
               name="email"
               required
               type="email"
-            >
+            />
           </CommonFormField>
 
           <CommonFormField id="login-password" v-slot="field" label="Password" :error="fieldErrors.password">
-            <input
+            <UiInput
               id="login-password"
               v-model="form.password"
               v-bind="field"
               autocomplete="current-password"
-              class="field-input"
               name="password"
               required
               type="password"
-            >
+            />
           </CommonFormField>
 
-          <button class="button button-primary button-full" :disabled="pending" type="submit">
+          <UiButton class="w-full" :disabled="pending" type="submit">
             {{ pending ? 'Logging in...' : 'Log in' }}
-          </button>
+          </UiButton>
         </form>
 
         <p class="form-footer">

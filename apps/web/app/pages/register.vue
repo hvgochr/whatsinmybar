@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import UiButton from '../components/ui/button/Button.vue'
+import UiInput from '../components/ui/input/Input.vue'
+import UiTextarea from '../components/ui/textarea/Textarea.vue'
 import { toFormErrors } from '../utils/api-errors'
 
 const auth = useAuth()
@@ -80,16 +83,15 @@ async function submitRegister() {
           <CommonFormAlert v-if="formError" :message="formError" tone="error" />
 
           <CommonFormField id="register-email" v-slot="field" label="Email" :error="fieldErrors.email">
-            <input
+            <UiInput
               id="register-email"
               v-model="form.email"
               v-bind="field"
               autocomplete="email"
-              class="field-input"
               name="email"
               required
               type="email"
-            >
+            />
           </CommonFormField>
 
           <CommonFormField
@@ -99,28 +101,26 @@ async function submitRegister() {
             label="Public username"
             :error="fieldErrors.username"
           >
-            <input
+            <UiInput
               id="register-username"
               v-model="form.username"
               v-bind="field"
               autocomplete="username"
-              class="field-input"
               name="username"
               required
               type="text"
-            >
+            />
           </CommonFormField>
 
           <CommonFormField id="register-birth-date" v-slot="field" label="Birth date" :error="fieldErrors.birthDate">
-            <input
+            <UiInput
               id="register-birth-date"
               v-model="form.birthDate"
               v-bind="field"
-              class="field-input"
               name="birthDate"
               required
               type="date"
-            >
+            />
           </CommonFormField>
 
           <CommonFormField
@@ -130,32 +130,30 @@ async function submitRegister() {
             label="Password"
             :error="fieldErrors.password"
           >
-            <input
+            <UiInput
               id="register-password"
               v-model="form.password"
               v-bind="field"
               autocomplete="new-password"
-              class="field-input"
               name="password"
               required
               type="password"
-            >
+            />
           </CommonFormField>
 
           <CommonFormField id="register-bio" v-slot="field" label="Bio" optional :error="fieldErrors.bio">
-            <textarea
+            <UiTextarea
               id="register-bio"
               v-model="form.bio"
               v-bind="field"
-              class="field-textarea"
               name="bio"
               rows="4"
             />
           </CommonFormField>
 
-          <button class="button button-primary button-full" :disabled="pending" type="submit">
+          <UiButton class="w-full" :disabled="pending" type="submit">
             {{ pending ? 'Creating account...' : 'Create account' }}
-          </button>
+          </UiButton>
         </form>
 
         <p class="form-footer">

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import UiButton from '../../components/ui/button/Button.vue'
+import UiInput from '../../components/ui/input/Input.vue'
+import UiTextarea from '../../components/ui/textarea/Textarea.vue'
 import { toFormErrors } from '../../utils/api-errors'
 
 const api = useApi()
@@ -196,12 +199,16 @@ function onAvatarChange(event: Event) {
         </p>
 
         <div class="profile-actions">
-          <NuxtLink class="button button-secondary button-full" :to="`/users/${user.username}`">
-            View public profile
-          </NuxtLink>
-          <NuxtLink class="button button-danger button-full" to="/logout">
-            Log out
-          </NuxtLink>
+          <UiButton as-child class="w-full" variant="outline">
+            <NuxtLink :to="`/users/${user.username}`">
+              View public profile
+            </NuxtLink>
+          </UiButton>
+          <UiButton as-child class="w-full" variant="destructive">
+            <NuxtLink to="/logout">
+              Log out
+            </NuxtLink>
+          </UiButton>
         </div>
       </aside>
 
@@ -219,45 +226,42 @@ function onAvatarChange(event: Event) {
             <CommonFormAlert v-if="profileSuccess" :message="profileSuccess" tone="success" />
 
             <CommonFormField id="account-username" v-slot="field" label="Public username" :error="profileFieldErrors.username">
-              <input
+              <UiInput
                 id="account-username"
                 v-model="profileForm.username"
                 v-bind="field"
                 autocomplete="username"
-                class="field-input"
                 name="username"
                 required
                 type="text"
-              >
+              />
             </CommonFormField>
 
             <CommonFormField id="account-birth-date" v-slot="field" label="Birth date" :error="profileFieldErrors.birthDate">
-              <input
+              <UiInput
                 id="account-birth-date"
                 v-model="profileForm.birthDate"
                 v-bind="field"
-                class="field-input"
                 name="birthDate"
                 required
                 type="date"
-              >
+              />
             </CommonFormField>
 
             <CommonFormField id="account-bio" v-slot="field" label="Bio" optional :error="profileFieldErrors.bio">
-              <textarea
+              <UiTextarea
                 id="account-bio"
                 v-model="profileForm.bio"
                 v-bind="field"
-                class="field-textarea"
                 name="bio"
                 rows="4"
               />
             </CommonFormField>
 
             <div class="inline-actions">
-              <button class="button button-primary" :disabled="profilePending" type="submit">
+              <UiButton :disabled="profilePending" type="submit">
                 {{ profilePending ? 'Saving...' : 'Save profile' }}
-              </button>
+              </UiButton>
             </div>
           </form>
         </section>
@@ -287,9 +291,9 @@ function onAvatarChange(event: Event) {
             </CommonFormField>
 
             <div class="inline-actions">
-              <button class="button button-primary" :disabled="avatarPending" type="submit">
+              <UiButton :disabled="avatarPending" type="submit">
                 {{ avatarPending ? 'Uploading...' : 'Upload avatar' }}
-              </button>
+              </UiButton>
             </div>
           </form>
         </section>
@@ -312,16 +316,15 @@ function onAvatarChange(event: Event) {
               label="Current password"
               :error="passwordFieldErrors.currentPassword"
             >
-              <input
+              <UiInput
                 id="account-current-password"
                 v-model="passwordForm.currentPassword"
                 v-bind="field"
                 autocomplete="current-password"
-                class="field-input"
                 name="currentPassword"
                 required
                 type="password"
-              >
+              />
             </CommonFormField>
 
             <CommonFormField
@@ -330,22 +333,21 @@ function onAvatarChange(event: Event) {
               label="New password"
               :error="passwordFieldErrors.newPassword"
             >
-              <input
+              <UiInput
                 id="account-new-password"
                 v-model="passwordForm.newPassword"
                 v-bind="field"
                 autocomplete="new-password"
-                class="field-input"
                 name="newPassword"
                 required
                 type="password"
-              >
+              />
             </CommonFormField>
 
             <div class="inline-actions">
-              <button class="button button-primary" :disabled="passwordPending" type="submit">
+              <UiButton :disabled="passwordPending" type="submit">
                 {{ passwordPending ? 'Updating...' : 'Update password' }}
-              </button>
+              </UiButton>
             </div>
           </form>
         </section>

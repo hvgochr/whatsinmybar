@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import UiButton from '../components/ui/button/Button.vue'
+
 useSeoMeta({
   title: "What's In My Bar",
   description: 'Discover, create, and share cocktail recipes with a community of home bartenders.'
@@ -31,12 +33,16 @@ useSeoMeta({
         </div>
 
         <div class="form-stack">
-          <NuxtLink class="button button-primary button-full" to="/register">
-            Create an account
-          </NuxtLink>
-          <NuxtLink class="button button-secondary button-full" to="/login">
-            Log in
-          </NuxtLink>
+          <UiButton as-child class="w-full">
+            <NuxtLink to="/register">
+              Create an account
+            </NuxtLink>
+          </UiButton>
+          <UiButton as-child class="w-full" variant="outline">
+            <NuxtLink to="/login">
+              Log in
+            </NuxtLink>
+          </UiButton>
         </div>
       </div>
     </section>

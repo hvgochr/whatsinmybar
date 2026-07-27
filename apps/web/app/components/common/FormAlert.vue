@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import UiAlert from '../ui/alert/Alert.vue'
+
 defineProps<{
   message: string
   tone: 'error' | 'success'
@@ -6,11 +8,7 @@ defineProps<{
 </script>
 
 <template>
-  <p
-    class="form-banner"
-    :class="tone === 'error' ? 'form-banner-error' : 'form-banner-success'"
-    role="status"
-  >
+  <UiAlert :variant="tone === 'error' ? 'destructive' : 'success'" role="status">
     {{ message }}
-  </p>
+  </UiAlert>
 </template>

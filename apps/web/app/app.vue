@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const auth = useAuth()
+</script>
+
 <template>
   <div class="app-shell">
     <NuxtRouteAnnouncer />
@@ -9,10 +13,16 @@
         </NuxtLink>
 
         <div class="nav-actions">
-          <NuxtLink class="nav-link" to="/login">
+          <NuxtLink v-if="auth.isAuthenticated.value" class="nav-link" to="/account">
+            Account
+          </NuxtLink>
+          <NuxtLink v-if="auth.isAuthenticated.value" class="button button-secondary button-small" to="/logout">
+            Log out
+          </NuxtLink>
+          <NuxtLink v-if="!auth.isAuthenticated.value" class="nav-link" to="/login">
             Log in
           </NuxtLink>
-          <NuxtLink class="button button-primary button-small" to="/register">
+          <NuxtLink v-if="!auth.isAuthenticated.value" class="button button-primary button-small" to="/register">
             Join
           </NuxtLink>
         </div>

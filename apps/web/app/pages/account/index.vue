@@ -215,10 +215,10 @@ function onAvatarChange(event: Event) {
           </p>
 
           <form class="form-stack" novalidate @submit.prevent="submitProfile">
-            <FormAlert v-if="profileError" :message="profileError" tone="error" />
-            <FormAlert v-if="profileSuccess" :message="profileSuccess" tone="success" />
+            <CommonFormAlert v-if="profileError" :message="profileError" tone="error" />
+            <CommonFormAlert v-if="profileSuccess" :message="profileSuccess" tone="success" />
 
-            <FormField id="account-username" v-slot="field" label="Public username" :error="profileFieldErrors.username">
+            <CommonFormField id="account-username" v-slot="field" label="Public username" :error="profileFieldErrors.username">
               <input
                 id="account-username"
                 v-model="profileForm.username"
@@ -229,9 +229,9 @@ function onAvatarChange(event: Event) {
                 required
                 type="text"
               >
-            </FormField>
+            </CommonFormField>
 
-            <FormField id="account-birth-date" v-slot="field" label="Birth date" :error="profileFieldErrors.birthDate">
+            <CommonFormField id="account-birth-date" v-slot="field" label="Birth date" :error="profileFieldErrors.birthDate">
               <input
                 id="account-birth-date"
                 v-model="profileForm.birthDate"
@@ -241,9 +241,9 @@ function onAvatarChange(event: Event) {
                 required
                 type="date"
               >
-            </FormField>
+            </CommonFormField>
 
-            <FormField id="account-bio" v-slot="field" label="Bio" optional :error="profileFieldErrors.bio">
+            <CommonFormField id="account-bio" v-slot="field" label="Bio" optional :error="profileFieldErrors.bio">
               <textarea
                 id="account-bio"
                 v-model="profileForm.bio"
@@ -252,7 +252,7 @@ function onAvatarChange(event: Event) {
                 name="bio"
                 rows="4"
               />
-            </FormField>
+            </CommonFormField>
 
             <div class="inline-actions">
               <button class="button button-primary" :disabled="profilePending" type="submit">
@@ -271,10 +271,10 @@ function onAvatarChange(event: Event) {
           </p>
 
           <form class="form-stack" novalidate @submit.prevent="submitAvatar">
-            <FormAlert v-if="avatarError" :message="avatarError" tone="error" />
-            <FormAlert v-if="avatarSuccess" :message="avatarSuccess" tone="success" />
+            <CommonFormAlert v-if="avatarError" :message="avatarError" tone="error" />
+            <CommonFormAlert v-if="avatarSuccess" :message="avatarSuccess" tone="success" />
 
-            <FormField id="account-avatar" v-slot="field" label="Avatar image" :error="avatarFieldErrors.avatar">
+            <CommonFormField id="account-avatar" v-slot="field" label="Avatar image" :error="avatarFieldErrors.avatar">
               <input
                 id="account-avatar"
                 v-bind="field"
@@ -284,7 +284,7 @@ function onAvatarChange(event: Event) {
                 type="file"
                 @change="onAvatarChange"
               >
-            </FormField>
+            </CommonFormField>
 
             <div class="inline-actions">
               <button class="button button-primary" :disabled="avatarPending" type="submit">
@@ -303,10 +303,10 @@ function onAvatarChange(event: Event) {
           </p>
 
           <form class="form-stack" novalidate @submit.prevent="submitPassword">
-            <FormAlert v-if="passwordError" :message="passwordError" tone="error" />
-            <FormAlert v-if="passwordSuccess" :message="passwordSuccess" tone="success" />
+            <CommonFormAlert v-if="passwordError" :message="passwordError" tone="error" />
+            <CommonFormAlert v-if="passwordSuccess" :message="passwordSuccess" tone="success" />
 
-            <FormField
+            <CommonFormField
               id="account-current-password"
               v-slot="field"
               label="Current password"
@@ -322,9 +322,9 @@ function onAvatarChange(event: Event) {
                 required
                 type="password"
               >
-            </FormField>
+            </CommonFormField>
 
-            <FormField
+            <CommonFormField
               id="account-new-password"
               v-slot="field"
               label="New password"
@@ -340,7 +340,7 @@ function onAvatarChange(event: Event) {
                 required
                 type="password"
               >
-            </FormField>
+            </CommonFormField>
 
             <div class="inline-actions">
               <button class="button button-primary" :disabled="passwordPending" type="submit">

@@ -77,9 +77,9 @@ async function submitRegister() {
         </div>
 
         <form class="form-stack" novalidate @submit.prevent="submitRegister">
-          <FormAlert v-if="formError" :message="formError" tone="error" />
+          <CommonFormAlert v-if="formError" :message="formError" tone="error" />
 
-          <FormField id="register-email" v-slot="field" label="Email" :error="fieldErrors.email">
+          <CommonFormField id="register-email" v-slot="field" label="Email" :error="fieldErrors.email">
             <input
               id="register-email"
               v-model="form.email"
@@ -90,9 +90,9 @@ async function submitRegister() {
               required
               type="email"
             >
-          </FormField>
+          </CommonFormField>
 
-          <FormField
+          <CommonFormField
             id="register-username"
             v-slot="field"
             help="Letters, numbers, and underscores only."
@@ -109,9 +109,9 @@ async function submitRegister() {
               required
               type="text"
             >
-          </FormField>
+          </CommonFormField>
 
-          <FormField id="register-birth-date" v-slot="field" label="Birth date" :error="fieldErrors.birthDate">
+          <CommonFormField id="register-birth-date" v-slot="field" label="Birth date" :error="fieldErrors.birthDate">
             <input
               id="register-birth-date"
               v-model="form.birthDate"
@@ -121,9 +121,9 @@ async function submitRegister() {
               required
               type="date"
             >
-          </FormField>
+          </CommonFormField>
 
-          <FormField
+          <CommonFormField
             id="register-password"
             v-slot="field"
             help="Use at least 12 characters."
@@ -140,9 +140,9 @@ async function submitRegister() {
               required
               type="password"
             >
-          </FormField>
+          </CommonFormField>
 
-          <FormField id="register-bio" v-slot="field" label="Bio" optional :error="fieldErrors.bio">
+          <CommonFormField id="register-bio" v-slot="field" label="Bio" optional :error="fieldErrors.bio">
             <textarea
               id="register-bio"
               v-model="form.bio"
@@ -151,7 +151,7 @@ async function submitRegister() {
               name="bio"
               rows="4"
             />
-          </FormField>
+          </CommonFormField>
 
           <button class="button button-primary button-full" :disabled="pending" type="submit">
             {{ pending ? 'Creating account...' : 'Create account' }}

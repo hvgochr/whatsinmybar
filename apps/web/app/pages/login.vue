@@ -67,9 +67,9 @@ async function submitLogin() {
         </div>
 
         <form class="form-stack" novalidate @submit.prevent="submitLogin">
-          <FormAlert v-if="formError" :message="formError" tone="error" />
+          <CommonFormAlert v-if="formError" :message="formError" tone="error" />
 
-          <FormField id="login-email" v-slot="field" label="Email" :error="fieldErrors.email">
+          <CommonFormField id="login-email" v-slot="field" label="Email" :error="fieldErrors.email">
             <input
               id="login-email"
               v-model="form.email"
@@ -80,9 +80,9 @@ async function submitLogin() {
               required
               type="email"
             >
-          </FormField>
+          </CommonFormField>
 
-          <FormField id="login-password" v-slot="field" label="Password" :error="fieldErrors.password">
+          <CommonFormField id="login-password" v-slot="field" label="Password" :error="fieldErrors.password">
             <input
               id="login-password"
               v-model="form.password"
@@ -93,7 +93,7 @@ async function submitLogin() {
               required
               type="password"
             >
-          </FormField>
+          </CommonFormField>
 
           <button class="button button-primary button-full" :disabled="pending" type="submit">
             {{ pending ? 'Logging in...' : 'Log in' }}

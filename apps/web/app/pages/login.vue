@@ -1,0 +1,112 @@
+<script setup lang="ts">
+import { toFormErrors } from '../utils/api-errors'
+
+const auth = useAuth()
+
+const form = reactive({
+  email: '',
+  password: ''
+})
+const fieldErrors = ref<Record<string, string>>({})
+const formError = ref<string | null>(null)
+const pending = ref(false)
+
+useSeoMeta({
+  title: 'Log in | What\'s In My Bar',
+  description: 'Log in to your What\'s In My Bar account.'
+})
+
+async function submitLogin() {
+  if (pending.value) {
+    return
+  }
+
+  pending.value = true
+  fieldErrors.value = {}
+  formError.value = null
+
+  try {
+    await auth.login({
+      email: form.email,
+      password: form.password
+    })
+    await navigateTo('/account')
+  } catch (error: unknown) {
+    const formErrors = toFormErrors(error)
+    fieldErrors.value = formErrors.fields
+    formError.value = formErrors.message
+  } finally {
+    pending.value = false
+  }
+}
+</script>
+
+<template>
+  <main class="page-shell">
+    <section class="auth-layout" aria-labelledby="login-title">
+      <div class="auth-intro">
+        <p class="eyebrow">
+          Welcome back
+        </p>
+        <h1 id="login-title" class="page-title">
+          Log in to your bar
+        </h1>
+        <p class="page-copy">
+          Keep your saved recipes, profile details, and cocktail notes within reach.
+        </p>
+      </div>
+
+      <div class="auth-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            Account access
+          </h2>
+          <p class="panel-copy">
+            Use the email address attached to your account.
+          </p>
+        </div>
+
+        <form class="form-stack" novalidate @submit.prevent="submitLogin">
+          <FormAlert v-if="formError" :message="formError" tone="error" />
+
+          <FormField id="login-email" v-slot="field" label="Email" :error="fieldErrors.email">
+            <input
+              id="login-email"
+              v-model="form.email"
+              v-bind="field"
+              autocomplete="email"
+              class="field-input"
+              name="email"
+              required
+              type="email"
+            >
+          </FormField>
+
+          <FormField id="login-password" v-slot="field" label="Password" :error="fieldErrors.password">
+            <input
+              id="login-password"
+              v-model="form.password"
+              v-bind="field"
+              autocomplete="current-password"
+              class="field-input"
+              name="password"
+              required
+              type="password"
+            >
+          </FormField>
+
+          <button class="button button-primary button-full" :disabled="pending" type="submit">
+            {{ pending ? 'Logging in...' : 'Log in' }}
+          </button>
+        </form>
+
+        <p class="form-footer">
+          New here?
+          <NuxtLink class="muted-link" to="/register">
+            Create an account
+          </NuxtLink>
+        </p>
+      </div>
+    </section>
+  </main>
+</template>

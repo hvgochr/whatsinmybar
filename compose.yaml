@@ -47,9 +47,10 @@ services:
       dockerfile: infra/docker/web/Dockerfile
     environment:
       CHOKIDAR_USEPOLLING: "true"
+      NUXT_API_BASE_URL: http://api/api
       NUXT_HOST: 0.0.0.0
       NUXT_PORT: "3000"
-      NUXT_PUBLIC_API_BASE: /api
+      NUXT_PUBLIC_API_BASE_URL: /api
       PNPM_HOME: /pnpm
     ports:
       - "127.0.0.1:3000:3000"

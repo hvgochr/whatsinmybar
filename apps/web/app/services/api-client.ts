@@ -316,9 +316,9 @@ function fetchOptions(config: ApiClientConfig, options: ApiRequestOptions): Reco
   }
 }
 
-function cleanQuery<T extends Record<string, QueryValue>>(query: T): Record<string, string | number | boolean> {
+function cleanQuery<T extends object>(query: T): Record<string, string | number | boolean> {
   return Object.fromEntries(
-    Object.entries(query).filter(([, value]) => value !== null && value !== undefined && value !== '')
+    Object.entries(query as Record<string, QueryValue>).filter(([, value]) => value !== null && value !== undefined && value !== '')
   ) as Record<string, string | number | boolean>
 }
 

@@ -13,18 +13,29 @@ export type ReportTargetType = 'recipe' | 'comment' | 'user'
 export type IngredientUnit =
   | 'ml'
   | 'cl'
+  | 'l'
   | 'oz'
   | 'dash'
   | 'bar_spoon'
-  | 'teaspoon'
-  | 'tablespoon'
+  | 'tsp'
+  | 'tbsp'
+  | 'drop'
   | 'piece'
   | 'slice'
   | 'wedge'
   | 'leaf'
   | 'sprig'
   | 'pinch'
-  | 'gram'
+  | 'to_taste'
+
+export interface ApiCollection<T> {
+  'hydra:member'?: T[]
+  'hydra:totalItems'?: number
+  member?: T[]
+  totalItems?: number
+  items?: T[]
+  [key: string]: unknown
+}
 
 export interface ApiViolation {
   property: string
@@ -127,6 +138,25 @@ export interface RecipePayload {
   steps?: RecipeStepPayload[]
   ingredients?: RecipeIngredientPayload[]
   categories?: string[]
+}
+
+export interface RecipeResource {
+  id?: ApiId
+  title: string
+  slug: string
+  description: string | null
+  difficulty: string | null
+  preparationTimeMinutes: number | null
+  servings: number | null
+  containsAlcohol: boolean
+  imagePath: string | null
+  status: RecipeStatus
+  moderationStatus: ModerationStatus
+  favoriteCount: number
+  publishedAt: ApiDateTime | null
+  createdAt?: ApiDateTime
+  updatedAt?: ApiDateTime
+  [key: string]: unknown
 }
 
 export interface RecipeWorkflow {

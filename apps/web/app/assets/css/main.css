@@ -1,0 +1,232 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --shadow-warm: var(--shadow-warm);
+}
+
+:root {
+  --background: 25 100% 98%;
+  --foreground: 20 15% 16%;
+  --card: 36 100% 99%;
+  --card-foreground: 20 15% 16%;
+  --primary: 10 79% 58%;
+  --primary-foreground: 36 100% 99%;
+  --secondary: 8 72% 86%;
+  --secondary-foreground: 16 38% 20%;
+  --accent: 28 82% 71%;
+  --accent-foreground: 15 39% 17%;
+  --muted: 29 40% 91%;
+  --muted-foreground: 18 10% 43%;
+  --border: 28 42% 85%;
+  --input: 26 38% 82%;
+  --ring: 10 79% 58%;
+  --destructive: 4 76% 40%;
+  --destructive-foreground: 36 100% 99%;
+  --success: 151 54% 31%;
+  --radius: 8px;
+  --shadow-warm: 0 18px 60px hsl(17 43% 24% / 0.12);
+}
+
+.dark {
+  --background: 18 24% 10%;
+  --foreground: 28 53% 93%;
+  --card: 19 23% 13%;
+  --card-foreground: 28 53% 93%;
+  --primary: 10 82% 64%;
+  --primary-foreground: 18 24% 10%;
+  --secondary: 352 36% 25%;
+  --secondary-foreground: 28 53% 93%;
+  --accent: 29 69% 58%;
+  --accent-foreground: 18 24% 10%;
+  --muted: 19 20% 19%;
+  --muted-foreground: 26 18% 71%;
+  --border: 19 18% 25%;
+  --input: 19 18% 28%;
+  --ring: 10 82% 64%;
+  --destructive: 3 72% 58%;
+  --destructive-foreground: 28 53% 93%;
+  --success: 151 48% 50%;
+  --shadow-warm: 0 18px 60px hsl(0 0% 0% / 0.34);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply min-h-full bg-background;
+  }
+
+  body {
+    @apply min-h-full min-w-80 bg-background text-foreground antialiased;
+    background:
+      radial-gradient(circle at top left, hsl(var(--secondary) / 0.28), transparent 34rem),
+      hsl(var(--background));
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+
+  :focus-visible {
+    @apply outline-ring outline-3 outline-offset-3;
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply mx-auto w-[min(1120px,calc(100%_-_1.5rem))] py-7 md:w-[min(1120px,calc(100%_-_3rem))] md:py-11;
+  }
+
+  .auth-layout {
+    @apply grid items-start gap-7 md:grid-cols-[minmax(0,0.9fr)_minmax(320px,440px)] md:gap-12 lg:gap-18;
+  }
+
+  .auth-intro {
+    @apply md:pt-14;
+  }
+
+  .eyebrow {
+    @apply mb-3 text-xs font-black uppercase tracking-normal text-primary;
+  }
+
+  .page-title {
+    @apply m-0 max-w-[11ch] text-5xl font-black leading-[0.96] text-foreground md:max-w-[13ch] md:text-7xl;
+  }
+
+  .page-copy {
+    @apply mt-5 max-w-prose text-base text-muted-foreground md:text-lg;
+  }
+
+  .auth-panel,
+  .content-panel {
+    @apply rounded-lg border border-border bg-card text-card-foreground shadow-warm;
+  }
+
+  .auth-panel {
+    @apply p-6 md:p-8;
+  }
+
+  .panel-header {
+    @apply mb-6;
+  }
+
+  .panel-title {
+    @apply m-0 text-2xl leading-tight text-card-foreground;
+  }
+
+  .panel-copy {
+    @apply mt-2 text-muted-foreground;
+  }
+
+  .form-stack {
+    @apply grid gap-[18px];
+  }
+
+  .form-footer {
+    @apply mt-5 text-center text-muted-foreground;
+  }
+
+  .muted-link {
+    @apply font-extrabold text-primary hover:underline;
+  }
+
+  .account-grid {
+    @apply mt-8 grid items-start gap-6 md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)];
+  }
+
+  .profile-card {
+    @apply p-6;
+  }
+
+  .avatar-preview {
+    @apply grid size-24 place-items-center overflow-hidden rounded-full border border-border bg-muted text-3xl font-black text-primary;
+  }
+
+  .avatar-preview img {
+    @apply h-full w-full object-cover;
+  }
+
+  .profile-name {
+    @apply mt-4 mb-1 text-2xl font-black;
+  }
+
+  .profile-meta {
+    @apply m-0 text-muted-foreground;
+  }
+
+  .profile-bio {
+    @apply mt-4 text-foreground;
+  }
+
+  .profile-actions {
+    @apply mt-6 grid gap-2.5;
+  }
+
+  .account-sections {
+    @apply grid gap-[18px];
+  }
+
+  .settings-section {
+    @apply p-5 md:p-7;
+  }
+
+  .section-title {
+    @apply m-0 text-xl font-black;
+  }
+
+  .section-copy {
+    @apply mt-1.5 mb-5 text-muted-foreground;
+  }
+
+  .inline-actions {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .file-input {
+    @apply min-h-12 w-full rounded-lg border border-dashed border-input bg-background p-3 text-muted-foreground;
+  }
+
+  .loading-panel {
+    @apply mt-8 grid min-h-56 place-items-center p-8 text-center text-muted-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

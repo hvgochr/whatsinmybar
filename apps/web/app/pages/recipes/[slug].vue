@@ -17,6 +17,7 @@ import {
 } from '../../utils/public-content'
 
 const api = useApi()
+const auth = useAuth()
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const slug = computed(() => String(route.params.slug))
@@ -54,6 +55,27 @@ const sortedSteps = computed(() => [...(recipe.value?.steps ?? [])].sort((a, b) 
 const pageDescription = computed(() => publicDescription(recipe.value?.description, 'A community cocktail recipe on What\'s In My Bar.'))
 const canonicalUrl = computed(() => publicUrl(runtimeConfig.public.siteUrl, `/recipes/${slug.value}`))
 const ogImage = computed(() => imageUrl(recipe.value?.imagePath, runtimeConfig.public.apiBaseUrl))
+const canEditRecipe = computed(() => {
+  const user = auth.currentUser.value
+
+  return Boolean(
+    user
+    && recipe.value
+    && (recipe.value.authorUsername === user.username || user.roles.includes('ROLE_ADMIN'))
+  )
+})
+
+onMounted(async () => {
+  if (auth.currentUser.value) {
+    return
+  }
+
+  try {
+    await auth.restoreSession()
+  } catch {
+    // Public recipe pages stay readable when session restoration fails.
+  }
+})
 
 useSeoMeta({
   title: () => `${recipe.value?.title ?? 'Recipe'} | What's In My Bar`,
@@ -204,6 +226,11 @@ function errorStatus(error: unknown): number {
           <UiButton as-child class="mt-5 w-full" variant="outline">
             <NuxtLink to="/recipes">
               Back to recipes
+            </NuxtLink>
+          </UiButton>
+          <UiButton v-if="canEditRecipe" as-child class="mt-3 w-full">
+            <NuxtLink :to="`/recipes/${recipe.slug}/edit`">
+              Edit recipe
             </NuxtLink>
           </UiButton>
         </aside>

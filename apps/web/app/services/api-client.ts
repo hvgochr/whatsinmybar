@@ -12,9 +12,14 @@ import type {
   LoginPayload,
   PasswordChangePayload,
   PublicProfile,
+  RecipeImageState,
+  RecipeIngredient,
+  RecipeIngredientPayload,
   RecipePayload,
   RecipeResource,
   RecipeSearchParams,
+  RecipeStep,
+  RecipeStepPayload,
   RecipeWorkflow,
   RegisterPayload,
   Report,
@@ -125,11 +130,21 @@ export interface ApiClient {
     create: (payload: RecipePayload) => Promise<RecipeResource>
     delete: (slug: string) => Promise<RecipeResource>
     get: (slug: string) => Promise<RecipeResource>
-    image: (slug: string, file: Blob) => Promise<RecipeResource>
+    image: (slug: string, file: Blob) => Promise<RecipeImageState>
     list: (params?: RecipeSearchParams) => Promise<ApiCollection<RecipeResource>>
     publish: (slug: string) => Promise<RecipeWorkflow>
-    removeImage: (slug: string) => Promise<RecipeResource>
+    removeImage: (slug: string) => Promise<RecipeImageState>
     update: (slug: string, payload: Partial<RecipePayload>) => Promise<RecipeResource>
+  }
+  recipeIngredients: {
+    create: (payload: RecipeIngredientPayload) => Promise<RecipeIngredient>
+    delete: (id: number) => Promise<undefined>
+    update: (id: number, payload: Partial<RecipeIngredientPayload>) => Promise<RecipeIngredient>
+  }
+  recipeSteps: {
+    create: (payload: RecipeStepPayload) => Promise<RecipeStep>
+    delete: (id: number) => Promise<undefined>
+    update: (id: number, payload: Partial<RecipeStepPayload>) => Promise<RecipeStep>
   }
   reports: {
     create: (payload: ReportPayload) => Promise<Report>
@@ -271,11 +286,21 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       create: (payload) => request<RecipeResource>('/recipes', { body: payload, method: 'POST' }),
       delete: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`, { method: 'DELETE' }),
       get: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`),
-      image: (slug, file) => upload<RecipeResource>(`/recipes/${encodeURIComponent(slug)}/image`, 'image', file),
+      image: (slug, file) => upload<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, 'image', file),
       list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { query: cleanQuery(params) }),
       publish: (slug) => request<RecipeWorkflow>(`/recipes/${encodeURIComponent(slug)}/publish`, { method: 'POST' }),
-      removeImage: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}/image`, { method: 'DELETE' }),
+      removeImage: (slug) => request<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, { method: 'DELETE' }),
       update: (slug, payload) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
+    },
+    recipeIngredients: {
+      create: (payload) => request<RecipeIngredient>('/recipe_ingredients', { body: payload, method: 'POST' }),
+      delete: (id) => request<undefined>(`/recipe_ingredients/${id}`, { method: 'DELETE' }),
+      update: (id, payload) => request<RecipeIngredient>(`/recipe_ingredients/${id}`, { body: payload, method: 'PATCH' })
+    },
+    recipeSteps: {
+      create: (payload) => request<RecipeStep>('/recipe_steps', { body: payload, method: 'POST' }),
+      delete: (id) => request<undefined>(`/recipe_steps/${id}`, { method: 'DELETE' }),
+      update: (id, payload) => request<RecipeStep>(`/recipe_steps/${id}`, { body: payload, method: 'PATCH' })
     },
     reports: {
       create: (payload) => request<Report>('/reports', { body: payload, method: 'POST' })

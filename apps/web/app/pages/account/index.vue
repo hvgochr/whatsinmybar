@@ -199,6 +199,11 @@ function onAvatarChange(event: Event) {
         </p>
 
         <div class="profile-actions">
+          <UiButton as-child class="w-full">
+            <NuxtLink to="/recipes/new">
+              Create recipe
+            </NuxtLink>
+          </UiButton>
           <UiButton as-child class="w-full" variant="outline">
             <NuxtLink :to="`/users/${user.username}`">
               View public profile

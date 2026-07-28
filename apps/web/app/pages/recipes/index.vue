@@ -88,7 +88,7 @@ function numberValue(value: string | undefined): number | undefined {
   <main class="page-shell">
     <PublicPageHeader
       action-label="Share a recipe"
-      action-to="/login"
+      action-to="/recipes/new"
       description="Search the community shelf by flavor, ingredient, category, author, alcohol preference, and popularity."
       eyebrow="Recipes"
       title="Find your next cocktail"

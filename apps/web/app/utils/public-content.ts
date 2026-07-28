@@ -70,7 +70,7 @@ export function formatPublicDate(date: string | null | undefined): string {
 export function publicDescription(value: string | null | undefined, fallback: string, maxLength = 155): string {
   const text = value?.trim() || fallback
 
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3).trim()}...` : text
 }
 
 export function publicUrl(siteUrl: string, path: string): string {

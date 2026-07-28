@@ -100,6 +100,10 @@ export interface ApiClient {
     refresh: (refreshToken: string) => Promise<AuthTokens>
     register: (payload: RegisterPayload) => Promise<User>
   }
+  categories: {
+    get: (slug: string) => Promise<Category>
+    list: () => Promise<ApiCollection<Category>>
+  }
   comments: {
     create: (recipeSlug: string, payload: CommentPayload) => Promise<Comment>
     delete: (id: number) => Promise<Comment>
@@ -109,6 +113,9 @@ export interface ApiClient {
   favorites: {
     add: (recipeSlug: string) => Promise<FavoriteState>
     remove: (recipeSlug: string) => Promise<FavoriteState>
+  }
+  ingredients: {
+    list: () => Promise<ApiCollection<Ingredient>>
   }
   profiles: {
     get: (username: string) => Promise<PublicProfile>
@@ -239,6 +246,10 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       }),
       register: (payload) => request<User>('/auth/register', { auth: false, body: payload, method: 'POST' })
     },
+    categories: {
+      get: (slug) => request<Category>(`/categories/${encodeURIComponent(slug)}`, { auth: false }),
+      list: () => request<ApiCollection<Category>>('/categories', { auth: false, query: { pagination: false } })
+    },
     comments: {
       create: (recipeSlug, payload) => request<Comment>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { body: payload, method: 'POST' }),
       delete: (id) => request<Comment>(`/comments/${id}`, { method: 'DELETE' }),
@@ -248,6 +259,9 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     favorites: {
       add: (recipeSlug) => request<FavoriteState>(`/recipes/${encodeURIComponent(recipeSlug)}/favorite`, { method: 'POST' }),
       remove: (recipeSlug) => request<FavoriteState>(`/recipes/${encodeURIComponent(recipeSlug)}/favorite`, { method: 'DELETE' })
+    },
+    ingredients: {
+      list: () => request<ApiCollection<Ingredient>>('/ingredients', { auth: false, query: { pagination: false } })
     },
     profiles: {
       get: (username) => request<PublicProfile>(`/users/${encodeURIComponent(username)}`)

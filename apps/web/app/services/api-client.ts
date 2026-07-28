@@ -253,7 +253,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     comments: {
       create: (recipeSlug, payload) => request<Comment>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { body: payload, method: 'POST' }),
       delete: (id) => request<Comment>(`/comments/${id}`, { method: 'DELETE' }),
-      list: (recipeSlug) => request<AdminList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`),
+      list: (recipeSlug) => request<AdminList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { auth: false }),
       update: (id, payload) => request<Comment>(`/comments/${id}`, { body: payload, method: 'PATCH' })
     },
     favorites: {
@@ -264,7 +264,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       list: () => request<ApiCollection<Ingredient>>('/ingredients', { auth: false, query: { pagination: false } })
     },
     profiles: {
-      get: (username) => request<PublicProfile>(`/users/${encodeURIComponent(username)}`)
+      get: (username) => request<PublicProfile>(`/users/${encodeURIComponent(username)}`, { auth: false })
     },
     recipes: {
       archive: (slug) => request<RecipeWorkflow>(`/recipes/${encodeURIComponent(slug)}/archive`, { method: 'POST' }),

@@ -120,6 +120,49 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledTimes(3)
   })
 
+  it('manages recipe workflow subresources', async () => {
+    const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
+      if (path === '/recipe_steps') {
+        expect(options).toEqual(expect.objectContaining({
+          body: {
+            instruction: 'Stir with ice.',
+            position: 1,
+            recipe: '/api/recipes/negroni'
+          },
+          method: 'POST'
+        }))
+
+        return { id: 10, instruction: 'Stir with ice.', position: 1 }
+      }
+
+      if (path === '/recipe_ingredients/12') {
+        expect(options).toEqual(expect.objectContaining({ method: 'DELETE' }))
+
+        return undefined
+      }
+
+      if (path === '/recipes/negroni/image') {
+        expect(options).toEqual(expect.objectContaining({ method: 'DELETE' }))
+
+        return { imagePath: null, recipeSlug: 'negroni' }
+      }
+
+      throw new Error(`Unexpected request: ${path}`)
+    })
+    const api = createTestClient(fetch, {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token'
+    })
+
+    await expect(api.recipeSteps.create({
+      instruction: 'Stir with ice.',
+      position: 1,
+      recipe: '/api/recipes/negroni'
+    })).resolves.toEqual({ id: 10, instruction: 'Stir with ice.', position: 1 })
+    await expect(api.recipeIngredients.delete(12)).resolves.toBeUndefined()
+    await expect(api.recipes.removeImage('negroni')).resolves.toEqual({ imagePath: null, recipeSlug: 'negroni' })
+  })
+
   it('normalizes validation errors', () => {
     const error = normalizeApiError({
       data: {

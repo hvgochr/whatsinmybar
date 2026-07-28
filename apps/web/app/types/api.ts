@@ -136,13 +136,16 @@ export interface RecipeIngredient {
 }
 
 export interface RecipeIngredientPayload {
+  recipe?: string
   ingredient: string
   quantity: string | number
   unit: IngredientUnit
   position: number
+  note?: string | null
 }
 
 export interface RecipeStepPayload {
+  recipe?: string
   position: number
   instruction: string
 }
@@ -154,6 +157,7 @@ export interface RecipePayload {
   preparationTimeMinutes?: number | null
   servings?: number | null
   containsAlcoholOverride?: boolean | null
+  status?: RecipeStatus
   steps?: RecipeStepPayload[]
   ingredients?: RecipeIngredientPayload[]
   categories?: string[]
@@ -194,6 +198,11 @@ export interface RecipeWorkflow {
   deleted: boolean
   deletedAt: ApiDateTime | null
   updatedAt: ApiDateTime
+}
+
+export interface RecipeImageState {
+  recipeSlug: string
+  imagePath: string | null
 }
 
 export interface RecipeSearchParams {

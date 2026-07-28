@@ -82,6 +82,44 @@ describe('api client', () => {
     expect(state).toEqual({ accessToken: null, refreshToken: null })
   })
 
+  it('exposes public taxonomy and profile endpoints without bearer tokens', async () => {
+    const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
+      expect((options?.headers as Headers).get('Authorization')).toBeNull()
+
+      if (path === '/categories') {
+        expect(options?.query).toEqual({ pagination: false })
+        return { member: [] }
+      }
+
+      if (path === '/ingredients') {
+        expect(options?.query).toEqual({ pagination: false })
+        return { member: [] }
+      }
+
+      if (path === '/users/jane_doe') {
+        return {
+          avatarPath: null,
+          bio: null,
+          createdAt: '2026-07-25T10:00:00+00:00',
+          id: 1,
+          username: 'jane_doe'
+        }
+      }
+
+      throw new Error(`Unexpected request: ${path}`)
+    })
+    const api = createTestClient(fetch, {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token'
+    })
+
+    await api.categories.list()
+    await api.ingredients.list()
+    await api.profiles.get('jane_doe')
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
   it('normalizes validation errors', () => {
     const error = normalizeApiError({
       data: {

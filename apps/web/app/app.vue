@@ -15,6 +15,14 @@ const auth = useAuth()
         </NuxtLink>
 
         <div class="flex items-center gap-2">
+          <div class="hidden items-center gap-2 sm:flex">
+            <NuxtLink class="min-h-11 px-1 py-3 font-bold text-muted-foreground hover:text-foreground" to="/recipes">
+              Recipes
+            </NuxtLink>
+            <NuxtLink class="min-h-11 px-1 py-3 font-bold text-muted-foreground hover:text-foreground" to="/categories">
+              Categories
+            </NuxtLink>
+          </div>
           <NuxtLink v-if="auth.isAuthenticated.value" class="min-h-11 px-1 py-3 font-bold text-muted-foreground hover:text-foreground" to="/account">
             Account
           </NuxtLink>

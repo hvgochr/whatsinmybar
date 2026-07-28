@@ -107,6 +107,8 @@ export interface Category {
   name: string
   slug: string
   description: string | null
+  createdAt?: ApiDateTime
+  updatedAt?: ApiDateTime
 }
 
 export interface Ingredient {
@@ -114,6 +116,23 @@ export interface Ingredient {
   name: string
   slug: string
   containsAlcohol: boolean
+  createdAt?: ApiDateTime
+  updatedAt?: ApiDateTime
+}
+
+export interface RecipeStep {
+  id?: ApiId
+  position: number
+  instruction: string
+}
+
+export interface RecipeIngredient {
+  id?: ApiId
+  ingredient: Ingredient | string
+  quantity: string | null
+  unit: IngredientUnit
+  position: number
+  note?: string | null
 }
 
 export interface RecipeIngredientPayload {
@@ -142,6 +161,8 @@ export interface RecipePayload {
 
 export interface RecipeResource {
   id?: ApiId
+  authorUsername?: string | null
+  categories?: Array<Category | string>
   title: string
   slug: string
   description: string | null
@@ -149,7 +170,11 @@ export interface RecipeResource {
   preparationTimeMinutes: number | null
   servings: number | null
   containsAlcohol: boolean
+  containsAlcoholComputed?: boolean
+  containsAlcoholOverride?: boolean | null
   imagePath: string | null
+  recipeIngredients?: RecipeIngredient[]
+  steps?: RecipeStep[]
   status: RecipeStatus
   moderationStatus: ModerationStatus
   favoriteCount: number

@@ -1,6 +1,5 @@
 import type {
   Category,
-  Ingredient,
   IngredientUnit,
   RecipeIngredient,
   RecipeIngredientPayload,

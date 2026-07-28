@@ -434,10 +434,10 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
               Calculate from ingredients
             </option>
             <option value="contains_alcohol">
-              Admin override: contains alcohol
+              Mark as alcoholic
             </option>
             <option value="alcohol_free">
-              Admin override: alcohol-free
+              Mark as alcohol-free
             </option>
           </select>
         </FormField>

@@ -138,12 +138,12 @@ export interface ApiClient {
   }
   recipeIngredients: {
     create: (payload: RecipeIngredientPayload) => Promise<RecipeIngredient>
-    delete: (id: number) => Promise<void>
+    delete: (id: number) => Promise<undefined>
     update: (id: number, payload: Partial<RecipeIngredientPayload>) => Promise<RecipeIngredient>
   }
   recipeSteps: {
     create: (payload: RecipeStepPayload) => Promise<RecipeStep>
-    delete: (id: number) => Promise<void>
+    delete: (id: number) => Promise<undefined>
     update: (id: number, payload: Partial<RecipeStepPayload>) => Promise<RecipeStep>
   }
   reports: {
@@ -294,12 +294,12 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     },
     recipeIngredients: {
       create: (payload) => request<RecipeIngredient>('/recipe_ingredients', { body: payload, method: 'POST' }),
-      delete: (id) => request<void>(`/recipe_ingredients/${id}`, { method: 'DELETE' }),
+      delete: (id) => request<undefined>(`/recipe_ingredients/${id}`, { method: 'DELETE' }),
       update: (id, payload) => request<RecipeIngredient>(`/recipe_ingredients/${id}`, { body: payload, method: 'PATCH' })
     },
     recipeSteps: {
       create: (payload) => request<RecipeStep>('/recipe_steps', { body: payload, method: 'POST' }),
-      delete: (id) => request<void>(`/recipe_steps/${id}`, { method: 'DELETE' }),
+      delete: (id) => request<undefined>(`/recipe_steps/${id}`, { method: 'DELETE' }),
       update: (id, payload) => request<RecipeStep>(`/recipe_steps/${id}`, { body: payload, method: 'PATCH' })
     },
     reports: {

@@ -18,6 +18,7 @@ const count = ref(props.count)
 const favorited = ref(props.favorited)
 const pending = ref(false)
 const errorMessage = ref<string | null>(null)
+const loginTo = computed(() => `/login?redirect=${encodeURIComponent(`/recipes/${props.recipeSlug}`)}`)
 
 watch(() => props.count, (nextCount) => {
   count.value = nextCount
@@ -69,7 +70,7 @@ async function toggleFavorite() {
         {{ pending ? 'Saving...' : favorited ? 'Saved' : 'Save' }}
       </UiButton>
       <UiButton v-else as-child variant="outline">
-        <NuxtLink :to="`/login?redirect=/recipes/${recipeSlug}`">
+        <NuxtLink :to="loginTo">
           Log in to save
         </NuxtLink>
       </UiButton>

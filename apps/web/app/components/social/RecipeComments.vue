@@ -9,12 +9,7 @@ import UiTextarea from '../ui/textarea/Textarea.vue'
 
 const props = defineProps<{
   comments: Comment[]
-  reportable?: boolean
   recipeSlug: string
-}>()
-
-const emit = defineEmits<{
-  report: [comment: Comment]
 }>()
 
 const api = useApi()
@@ -146,9 +141,7 @@ function socialErrorMessage(error: unknown, fallback: string): string {
         :current-user="auth.currentUser.value"
         :node="comment"
         :pending-action-id="pendingActionId"
-        :reportable="props.reportable"
         @delete="deleteComment"
-        @report="emit('report', $event)"
         @reply="createComment"
         @update="updateComment"
       />

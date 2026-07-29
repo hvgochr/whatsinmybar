@@ -4,6 +4,7 @@ import RecipeCard from '../../components/recipes/RecipeCard.vue'
 import RecipeImage from '../../components/recipes/RecipeImage.vue'
 import FavoriteButton from '../../components/social/FavoriteButton.vue'
 import RecipeComments from '../../components/social/RecipeComments.vue'
+import ReportAction from '../../components/social/ReportAction.vue'
 import UiButton from '../../components/ui/button/Button.vue'
 import type { RecipeResource } from '../../types/api'
 import { collectionItems } from '../../utils/api-collections'
@@ -234,6 +235,14 @@ function errorStatus(error: unknown): number {
             :recipe-slug="recipe.slug"
             @updated="updateFavorite"
           />
+
+          <div class="mt-3">
+            <ReportAction
+              :login-redirect="`/recipes/${recipe.slug}`"
+              :target-id="recipe.id"
+              target-type="recipe"
+            />
+          </div>
         </aside>
       </section>
 

@@ -4,6 +4,7 @@ import type { CommentTreeNode, SocialUser } from '../../utils/social'
 import { canManageComment } from '../../utils/social'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
+import ReportAction from './ReportAction.vue'
 
 defineOptions({
   name: 'CommentTreeItem'
@@ -11,7 +12,6 @@ defineOptions({
 
 const props = defineProps<{
   currentUser: SocialUser | null
-  reportable?: boolean
   depth?: number
   node: CommentTreeNode
   pendingActionId: number | null
@@ -19,7 +19,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   delete: [comment: Comment]
-  report: [comment: Comment]
   reply: [payload: { message: string, parentId: number }]
   update: [payload: { comment: Comment, message: string }]
 }>()
@@ -78,9 +77,6 @@ function submitReply() {
         <UiButton v-if="currentUser && !isRemoved" type="button" size="sm" variant="outline" @click="replyMode = !replyMode">
           Reply
         </UiButton>
-        <UiButton v-if="currentUser && reportable && !isRemoved" type="button" size="sm" variant="outline" @click="emit('report', node)">
-          Report
-        </UiButton>
         <UiButton v-if="canManage && !isRemoved" type="button" size="sm" variant="outline" @click="editMode = !editMode">
           Edit
         </UiButton>
@@ -106,6 +102,14 @@ function submitReply() {
       {{ node.message || 'This comment is no longer visible.' }}
     </p>
 
+    <ReportAction
+      v-if="currentUser && !isRemoved"
+      compact
+      :login-redirect="`/recipes/${node.recipeSlug}`"
+      :target-id="node.id"
+      target-type="comment"
+    />
+
     <form v-if="replyMode" class="grid gap-3 rounded-lg border border-border bg-card p-3" @submit.prevent="submitReply">
       <UiTextarea v-model="replyMessage" rows="3" placeholder="Write a reply" />
       <div class="flex flex-wrap gap-2">
@@ -126,9 +130,7 @@ function submitReply() {
         :depth="depth + 1"
         :node="reply"
         :pending-action-id="pendingActionId"
-        :reportable="reportable"
         @delete="emit('delete', $event)"
-        @report="emit('report', $event)"
         @reply="emit('reply', $event)"
         @update="emit('update', $event)"
       />

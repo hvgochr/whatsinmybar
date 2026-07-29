@@ -82,7 +82,12 @@ export function paginationState(options: {
   lastPage: number | null
   totalItems: number
 }): RecipePaginationState {
-  const resultStart = options.totalItems === 0 ? 0 : ((options.currentPage - 1) * options.itemsOnPage) + 1
+  const isLastKnownPage = options.lastPage !== null && options.currentPage === options.lastPage
+  const resultStart = options.totalItems === 0
+    ? 0
+    : isLastKnownPage
+      ? Math.max(1, options.totalItems - options.itemsOnPage + 1)
+      : ((options.currentPage - 1) * options.itemsOnPage) + 1
   const resultEnd = options.totalItems === 0 ? 0 : Math.min(options.totalItems, resultStart + options.itemsOnPage - 1)
   const hasPreviousPage = options.currentPage > 1
   const hasNextPage = options.lastPage

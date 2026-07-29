@@ -90,6 +90,21 @@ describe('recipe search helpers', () => {
       resultStart: 13,
       totalItems: 42
     })
+
+    expect(paginationState({
+      currentPage: 4,
+      itemsOnPage: 6,
+      lastPage: 4,
+      totalItems: 42
+    })).toEqual({
+      currentPage: 4,
+      hasNextPage: false,
+      hasPreviousPage: true,
+      lastPage: 4,
+      resultEnd: 42,
+      resultStart: 37,
+      totalItems: 42
+    })
   })
 
   it('reads API Platform pagination links', () => {

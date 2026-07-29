@@ -2,6 +2,7 @@
 import EmptyState from '../../components/common/EmptyState.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
 import RecipeImage from '../../components/recipes/RecipeImage.vue'
+import FavoriteButton from '../../components/social/FavoriteButton.vue'
 import UiButton from '../../components/ui/button/Button.vue'
 import type { RecipeResource } from '../../types/api'
 import { collectionItems } from '../../utils/api-collections'
@@ -64,6 +65,15 @@ const canEditRecipe = computed(() => {
     && (recipe.value.authorUsername === user.username || user.roles.includes('ROLE_ADMIN'))
   )
 })
+
+function updateFavorite(state: { count: number, favorited: boolean }) {
+  if (!recipe.value) {
+    return
+  }
+
+  recipe.value.favoriteCount = state.count
+  recipe.value.favorited = state.favorited
+}
 
 onMounted(async () => {
   if (auth.currentUser.value) {
@@ -233,6 +243,14 @@ function errorStatus(error: unknown): number {
               Edit recipe
             </NuxtLink>
           </UiButton>
+
+          <FavoriteButton
+            class="mt-5"
+            :count="recipe.favoriteCount"
+            :favorited="recipe.favorited"
+            :recipe-slug="recipe.slug"
+            @updated="updateFavorite"
+          />
         </aside>
       </section>
 

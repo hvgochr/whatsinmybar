@@ -4,7 +4,7 @@ export type ApiDateTime = string
 
 export type RecipeStatus = 'draft' | 'published' | 'archived'
 
-export type ModerationStatus = 'visible' | 'hidden' | 'pending_review'
+export type ModerationStatus = 'visible' | 'hidden' | 'pending_review' | 'removed'
 
 export type ReportStatus = 'open' | 'reviewing' | 'resolved' | 'rejected'
 

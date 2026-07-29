@@ -4,6 +4,8 @@ export interface CommentTreeNode extends Comment {
   replies: CommentTreeNode[]
 }
 
+export type SocialUser = Readonly<Omit<User, 'roles'> & { roles: readonly string[] }>
+
 export const reportReasonOptions: Array<{ label: string, value: ReportReason }> = [
   { label: 'Spam', value: 'spam' },
   { label: 'Abuse or harassment', value: 'abuse' },
@@ -40,7 +42,7 @@ export function buildCommentTree(comments: Comment[]): CommentTreeNode[] {
   return sortCommentNodes(roots)
 }
 
-export function canManageComment(comment: Comment, user: User | null): boolean {
+export function canManageComment(comment: Comment, user: SocialUser | null): boolean {
   return Boolean(user && (comment.authorUsername === user.username || user.roles.includes('ROLE_ADMIN')))
 }
 

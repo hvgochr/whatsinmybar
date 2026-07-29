@@ -2,6 +2,7 @@
 import EmptyState from '../../components/common/EmptyState.vue'
 import PublicPageHeader from '../../components/common/PublicPageHeader.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
+import ReportAction from '../../components/social/ReportAction.vue'
 import { collectionItems } from '../../utils/api-collections'
 import { formatPublicDate, imageUrl, publicDescription, publicUrl } from '../../utils/public-content'
 
@@ -75,6 +76,13 @@ function errorStatus(error: unknown): number {
         <p class="mt-4 text-sm font-bold text-muted-foreground">
           Member since {{ formatPublicDate(profile.createdAt) }}
         </p>
+        <div class="mt-5 max-w-sm">
+          <ReportAction
+            :login-redirect="`/users/${profile.username}`"
+            :target-id="profile.id"
+            target-type="user"
+          />
+        </div>
       </div>
     </section>
 

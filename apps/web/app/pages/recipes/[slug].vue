@@ -2,6 +2,9 @@
 import EmptyState from '../../components/common/EmptyState.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
 import RecipeImage from '../../components/recipes/RecipeImage.vue'
+import FavoriteButton from '../../components/social/FavoriteButton.vue'
+import RecipeComments from '../../components/social/RecipeComments.vue'
+import ReportAction from '../../components/social/ReportAction.vue'
 import UiButton from '../../components/ui/button/Button.vue'
 import type { RecipeResource } from '../../types/api'
 import { collectionItems } from '../../utils/api-collections'
@@ -48,7 +51,6 @@ const [{ data: commentsData }, { data: relatedRecipesData }] = await Promise.all
 ])
 
 const comments = computed(() => commentsData.value?.items ?? [])
-const visibleComments = computed(() => comments.value.filter(comment => !comment.parentId).slice(0, 6))
 const relatedRecipes = computed(() => collectionItems(relatedRecipesData.value).filter(relatedRecipe => relatedRecipe.slug !== recipe.value?.slug).slice(0, 3))
 const sortedIngredients = computed(() => [...(recipe.value?.recipeIngredients ?? [])].sort((a, b) => a.position - b.position))
 const sortedSteps = computed(() => [...(recipe.value?.steps ?? [])].sort((a, b) => a.position - b.position))
@@ -64,6 +66,15 @@ const canEditRecipe = computed(() => {
     && (recipe.value.authorUsername === user.username || user.roles.includes('ROLE_ADMIN'))
   )
 })
+
+function updateFavorite(state: { count: number, favorited: boolean }) {
+  if (!recipe.value) {
+    return
+  }
+
+  recipe.value.favoriteCount = state.count
+  recipe.value.favorited = state.favorited
+}
 
 onMounted(async () => {
   if (auth.currentUser.value) {
@@ -191,24 +202,7 @@ function errorStatus(error: unknown): number {
       </div>
 
       <section class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.4fr)]">
-        <div class="content-panel p-5 md:p-6">
-          <h2 class="section-title">
-            Community notes
-          </h2>
-          <div v-if="visibleComments.length > 0" class="mt-5 grid gap-3">
-            <article v-for="comment in visibleComments" :key="comment.id" class="rounded-lg border border-border bg-background p-4">
-              <p class="m-0 font-black">
-                {{ comment.authorUsername }}
-              </p>
-              <p class="mt-2 text-muted-foreground">
-                {{ comment.message || 'This comment is no longer visible.' }}
-              </p>
-            </article>
-          </div>
-          <p v-else class="mt-4 text-muted-foreground">
-            No public comments yet.
-          </p>
-        </div>
+        <RecipeComments :comments="comments" :recipe-slug="recipe.slug" />
 
         <aside class="content-panel p-5 md:p-6">
           <h2 class="section-title">
@@ -233,6 +227,22 @@ function errorStatus(error: unknown): number {
               Edit recipe
             </NuxtLink>
           </UiButton>
+
+          <FavoriteButton
+            class="mt-5"
+            :count="recipe.favoriteCount"
+            :favorited="recipe.favorited"
+            :recipe-slug="recipe.slug"
+            @updated="updateFavorite"
+          />
+
+          <div class="mt-3">
+            <ReportAction
+              :login-redirect="`/recipes/${recipe.slug}`"
+              :target-id="recipe.id"
+              target-type="recipe"
+            />
+          </div>
         </aside>
       </section>
 

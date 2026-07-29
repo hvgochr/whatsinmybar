@@ -4,11 +4,13 @@ export type ApiDateTime = string
 
 export type RecipeStatus = 'draft' | 'published' | 'archived'
 
-export type ModerationStatus = 'visible' | 'hidden' | 'pending_review'
+export type ModerationStatus = 'visible' | 'hidden' | 'pending_review' | 'removed'
 
-export type ReportStatus = 'open' | 'reviewed' | 'dismissed' | 'action_taken'
+export type ReportStatus = 'open' | 'reviewing' | 'resolved' | 'rejected'
 
 export type ReportTargetType = 'recipe' | 'comment' | 'user'
+
+export type ReportReason = 'spam' | 'abuse' | 'illegal_content' | 'wrong_alcohol_classification' | 'copyright' | 'other'
 
 export type IngredientUnit =
   | 'ml'
@@ -197,6 +199,7 @@ export interface RecipeResource {
   status: RecipeStatus
   moderationStatus: ModerationStatus
   favoriteCount: number
+  favorited: boolean
   publishedAt: ApiDateTime | null
   createdAt?: ApiDateTime
   updatedAt?: ApiDateTime
@@ -263,7 +266,7 @@ export interface Report {
   reporterUsername: string
   targetType: ReportTargetType
   targetId: ApiId
-  reason: string
+  reason: ReportReason
   message: string | null
   status: ReportStatus
   reviewedByUsername: string | null
@@ -275,7 +278,7 @@ export interface Report {
 export interface ReportPayload {
   targetType: ReportTargetType
   targetId: ApiId
-  reason: string
+  reason: ReportReason
   message?: string | null
 }
 

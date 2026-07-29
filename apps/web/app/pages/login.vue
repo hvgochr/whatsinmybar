@@ -4,6 +4,7 @@ import UiInput from '../components/ui/input/Input.vue'
 import { toFormErrors } from '../utils/api-errors'
 
 const auth = useAuth()
+const route = useRoute()
 
 const form = reactive({
   email: '',
@@ -12,6 +13,7 @@ const form = reactive({
 const fieldErrors = ref<Record<string, string>>({})
 const formError = ref<string | null>(null)
 const pending = ref(false)
+const loginRedirect = computed(() => safeRedirect(route.query.redirect))
 
 useSeoMeta({
   title: 'Log in | What\'s In My Bar',
@@ -32,7 +34,7 @@ async function submitLogin() {
       email: form.email,
       password: form.password
     })
-    await navigateTo('/account')
+    await navigateTo(loginRedirect.value)
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     fieldErrors.value = formErrors.fields
@@ -40,6 +42,14 @@ async function submitLogin() {
   } finally {
     pending.value = false
   }
+}
+
+function safeRedirect(value: unknown): string {
+  const redirect = Array.isArray(value) ? value[0] : value
+
+  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+    ? redirect
+    : '/account'
 }
 </script>
 

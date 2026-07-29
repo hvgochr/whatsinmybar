@@ -31,10 +31,25 @@ export type IngredientUnit =
 export interface ApiCollection<T> {
   'hydra:member'?: T[]
   'hydra:totalItems'?: number
+  'hydra:view'?: ApiCollectionView
   member?: T[]
   totalItems?: number
+  view?: ApiCollectionView
   items?: T[]
   [key: string]: unknown
+}
+
+export interface ApiCollectionView {
+  '@id'?: string
+  '@type'?: string
+  'hydra:first'?: string
+  'hydra:last'?: string
+  'hydra:next'?: string
+  'hydra:previous'?: string
+  first?: string
+  last?: string
+  next?: string
+  previous?: string
 }
 
 export interface ApiViolation {

@@ -12,6 +12,7 @@ import type {
   FavoriteState,
   Ingredient,
   LoginPayload,
+  ModerationStatus,
   PasswordChangePayload,
   PublicProfile,
   RecipeImageState,
@@ -95,7 +96,7 @@ export interface ApiClient {
     }
     reports: {
       list: () => Promise<AdminList<Report>>
-      update: (id: number, payload: Partial<Report>) => Promise<Report>
+      update: (id: number, payload: Partial<Report> & { moderationStatus?: ModerationStatus }) => Promise<Report>
     }
     users: {
       list: () => Promise<AdminList<AdminUser>>

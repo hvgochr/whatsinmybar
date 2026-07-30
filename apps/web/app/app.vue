@@ -2,6 +2,7 @@
 import UiButton from './components/ui/button/Button.vue'
 
 const auth = useAuth()
+const isAdmin = computed(() => auth.currentUser.value?.roles.includes('ROLE_ADMIN') ?? false)
 </script>
 
 <template>
@@ -25,6 +26,9 @@ const auth = useAuth()
           </div>
           <NuxtLink v-if="auth.isAuthenticated.value" class="min-h-11 px-1 py-3 font-bold text-muted-foreground hover:text-foreground" to="/account">
             Account
+          </NuxtLink>
+          <NuxtLink v-if="isAdmin" class="min-h-11 px-1 py-3 font-bold text-muted-foreground hover:text-foreground" to="/admin">
+            Admin
           </NuxtLink>
           <UiButton v-if="auth.isAuthenticated.value" as-child variant="outline" size="sm">
             <NuxtLink to="/logout">

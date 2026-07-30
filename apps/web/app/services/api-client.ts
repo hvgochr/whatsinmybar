@@ -1,5 +1,7 @@
 import type {
   AdminList,
+  AdminRecipe,
+  AdminUser,
   ApiCollection,
   ApiErrorBody,
   ApiViolation,
@@ -88,16 +90,16 @@ export interface ApiClient {
       update: (slug: string, payload: Partial<Ingredient>) => Promise<Ingredient>
     }
     recipes: {
-      list: () => Promise<AdminList<RecipeResource>>
-      update: (slug: string, payload: Partial<RecipeWorkflow>) => Promise<RecipeWorkflow>
+      list: () => Promise<AdminList<AdminRecipe>>
+      update: (slug: string, payload: Partial<AdminRecipe>) => Promise<AdminRecipe>
     }
     reports: {
       list: () => Promise<AdminList<Report>>
       update: (id: number, payload: Partial<Report>) => Promise<Report>
     }
     users: {
-      list: () => Promise<AdminList<User>>
-      update: (id: number, payload: Partial<User> & { deleted?: boolean }) => Promise<User>
+      list: () => Promise<AdminList<AdminUser>>
+      update: (id: number, payload: Partial<AdminUser>) => Promise<AdminUser>
     }
   }
   auth: {
@@ -240,16 +242,16 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
         update: (slug, payload) => request<Ingredient>(`/admin/ingredients/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
       },
       recipes: {
-        list: () => request<AdminList<RecipeResource>>('/admin/recipes'),
-        update: (slug, payload) => request<RecipeWorkflow>(`/admin/recipes/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
+        list: () => request<AdminList<AdminRecipe>>('/admin/recipes'),
+        update: (slug, payload) => request<AdminRecipe>(`/admin/recipes/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
       },
       reports: {
         list: () => request<AdminList<Report>>('/admin/reports'),
         update: (id, payload) => request<Report>(`/admin/reports/${id}`, { body: payload, method: 'PATCH' })
       },
       users: {
-        list: () => request<AdminList<User>>('/admin/users'),
-        update: (id, payload) => request<User>(`/admin/users/${id}`, { body: payload, method: 'PATCH' })
+        list: () => request<AdminList<AdminUser>>('/admin/users'),
+        update: (id, payload) => request<AdminUser>(`/admin/users/${id}`, { body: payload, method: 'PATCH' })
       }
     },
     auth: {

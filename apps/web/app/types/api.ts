@@ -82,6 +82,11 @@ export interface User {
   updatedAt: ApiDateTime
 }
 
+export interface AdminUser extends User {
+  deleted: boolean
+  deletedAt: ApiDateTime | null
+}
+
 export interface PublicProfile {
   id: ApiId
   username: string
@@ -204,6 +209,23 @@ export interface RecipeResource {
   createdAt?: ApiDateTime
   updatedAt?: ApiDateTime
   [key: string]: unknown
+}
+
+export interface AdminRecipe {
+  id: ApiId
+  title: string
+  slug: string
+  authorUsername: string | null
+  status: RecipeStatus
+  moderationStatus: ModerationStatus
+  containsAlcohol: boolean
+  containsAlcoholOverride?: boolean | null
+  favoriteCount: number
+  deleted: boolean
+  deletedAt: ApiDateTime | null
+  publishedAt: ApiDateTime | null
+  createdAt?: ApiDateTime
+  updatedAt?: ApiDateTime
 }
 
 export interface RecipeWorkflow {

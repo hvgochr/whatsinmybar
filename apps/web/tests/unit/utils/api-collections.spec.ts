@@ -20,4 +20,11 @@ describe('api collection helpers', () => {
     expect(collectionItems(collection)).toEqual([{ slug: 'classics' }])
     expect(collectionTotal(collection)).toBe(1)
   })
+
+  it('reads bare JSON arrays returned by API Platform json format', () => {
+    const collection = [{ slug: 'classics' }, { slug: 'zero-proof' }]
+
+    expect(collectionItems(collection)).toEqual(collection)
+    expect(collectionTotal(collection)).toBe(2)
+  })
 })

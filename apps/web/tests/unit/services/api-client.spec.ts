@@ -120,6 +120,29 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledTimes(3)
   })
 
+  it('maps alcohol recipe filters to boolean API query values', async () => {
+    const fetch = vi.fn(async () => ({ member: [] }))
+    const api = createTestClient(fetch, {
+      accessToken: null,
+      refreshToken: null
+    })
+
+    await api.recipes.list({ alcohol: 'with', page: 2 })
+    await api.recipes.list({ alcohol: 'without' })
+
+    expect(fetch).toHaveBeenNthCalledWith(1, '/recipes', expect.objectContaining({
+      query: {
+        alcohol: true,
+        page: 2
+      }
+    }))
+    expect(fetch).toHaveBeenNthCalledWith(2, '/recipes', expect.objectContaining({
+      query: {
+        alcohol: false
+      }
+    }))
+  })
+
   it('manages recipe workflow subresources', async () => {
     const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
       if (path === '/recipe_steps') {

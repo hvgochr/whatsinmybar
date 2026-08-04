@@ -290,7 +290,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       delete: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`, { method: 'DELETE' }),
       get: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`),
       image: (slug, file) => upload<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, 'image', file),
-      list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { query: cleanQuery(params) }),
+      list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { query: recipeSearchQuery(params) }),
       publish: (slug) => request<RecipeWorkflow>(`/recipes/${encodeURIComponent(slug)}/publish`, { method: 'POST' }),
       removeImage: (slug) => request<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, { method: 'DELETE' }),
       update: (slug, payload) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
@@ -356,6 +356,25 @@ function fetchOptions(config: ApiClientConfig, options: ApiRequestOptions): Reco
     headers: resolvedHeaders,
     query: query ? cleanQuery(query) : undefined
   }
+}
+
+function recipeSearchQuery(params: RecipeSearchParams): Record<string, string | number | boolean> {
+  return cleanQuery({
+    ...params,
+    alcohol: alcoholQueryValue(params.alcohol)
+  })
+}
+
+function alcoholQueryValue(value: RecipeSearchParams['alcohol']): boolean | undefined {
+  if (value === 'with') {
+    return true
+  }
+
+  if (value === 'without') {
+    return false
+  }
+
+  return undefined
 }
 
 function cleanQuery<T extends object>(query: T): Record<string, string | number | boolean> {

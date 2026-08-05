@@ -111,4 +111,6 @@ postgresql://app:app@postgres:5432/whatsinmybar?serverVersion=16&charset=utf8
 
 - The committed Symfony `.env` keeps a localhost database URL for non-Docker usage.
 - Docker overrides `DATABASE_URL` through Compose.
-- This stack is intentionally development-oriented. Production deployment should use a dedicated Compose file with production secrets, optimized images, and no bind mounts.
+- This stack is intentionally development-oriented.
+- Production uses `compose.prod.yaml`, optimized image targets, no source bind mounts, and untracked secrets.
+- See [`docs/docker-prod.md`](docker-prod.md) for the production build, migration, deployment, backup, and VPS checklist.

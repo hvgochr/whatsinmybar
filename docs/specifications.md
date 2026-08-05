@@ -433,6 +433,12 @@ Preferred frontend security approach:
 - rotate refresh tokens;
 - invalidate refresh tokens on logout.
 
+Current V1 implementation keeps the access token in Nuxt memory and the refresh
+token in a secure, SameSite session cookie readable by the frontend. Refresh
+tokens are single-use and rotate on refresh. Frontend logout clears local
+session state, but a server-side logout/revocation endpoint is not implemented
+yet.
+
 Roles:
 
 - `ROLE_USER`;
@@ -466,7 +472,6 @@ Representative endpoints:
 POST   /auth/register
 POST   /auth/login
 POST   /auth/refresh
-POST   /auth/logout
 GET    /me
 PATCH  /me
 PATCH  /me/password
@@ -571,8 +576,10 @@ Development:
 
 Production:
 
-- S3-compatible storage;
-- provider can be selected later, for example Scaleway Object Storage, MinIO, AWS S3, or equivalent.
+- target storage is S3-compatible;
+- provider can be selected later, for example Scaleway Object Storage, MinIO, AWS S3, or equivalent;
+- the current implementation still uses the local storage adapter and a persistent Docker volume;
+- the S3 adapter, object migration strategy, and delivery URL strategy remain to be implemented before this requirement is considered complete.
 
 Stored image types:
 
@@ -606,6 +613,16 @@ api        Symfony/PHP-FPM or FrankenPHP
 web        Nuxt server
 postgres
 ```
+
+The repository now includes:
+
+- multi-stage production targets for Symfony/FrankenPHP and Nuxt/Nitro;
+- `compose.prod.yaml` with no application source bind mounts;
+- Caddy automatic HTTPS and reverse proxy routing;
+- private PostgreSQL networking;
+- service healthchecks and restart policies;
+- named volumes for PostgreSQL, Caddy data, and current local uploads;
+- a production environment template and manual deployment runbook.
 
 Optional later services:
 
@@ -698,27 +715,40 @@ Accessibility:
 - forms must expose clear validation errors;
 - image uploads require meaningful alt text where relevant.
 
-## 13. Suggested Implementation Milestones
+## 13. Implementation Status
 
-1. Infrastructure baseline: Docker Compose, PostgreSQL, Caddy dev/prod shape, environment files.
-2. Backend quality baseline: PHPStan/Psalm, PHP-CS-Fixer, PHPUnit, CI workflow.
-3. Frontend quality baseline: ESLint, typecheck, Vitest, Playwright smoke, CI workflow.
-4. Authentication: users, registration, login, refresh tokens, profile.
-5. Core taxonomy: ingredients, categories, unit enum.
-6. Recipes: CRUD, statuses, steps, ingredients, categories, slugs.
-7. Alcohol restriction: computed alcohol flag, admin override, collection and detail enforcement.
-8. Public Nuxt pages: recipe list/detail, categories, profiles, SEO metadata, sitemap.
-9. Social features: favorites, threaded comments.
-10. Reports and admin moderation.
-11. Image uploads: avatars, recipe images, local storage, S3-compatible production abstraction.
+Implemented:
+
+1. Docker development environment with PostgreSQL, Caddy, FrankenPHP, and Nuxt.
+2. Backend and frontend quality baselines with GitHub Actions CI.
+3. JWT authentication, refresh, profile management, avatar upload, and password change.
+4. Ingredients, categories, measurement units, recipes, workflow states, steps, and measured ingredients.
+5. Alcohol computation, admin override, collection filtering, and item access enforcement.
+6. Recipe search, server filters, sorting, and frontend filter UI.
+7. Favorites, threaded comments, reports, moderation, and Nuxt administration.
+8. Public SSR pages with canonical and OpenGraph metadata.
+9. Local avatar and recipe image storage behind storage interfaces.
+10. Multi-stage production images, production Compose, Caddy HTTPS routing, healthchecks, and a manual VPS runbook.
+
+Remaining before the V1 production launch:
+
+1. Implement the dynamic sitemap required by the SEO specification.
+2. Implement and select the S3-compatible production storage adapter, or formally accept and back up local upload storage.
+3. Decide and harden the refresh-token transport for the final production threat model.
+4. Add server-side logout/revocation if refresh tokens must become unusable immediately on logout.
+5. Provision the VPS and complete DNS, firewall, SSH hardening, real TLS, monitoring, log retention, and off-site backups.
+6. Test database and upload restoration on an isolated environment.
+7. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
+8. Run a final accessibility, responsive layout, security, and end-to-end acceptance pass.
 
 ## 14. Open Decisions
 
-The following details remain to be decided during implementation:
+The following details still require a product or infrastructure decision:
 
-- exact cookie vs bearer-token transport details for Nuxt SSR;
-- exact JSON format configuration in API Platform;
-- whether recipe/category slugs are immutable after publication;
+- final cookie versus bearer-token transport details for Nuxt SSR;
+- whether recipe and category slugs become immutable after publication;
 - maximum comment nesting depth in the UI;
-- final upload size limits and image transformations;
-- production S3-compatible provider.
+- final upload transformations and image dimension policy;
+- production S3-compatible provider and public object delivery strategy;
+- public recipe pagination versus infinite loading as the long-term interaction;
+- VPS provider, domain, monitoring provider, and off-site backup destination.

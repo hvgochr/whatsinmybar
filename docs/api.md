@@ -8,7 +8,17 @@ Base URL in Docker development:
 http://localhost:8080/api
 ```
 
-All endpoints return JSON. Custom controller responses use stable plain JSON objects. API Platform resources may keep their JSON-LD collection shape in V1.
+All endpoints return JSON. Custom controller responses use stable plain JSON
+objects.
+
+API Platform supports both:
+
+- `application/json`, where collections are returned as bare JSON arrays;
+- `application/ld+json`, where collections use the Hydra/JSON-LD shape.
+
+The Nuxt collection helpers accept bare arrays, Hydra collections, and custom
+admin `{ "items": [] }` collections. New frontend calls should request or
+expect simple JSON unless JSON-LD metadata is specifically needed.
 
 ## Authentication
 
@@ -22,6 +32,11 @@ PATCH /me/password
 POST  /me/avatar
 GET   /users/{username}
 ```
+
+There is currently no server-side logout endpoint. Nuxt logout clears the
+in-memory access token and refresh-token session cookie. Because the refresh
+token is not explicitly revoked in the API at logout time, server-side
+revocation remains a production hardening task.
 
 Register payload:
 
@@ -101,6 +116,16 @@ publishedAfter
 publishedBefore
 sort=popular|newest|oldest
 ```
+
+The API contract for `alcohol` is boolean:
+
+```text
+alcohol=true
+alcohol=false
+```
+
+The browser-facing route and search form use `with` and `without`. The typed
+Nuxt API client maps those UI values to API booleans at the HTTP boundary.
 
 Workflow response:
 

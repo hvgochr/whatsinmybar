@@ -29,6 +29,10 @@ Production files:
 - `infra/docker/api/Dockerfile`: optimized Symfony/FrankenPHP production target;
 - `infra/docker/web/Dockerfile`: built Nuxt/Nitro production target.
 
+`.github/workflows/containers.yml` validates the production Compose and
+Caddy configuration and builds both production image targets when relevant
+infrastructure or dependency manifests change. It does not deploy anything.
+
 ## Prerequisites
 
 - Docker Engine with the Compose v2 plugin;

@@ -622,7 +622,8 @@ The repository now includes:
 - private PostgreSQL networking;
 - service healthchecks and restart policies;
 - named volumes for PostgreSQL, Caddy data, and current local uploads;
-- a production environment template and manual deployment runbook.
+- a production environment template and manual deployment runbook;
+- a targeted CI workflow that validates Compose/Caddy and builds both production images.
 
 Optional later services:
 
@@ -680,7 +681,7 @@ Playwright smoke tests
 
 Recommended implementation:
 
-- use Corepack/pnpm from `packageManager`;
+- use the pinned pnpm version from `packageManager`;
 - cache pnpm store;
 - run Playwright against a built Nuxt preview or dev server;
 - keep smoke tests small and focused on critical routes.

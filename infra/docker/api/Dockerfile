@@ -43,7 +43,12 @@ COPY apps/api /app
 COPY --from=production-vendor /app/vendor /app/vendor
 COPY infra/docker/api/Caddyfile.prod /etc/frankenphp/Caddyfile
 
-RUN mkdir -p /app/public/uploads /app/var \
+RUN composer dump-autoload \
+        --classmap-authoritative \
+        --no-dev \
+        --no-interaction \
+        --no-scripts \
+    && mkdir -p /app/public/uploads /app/var \
     && chown -R www-data:www-data /app/public/uploads /app/var
 
 USER www-data

@@ -1,0 +1,89 @@
+name: Production Containers CI
+
+on:
+  pull_request:
+    paths:
+      - ".dockerignore"
+      - ".env.prod.example"
+      - ".github/workflows/containers.yml"
+      - "apps/api/composer.json"
+      - "apps/api/composer.lock"
+      - "apps/api/symfony.lock"
+      - "apps/web/nuxt.config.ts"
+      - "apps/web/package.json"
+      - "apps/web/pnpm-lock.yaml"
+      - "apps/web/pnpm-workspace.yaml"
+      - "compose.prod.yaml"
+      - "infra/caddy/Caddyfile.prod"
+      - "infra/docker/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".dockerignore"
+      - ".env.prod.example"
+      - ".github/workflows/containers.yml"
+      - "apps/api/composer.json"
+      - "apps/api/composer.lock"
+      - "apps/api/symfony.lock"
+      - "apps/web/nuxt.config.ts"
+      - "apps/web/package.json"
+      - "apps/web/pnpm-lock.yaml"
+      - "apps/web/pnpm-workspace.yaml"
+      - "compose.prod.yaml"
+      - "infra/caddy/Caddyfile.prod"
+      - "infra/docker/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-containers-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  configuration:
+    name: Validate production configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate Compose
+        run: docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet
+
+      - name: Validate Caddy
+        run: >-
+          docker run --rm
+          --env APP_DOMAIN=whatsinmybar.example.com
+          --volume "${PWD}/infra/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro"
+          caddy:2-alpine
+          caddy validate --config /etc/caddy/Caddyfile
+
+  images:
+    name: Build ${{ matrix.service }} production image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            dockerfile: infra/docker/api/Dockerfile
+          - service: web
+            dockerfile: infra/docker/web/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build production image
+        run: >-
+          docker build
+          --target production
+          --file "${{ matrix.dockerfile }}"
+          --tag "whatsinmybar-${{ matrix.service }}:ci"
+          .

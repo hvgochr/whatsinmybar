@@ -1,0 +1,113 @@
+name: whatsinmybar-prod
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_config:/config
+      - caddy_data:/data
+    networks:
+      - edge
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api/Dockerfile
+      target: production
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_DEBUG: "0"
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env.prod}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:?Set CORS_ALLOW_ORIGIN in .env.prod}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.prod}
+      DEFAULT_URI: https://${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
+      SYMFONY_TRUSTED_PROXIES: 127.0.0.1,REMOTE_ADDR
+    expose:
+      - "8080"
+    volumes:
+      - api_uploads:/app/public/uploads
+    healthcheck:
+      test:
+        - CMD
+        - php
+        - -r
+        - "exit(@fsockopen('127.0.0.1', 8080) ? 0 : 1);"
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 30s
+    networks:
+      - database
+      - edge
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web/Dockerfile
+      target: production
+    restart: unless-stopped
+    environment:
+      NUXT_API_BASE_URL: http://api:8080/api
+      NUXT_PUBLIC_API_BASE_URL: /api
+      NUXT_PUBLIC_SITE_URL: https://${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/robots.txt').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - edge
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - database
+
+networks:
+  database:
+    internal: true
+  edge:
+
+volumes:
+  api_uploads:
+  caddy_config:
+  caddy_data:
+  postgres_data:

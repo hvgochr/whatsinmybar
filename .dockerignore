@@ -6,16 +6,20 @@
 
 apps/api/vendor
 apps/api/var
+apps/api/public/uploads
 apps/api/.env.local
 apps/api/.env.*.local
 
 apps/web/node_modules
+apps/web/.pnpm-store
 apps/web/.nuxt
 apps/web/.output
 apps/web/.data
 apps/web/.nitro
 apps/web/.cache
 apps/web/dist
+apps/web/playwright-report
+apps/web/test-results
 apps/web/.env
 apps/web/.env.*
 

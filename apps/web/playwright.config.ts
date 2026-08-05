@@ -18,6 +18,9 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm preview --host=127.0.0.1 --port=3000',
+    env: {
+      NUXT_API_BASE_URL: 'http://127.0.0.1:1/api'
+    },
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000

@@ -1,0 +1,26 @@
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	respond /healthz 200
+
+	@api path /api /api/* /uploads/* /bundles/*
+	handle @api {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		-Server
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	log {
+		format json
+	}
+}

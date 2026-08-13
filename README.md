@@ -58,6 +58,21 @@ docker compose run --rm web pnpm check
 GitHub Actions runs the backend and frontend checks independently on relevant
 pull requests and pushes to `main`.
 
+## AI-assisted development
+
+Repository-specific guidance for coding agents is defined in:
+
+- [`AGENTS.md`](AGENTS.md) for monorepo-wide instructions;
+- [`apps/api/AGENTS.md`](apps/api/AGENTS.md) for backend conventions;
+- [`apps/web/AGENTS.md`](apps/web/AGENTS.md) for frontend conventions.
+
+Common development and validation commands are exposed through the root
+`Makefile`.
+
+The committed `.codex/config.toml` contains project-scoped, non-secret Codex
+configuration. Personal preferences, credentials and reusable MCP servers must
+remain in the developer's local Codex configuration.
+
 ## Documentation
 
 - [Functional and technical specifications](docs/specifications.md)

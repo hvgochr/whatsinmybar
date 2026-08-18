@@ -11,6 +11,7 @@ use App\Enum\RecipeStatus;
 use App\Repository\CategoryRepository;
 use App\Repository\IngredientRepository;
 use App\Repository\RecipeRepository;
+use App\Service\RecipeAlcoholClassificationUpdater;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -136,7 +137,7 @@ final class AdminMutationController extends AbstractController
     }
 
     #[Route('/api/admin/ingredients/{slug}', name: 'api_admin_ingredients_update', methods: ['PATCH'])]
-    public function updateIngredient(string $slug, Request $request, IngredientRepository $ingredientRepository, ValidatorInterface $validator, EntityManagerInterface $entityManager): JsonResponse
+    public function updateIngredient(string $slug, Request $request, IngredientRepository $ingredientRepository, ValidatorInterface $validator, EntityManagerInterface $entityManager, RecipeAlcoholClassificationUpdater $classificationUpdater): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
@@ -145,11 +146,16 @@ final class AdminMutationController extends AbstractController
             throw $this->createNotFoundException('Ingredient not found.');
         }
 
-        $this->applyIngredientPayload($ingredient, $this->decodeJson($request), partial: true);
+        $payload = $this->decodeJson($request);
+        $this->applyIngredientPayload($ingredient, $payload, partial: true);
 
         $violations = $validator->validate($ingredient);
         if ($violations->count() > 0) {
             return $this->validationErrorResponse($violations);
+        }
+
+        if (array_key_exists('containsAlcohol', $payload)) {
+            $classificationUpdater->recalculateForIngredient($ingredient);
         }
 
         $entityManager->flush();

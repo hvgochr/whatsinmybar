@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Ingredient;
 use App\Entity\Recipe;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -26,6 +27,23 @@ final class RecipeRepository extends ServiceEntityRepository
             ->addSelect('author')
             ->orderBy('recipe.updatedAt', 'DESC')
             ->addOrderBy('recipe.id', 'DESC')
+            ->getQuery()
+            ->getResult()
+        ;
+    }
+
+    /**
+     * @return list<Recipe>
+     */
+    public function findUsingIngredient(Ingredient $ingredient): array
+    {
+        return $this->createQueryBuilder('recipe')
+            ->innerJoin('recipe.recipeIngredients', 'matchingRecipeIngredient', 'WITH', 'matchingRecipeIngredient.ingredient = :ingredient')
+            ->leftJoin('recipe.recipeIngredients', 'recipeIngredient')
+            ->addSelect('recipeIngredient')
+            ->leftJoin('recipeIngredient.ingredient', 'ingredient')
+            ->addSelect('ingredient')
+            ->setParameter('ingredient', $ingredient)
             ->getQuery()
             ->getResult()
         ;

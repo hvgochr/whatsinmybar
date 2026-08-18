@@ -156,6 +156,11 @@ Favorite response:
 
 Recipe image upload is multipart with the `image` file field.
 
+`containsAlcoholComputed` and `containsAlcoholOverride` are read-only on the
+general recipe create and update operations. The computed value follows the
+recipe's ingredients. Only administrators can set or clear
+`containsAlcoholOverride`, through `PATCH /admin/recipes/{slug}`.
+
 ## Comments
 
 ```text

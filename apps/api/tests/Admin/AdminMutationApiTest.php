@@ -3,6 +3,7 @@
 namespace App\Tests\Admin;
 
 use App\Entity\Recipe;
+use App\Entity\RefreshToken;
 use App\Entity\User;
 use App\Enum\RecipeStatus;
 use Doctrine\ORM\EntityManagerInterface;
@@ -18,6 +19,9 @@ final class AdminMutationApiTest extends WebTestCase
         $client = static::createClient();
         $adminToken = $this->loginAsUser($client, ['ROLE_ADMIN']);
         $user = $this->createUser();
+        $userTokens = $this->loginExistingUser($client, $user);
+
+        self::assertGreaterThan(0, $this->refreshTokenCount($user));
 
         $client->jsonRequest('PATCH', '/api/admin/users/'.$user->getId(), [
             'roles' => ['ROLE_ADMIN', 'ROLE_USER'],
@@ -32,6 +36,13 @@ final class AdminMutationApiTest extends WebTestCase
         self::assertContains('ROLE_ADMIN', $payload['roles']);
         self::assertTrue($payload['deleted']);
         self::assertIsString($payload['deletedAt']);
+        self::assertSame(0, $this->refreshTokenCount($user));
+
+        $client->request('GET', '/api/me', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$userTokens['token'],
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
 
         $client->jsonRequest('PATCH', '/api/admin/users/'.$user->getId(), [
             'deleted' => false,
@@ -44,6 +55,9 @@ final class AdminMutationApiTest extends WebTestCase
         $payload = $this->jsonResponse($client);
         self::assertFalse($payload['deleted']);
         self::assertNull($payload['deletedAt']);
+
+        $this->loginExistingUser($client, $user);
+        self::assertResponseIsSuccessful();
     }
 
     public function testAdminCanModerateRecipe(): void
@@ -152,6 +166,32 @@ final class AdminMutationApiTest extends WebTestCase
         self::assertIsString($payload['token']);
 
         return $payload['token'];
+    }
+
+    /**
+     * @return array{token: string, refresh_token: string}
+     */
+    private function loginExistingUser(KernelBrowser $client, User $user): array
+    {
+        $client->jsonRequest('POST', '/api/auth/login', [
+            'email' => $user->getEmail(),
+            'password' => 'very-secure-password',
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsString($payload['token']);
+        self::assertIsString($payload['refresh_token']);
+
+        return $payload;
+    }
+
+    private function refreshTokenCount(User $user): int
+    {
+        return static::getContainer()->get(EntityManagerInterface::class)->getRepository(RefreshToken::class)->count([
+            'username' => $user->getUserIdentifier(),
+        ]);
     }
 
     /**

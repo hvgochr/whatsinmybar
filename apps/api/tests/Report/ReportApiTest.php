@@ -4,6 +4,7 @@ namespace App\Tests\Report;
 
 use App\Entity\Comment;
 use App\Entity\Recipe;
+use App\Entity\RefreshToken;
 use App\Entity\User;
 use App\Enum\CommentModerationStatus;
 use App\Enum\RecipeModerationStatus;
@@ -154,7 +155,10 @@ final class ReportApiTest extends WebTestCase
         $reporterToken = $this->loginAsUser($client);
         $adminToken = $this->loginAsUser($client, roles: ['ROLE_ADMIN']);
         $targetUser = $this->createUser('very-secure-password');
+        $targetTokens = $this->loginExistingUser($client, $targetUser);
         $reportId = $this->createUserReport($client, $reporterToken, $targetUser);
+
+        self::assertGreaterThan(0, $this->refreshTokenCount($targetUser));
 
         $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
             'status' => 'resolved',
@@ -171,6 +175,13 @@ final class ReportApiTest extends WebTestCase
         $storedUser = static::getContainer()->get(UserRepository::class)->find($targetUser->getId());
         self::assertInstanceOf(User::class, $storedUser);
         self::assertNotNull($storedUser->getDeletedAt());
+        self::assertSame(0, $this->refreshTokenCount($storedUser));
+
+        $client->request('GET', '/api/me', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$targetTokens['token'],
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
 
         $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
             'moderationStatus' => 'visible',
@@ -185,6 +196,9 @@ final class ReportApiTest extends WebTestCase
         $storedUser = static::getContainer()->get(UserRepository::class)->find($targetUser->getId());
         self::assertInstanceOf(User::class, $storedUser);
         self::assertNull($storedUser->getDeletedAt());
+
+        $this->loginExistingUser($client, $storedUser);
+        self::assertResponseIsSuccessful();
     }
 
     public function testNonAdminCannotListReports(): void
@@ -291,6 +305,32 @@ final class ReportApiTest extends WebTestCase
         self::assertIsString($payload['token']);
 
         return $payload['token'];
+    }
+
+    /**
+     * @return array{token: string, refresh_token: string}
+     */
+    private function loginExistingUser(KernelBrowser $client, User $user): array
+    {
+        $client->jsonRequest('POST', '/api/auth/login', [
+            'email' => $user->getEmail(),
+            'password' => 'very-secure-password',
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse($client);
+        self::assertIsString($payload['token']);
+        self::assertIsString($payload['refresh_token']);
+
+        return $payload;
+    }
+
+    private function refreshTokenCount(User $user): int
+    {
+        return static::getContainer()->get(EntityManagerInterface::class)->getRepository(RefreshToken::class)->count([
+            'username' => $user->getUserIdentifier(),
+        ]);
     }
 
     /**

@@ -101,6 +101,7 @@ final class AdminCatalogController extends AbstractController
             'status' => $recipe->getStatus()->value,
             'moderationStatus' => $recipe->getModerationStatus()->value,
             'containsAlcohol' => $recipe->containsAlcohol(),
+            'containsAlcoholOverride' => $recipe->getContainsAlcoholOverride(),
             'favoriteCount' => $recipe->getFavoriteCount(),
             'deleted' => null !== $recipe->getDeletedAt(),
             'deletedAt' => $recipe->getDeletedAt()?->format(DATE_ATOM),

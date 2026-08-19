@@ -10,8 +10,6 @@ import type {
 } from '../types/api'
 import { categorySlug, ingredientSlug } from './public-content'
 
-export type AlcoholOverrideValue = 'auto' | 'contains_alcohol' | 'alcohol_free'
-
 export interface RecipeStepFormRow {
   id?: number
   instruction: string
@@ -27,7 +25,6 @@ export interface RecipeIngredientFormRow {
 
 export interface RecipeFormState {
   categories: string[]
-  containsAlcoholOverride: AlcoholOverrideValue
   description: string
   difficulty: 'easy' | 'medium' | 'hard'
   ingredients: RecipeIngredientFormRow[]
@@ -58,7 +55,6 @@ export const ingredientUnitOptions: Array<{ label: string, value: IngredientUnit
 export function createEmptyRecipeForm(): RecipeFormState {
   return {
     categories: [],
-    containsAlcoholOverride: 'auto',
     description: '',
     difficulty: 'easy',
     ingredients: [createEmptyIngredientRow()],
@@ -87,7 +83,6 @@ export function createEmptyIngredientRow(): RecipeIngredientFormRow {
 export function recipeToForm(recipe: RecipeResource): RecipeFormState {
   return {
     categories: (recipe.categories ?? []).map(categorySlug),
-    containsAlcoholOverride: overrideToFormValue(recipe.containsAlcoholOverride),
     description: recipe.description ?? '',
     difficulty: difficultyToFormValue(recipe.difficulty),
     ingredients: normalizeRecipeIngredients(recipe.recipeIngredients),
@@ -101,7 +96,6 @@ export function recipeToForm(recipe: RecipeResource): RecipeFormState {
 export function buildRecipePayload(form: RecipeFormState): RecipePayload {
   return {
     categories: form.categories.map(categoryIri),
-    containsAlcoholOverride: overrideFromFormValue(form.containsAlcoholOverride),
     description: form.description.trim(),
     difficulty: form.difficulty,
     preparationTimeMinutes: Number(form.preparationTimeMinutes),
@@ -179,30 +173,6 @@ function normalizeRecipeIngredients(recipeIngredients: RecipeIngredient[] | unde
     }))
 
   return rows.length > 0 ? rows : [createEmptyIngredientRow()]
-}
-
-function overrideToFormValue(override: boolean | null | undefined): AlcoholOverrideValue {
-  if (override === true) {
-    return 'contains_alcohol'
-  }
-
-  if (override === false) {
-    return 'alcohol_free'
-  }
-
-  return 'auto'
-}
-
-function overrideFromFormValue(value: AlcoholOverrideValue): boolean | null {
-  if (value === 'contains_alcohol') {
-    return true
-  }
-
-  if (value === 'alcohol_free') {
-    return false
-  }
-
-  return null
 }
 
 function difficultyToFormValue(value: string | null): RecipeFormState['difficulty'] {

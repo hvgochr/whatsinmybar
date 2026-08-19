@@ -24,6 +24,8 @@ final class AdminCatalogApiTest extends WebTestCase
         $category = $this->createCategory();
         $ingredient = $this->createIngredient();
         $recipe = $this->createRecipe($user);
+        $recipe->setContainsAlcoholOverride(false);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
 
         $client->request('GET', '/api/admin/users', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
@@ -37,7 +39,16 @@ final class AdminCatalogApiTest extends WebTestCase
         ]);
 
         self::assertResponseIsSuccessful();
-        self::assertContains($recipe->getSlug(), array_column($this->jsonResponse($client)['items'], 'slug'));
+        $recipeRows = $this->jsonResponse($client)['items'];
+        self::assertContains($recipe->getSlug(), array_column($recipeRows, 'slug'));
+        $matchingRecipeRows = array_values(array_filter(
+            $recipeRows,
+            static fn (mixed $row): bool => is_array($row) && ($row['slug'] ?? null) === $recipe->getSlug(),
+        ));
+        self::assertCount(1, $matchingRecipeRows);
+        $recipeRow = $matchingRecipeRows[0];
+        self::assertIsArray($recipeRow);
+        self::assertFalse($recipeRow['containsAlcoholOverride']);
 
         $client->request('GET', '/api/admin/categories', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,

@@ -17,12 +17,10 @@ describe('recipe form helpers', () => {
     form.difficulty = 'medium'
     form.preparationTimeMinutes = 4
     form.servings = 1
-    form.containsAlcoholOverride = 'contains_alcohol'
     form.categories = ['classics', 'aperitif']
 
     expect(buildRecipePayload(form)).toEqual({
       categories: ['/api/categories/classics', '/api/categories/aperitif'],
-      containsAlcoholOverride: true,
       description: 'Stirred classic',
       difficulty: 'medium',
       preparationTimeMinutes: 4,
@@ -84,7 +82,6 @@ describe('recipe form helpers', () => {
 
     expect(recipeToForm(recipe)).toMatchObject({
       categories: ['classics'],
-      containsAlcoholOverride: 'alcohol_free',
       difficulty: 'hard',
       ingredients: [{ ingredientSlug: 'gin', quantity: '45.00' }],
       steps: [{ instruction: 'Stir.' }]

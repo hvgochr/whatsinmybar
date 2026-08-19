@@ -178,7 +178,6 @@ export interface RecipePayload {
   difficulty?: string | null
   preparationTimeMinutes?: number | null
   servings?: number | null
-  containsAlcoholOverride?: boolean | null
   status?: RecipeStatus
   steps?: RecipeStepPayload[]
   ingredients?: RecipeIngredientPayload[]

@@ -319,7 +319,6 @@ function clearMessages() {
 
 function replaceForm(nextForm: RecipeFormState) {
   form.categories = [...nextForm.categories]
-  form.containsAlcoholOverride = nextForm.containsAlcoholOverride
   form.description = nextForm.description
   form.difficulty = nextForm.difficulty
   form.ingredients = nextForm.ingredients.map(row => ({ ...row }))
@@ -428,19 +427,6 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
           </FormField>
         </div>
 
-        <FormField id="recipe-alcohol-override" label="Alcohol visibility">
-          <select id="recipe-alcohol-override" v-model="form.containsAlcoholOverride" class="min-h-12 w-full rounded-lg border border-input bg-background px-3.5 py-3 text-foreground" name="containsAlcoholOverride">
-            <option value="auto">
-              Calculate from ingredients
-            </option>
-            <option value="contains_alcohol">
-              Mark as alcoholic
-            </option>
-            <option value="alcohol_free">
-              Mark as alcohol-free
-            </option>
-          </select>
-        </FormField>
       </div>
     </section>
 

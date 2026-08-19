@@ -54,6 +54,42 @@ final class RecipeApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    public function testAuthorCannotSetOrChangeAlcoholOverride(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $suffix = bin2hex(random_bytes(4));
+        $slug = sprintf('protected-override-%s', $suffix);
+
+        $client->jsonRequest('POST', '/api/recipes', [
+            'title' => sprintf('Protected Override %s', $suffix),
+            'description' => 'A recipe whose classification is controlled by administrators.',
+            'containsAlcoholOverride' => true,
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertNull($this->jsonResponse($client)['containsAlcoholOverride']);
+
+        $recipe = static::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(\App\Entity\Recipe::class)
+            ->findOneBy(['slug' => $slug]);
+        self::assertInstanceOf(\App\Entity\Recipe::class, $recipe);
+        $recipe->setContainsAlcoholOverride(true);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->jsonRequest('PATCH', '/api/recipes/'.$slug, [
+            'containsAlcoholOverride' => false,
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse($client)['containsAlcoholOverride']);
+    }
+
     public function testPublishedRecipeIsVisibleInPublicCollection(): void
     {
         $client = static::createClient();

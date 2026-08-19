@@ -100,7 +100,7 @@ class Recipe
     private bool $containsAlcoholComputed = false;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['recipe:read', 'recipe:write'])]
+    #[Groups(['recipe:read'])]
     private ?bool $containsAlcoholOverride = null;
 
     #[ORM\Column(length: 255, nullable: true)]

@@ -2,7 +2,9 @@
 
 namespace App\Tests\Admin;
 
+use App\Entity\Ingredient;
 use App\Entity\Recipe;
+use App\Entity\RecipeIngredient;
 use App\Entity\User;
 use App\Enum\RecipeStatus;
 use Doctrine\ORM\EntityManagerInterface;
@@ -66,6 +68,50 @@ final class AdminMutationApiTest extends WebTestCase
         self::assertSame('archived', $payload['status']);
         self::assertSame('hidden', $payload['moderationStatus']);
         self::assertTrue($payload['containsAlcoholOverride']);
+
+        foreach ([false, null] as $override) {
+            $client->jsonRequest('PATCH', '/api/admin/recipes/'.$recipe->getSlug(), [
+                'containsAlcoholOverride' => $override,
+            ], server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+            ]);
+
+            self::assertResponseIsSuccessful();
+            self::assertSame($override, $this->jsonResponse($client)['containsAlcoholOverride']);
+        }
+    }
+
+    public function testChangingIngredientAlcoholStatusRecalculatesEveryAffectedRecipe(): void
+    {
+        $client = static::createClient();
+        $this->clearTaxonomy();
+        $adminToken = $this->loginAsUser($client, ['ROLE_ADMIN']);
+        $ingredient = $this->createIngredient(false);
+        $recipes = [
+            $this->createRecipeWithIngredient($this->createUser(), $ingredient),
+            $this->createRecipeWithIngredient($this->createUser(), $ingredient),
+        ];
+        $alwaysAlcoholicIngredient = $this->createIngredient(true);
+        $this->addIngredientToRecipe($recipes[0], $alwaysAlcoholicIngredient, 2);
+
+        foreach ([true, false] as $index => $containsAlcohol) {
+            $path = 0 === $index ? '/api/admin/ingredients/' : '/api/ingredients/';
+            $client->jsonRequest('PATCH', $path.$ingredient->getSlug(), [
+                'containsAlcohol' => $containsAlcohol,
+            ], server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+                'CONTENT_TYPE' => 'application/merge-patch+json',
+            ]);
+
+            self::assertResponseIsSuccessful();
+
+            $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+            foreach ($recipes as $recipeIndex => $recipe) {
+                $updatedRecipe = $entityManager->find(Recipe::class, $recipe->getId());
+                self::assertInstanceOf(Recipe::class, $updatedRecipe);
+                self::assertSame($containsAlcohol || 0 === $recipeIndex, $updatedRecipe->containsAlcoholComputed());
+            }
+        }
     }
 
     public function testAdminCanCreateAndUpdateCategoryAndIngredient(): void
@@ -191,6 +237,39 @@ final class AdminMutationApiTest extends WebTestCase
         $entityManager->flush();
 
         return $recipe;
+    }
+
+    private function createIngredient(bool $containsAlcohol): Ingredient
+    {
+        $ingredient = new Ingredient();
+        $ingredient->setName('Shared Ingredient '.bin2hex(random_bytes(4)));
+        $ingredient->setContainsAlcohol($containsAlcohol);
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist($ingredient);
+        $entityManager->flush();
+
+        return $ingredient;
+    }
+
+    private function createRecipeWithIngredient(User $author, Ingredient $ingredient): Recipe
+    {
+        $recipe = $this->createRecipe($author);
+        $this->addIngredientToRecipe($recipe, $ingredient, 1);
+
+        return $recipe;
+    }
+
+    private function addIngredientToRecipe(Recipe $recipe, Ingredient $ingredient, int $position): void
+    {
+        $recipeIngredient = new RecipeIngredient();
+        $recipeIngredient->setIngredient($ingredient);
+        $recipeIngredient->setPosition($position);
+        $recipe->addRecipeIngredient($recipeIngredient);
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist($recipeIngredient);
+        $entityManager->flush();
     }
 
     private function clearTaxonomy(): void

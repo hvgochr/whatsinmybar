@@ -24,6 +24,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class ReportController extends AbstractController
 {
@@ -34,6 +37,7 @@ final class ReportController extends AbstractController
         RecipeRepository $recipeRepository,
         CommentRepository $commentRepository,
         UserRepository $userRepository,
+        ValidatorInterface $validator,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         if (!$user instanceof User) {
@@ -41,6 +45,34 @@ final class ReportController extends AbstractController
         }
 
         $payload = $this->decodeJson($request);
+        $violations = $validator->validate($payload, new Assert\Collection(
+            fields: [
+                'targetType' => new Assert\Required([
+                    new Assert\NotNull(),
+                    new Assert\Type('string'),
+                    new Assert\NotBlank(),
+                ]),
+                'targetId' => new Assert\Required([
+                    new Assert\NotNull(),
+                    new Assert\Type('integer'),
+                    new Assert\Positive(),
+                ]),
+                'reason' => new Assert\Required([
+                    new Assert\NotNull(),
+                    new Assert\Type('string'),
+                    new Assert\NotBlank(),
+                ]),
+                'message' => new Assert\Optional([
+                    new Assert\Type('string'),
+                ]),
+            ],
+            allowExtraFields: false,
+        ));
+
+        if ($violations->count() > 0) {
+            return $this->validationErrorResponse($violations);
+        }
+
         $targetType = $this->targetType((string) ($payload['targetType'] ?? ''));
         $targetId = (int) ($payload['targetId'] ?? 0);
         $reason = $this->reason((string) ($payload['reason'] ?? ''));
@@ -49,6 +81,11 @@ final class ReportController extends AbstractController
 
         $report = new Report($user, $targetType, $targetId, $reason);
         $report->setMessage(isset($payload['message']) ? (string) $payload['message'] : null);
+
+        $violations = $validator->validate($report);
+        if ($violations->count() > 0) {
+            return $this->validationErrorResponse($violations);
+        }
 
         $entityManager->persist($report);
         $entityManager->flush();
@@ -246,5 +283,27 @@ final class ReportController extends AbstractController
     private function status(string $value): ReportStatus
     {
         return ReportStatus::tryFrom($value) ?? throw new BadRequestHttpException('Invalid report status.');
+    }
+
+    private function validationErrorResponse(ConstraintViolationListInterface $violations): JsonResponse
+    {
+        $errors = [];
+
+        foreach ($violations as $violation) {
+            $errors[] = [
+                'property' => $violation->getPropertyPath(),
+                'message' => $violation->getMessage(),
+            ];
+        }
+
+        return $this->json([
+            'error' => [
+                'status' => JsonResponse::HTTP_UNPROCESSABLE_ENTITY,
+                'code' => 'validation_failed',
+                'message' => 'Validation failed.',
+                'violations' => $errors,
+            ],
+            'errors' => $errors,
+        ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

@@ -193,6 +193,12 @@ Comment payload:
 }
 ```
 
+Comment creation accepts only `message` (required string, 2,000 characters
+maximum) and `parentId` (optional positive integer or `null`). Comment updates
+accept only `message` and `moderationStatus`; omitted fields remain unchanged.
+Blank or non-string messages and undeclared fields return a `422` validation
+error.
+
 Deleted or hidden comments return `message: null`.
 
 ## Reports
@@ -220,6 +226,11 @@ Report payload:
   "updatedAt": "2026-07-25T10:00:00+00:00"
 }
 ```
+
+Report creation requires string `targetType` and `reason` fields plus a positive
+integer `targetId`. The optional `message` must be a string or `null` and is
+limited to 2,000 characters; blank messages are stored as `null`. Undeclared
+fields return a `422` validation error.
 
 ## Admin
 

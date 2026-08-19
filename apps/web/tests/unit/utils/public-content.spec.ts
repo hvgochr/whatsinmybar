@@ -17,8 +17,21 @@ describe('public content helpers', () => {
     })).toBe('45 ml Gin chilled')
   })
 
-  it('normalizes relative upload image URLs against the API base URL', () => {
-    expect(imageUrl('/uploads/recipes/negroni.jpg', 'http://localhost:8080/api')).toBe('http://localhost:8080/uploads/recipes/negroni.jpg')
+  it.each([
+    ['/api', '/uploads/recipes/negroni.jpg'],
+    ['/api/', '/uploads/recipes/negroni.jpg'],
+    ['http://localhost:8080/api', 'http://localhost:8080/uploads/recipes/negroni.jpg'],
+    ['http://localhost:8080/api/', 'http://localhost:8080/uploads/recipes/negroni.jpg']
+  ])('normalizes upload image URLs with API base %s', (apiBaseUrl, expected) => {
+    expect(imageUrl('/uploads/recipes/negroni.jpg', apiBaseUrl)).toBe(expected)
+  })
+
+  it('returns absolute image URLs unchanged', () => {
+    expect(imageUrl('https://cdn.example.com/recipes/negroni.jpg', '/api')).toBe('https://cdn.example.com/recipes/negroni.jpg')
+  })
+
+  it('returns non-upload paths unchanged', () => {
+    expect(imageUrl('/images/negroni.jpg', '/api')).toBe('/images/negroni.jpg')
   })
 
   it('builds canonical public URLs', () => {

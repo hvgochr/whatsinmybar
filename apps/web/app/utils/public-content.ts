@@ -87,6 +87,10 @@ export function imageUrl(path: string | null | undefined, apiBaseUrl: string): s
   }
 
   if (path.startsWith('/uploads/')) {
+    if (!/^https?:\/\//.test(apiBaseUrl)) {
+      return path
+    }
+
     return new URL(path, apiBaseUrl.endsWith('/') ? apiBaseUrl : `${apiBaseUrl}/`).toString()
   }
 

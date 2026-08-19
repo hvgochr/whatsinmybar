@@ -5,6 +5,7 @@ namespace App\Tests\Report;
 use App\Entity\Comment;
 use App\Entity\Recipe;
 use App\Entity\RefreshToken;
+use App\Entity\Report;
 use App\Entity\User;
 use App\Enum\CommentModerationStatus;
 use App\Enum\RecipeModerationStatus;
@@ -20,6 +21,91 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class ReportApiTest extends WebTestCase
 {
+    public function testReportMessageLengthIsEnforced(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+
+        $client->jsonRequest('POST', '/api/reports', [
+            'targetType' => 'recipe',
+            'targetId' => $recipe->getId(),
+            'reason' => 'spam',
+            'message' => str_repeat('a', 2000),
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $client->jsonRequest('POST', '/api/reports', [
+            'targetType' => 'recipe',
+            'targetId' => $recipe->getId(),
+            'reason' => 'spam',
+            'message' => str_repeat('a', 2001),
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertValidationError($client);
+        self::assertSame(1, static::getContainer()->get(EntityManagerInterface::class)->getRepository(Report::class)->count([]));
+    }
+
+    public function testReportPayloadIsStrictlyValidated(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+
+        foreach ([
+            [],
+            ['targetType' => '', 'targetId' => $recipe->getId(), 'reason' => 'spam'],
+            ['targetType' => null, 'targetId' => $recipe->getId(), 'reason' => 'spam'],
+            ['targetType' => 'recipe', 'targetId' => (string) $recipe->getId(), 'reason' => 'spam'],
+            ['targetType' => 'recipe', 'targetId' => $recipe->getId(), 'reason' => ['spam']],
+            ['targetType' => 'recipe', 'targetId' => $recipe->getId(), 'reason' => 'spam', 'message' => 123],
+            ['targetType' => 'recipe', 'targetId' => $recipe->getId(), 'reason' => 'spam', 'unexpected' => true],
+        ] as $payload) {
+            $client->jsonRequest('POST', '/api/reports', $payload, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+            $this->assertValidationError($client);
+        }
+
+        self::assertSame(0, static::getContainer()->get(EntityManagerInterface::class)->getRepository(Report::class)->count([]));
+    }
+
+    public function testReportMessageMayBeEmptyMissingOrNull(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+
+        foreach (['missing', '', null] as $message) {
+            $payload = [
+                'targetType' => 'recipe',
+                'targetId' => $recipe->getId(),
+                'reason' => 'spam',
+            ];
+            if ('missing' !== $message) {
+                $payload['message'] = $message;
+            }
+
+            $client->jsonRequest('POST', '/api/reports', $payload, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+            self::assertNull($this->jsonResponse($client)['message']);
+        }
+    }
+
     public function testUserCanCreateReportForVisibleRecipe(): void
     {
         $client = static::createClient();
@@ -407,5 +493,15 @@ final class ReportApiTest extends WebTestCase
         self::assertIsArray($payload);
 
         return $payload;
+    }
+
+    private function assertValidationError(KernelBrowser $client): void
+    {
+        $payload = $this->jsonResponse($client);
+
+        self::assertSame(422, $payload['error']['status']);
+        self::assertSame('validation_failed', $payload['error']['code']);
+        self::assertSame('Validation failed.', $payload['error']['message']);
+        self::assertNotEmpty($payload['error']['violations']);
     }
 }

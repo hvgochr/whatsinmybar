@@ -2,6 +2,7 @@
 
 namespace App\Tests\Comment;
 
+use App\Entity\Comment;
 use App\Entity\Recipe;
 use App\Entity\User;
 use App\Enum\RecipeStatus;
@@ -13,6 +14,98 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class CommentApiTest extends WebTestCase
 {
+    public function testCommentMessageLengthIsEnforcedOnCreateAndUpdate(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $maximumLengthMessage = str_repeat('a', 2000);
+
+        $commentId = $this->createComment($client, $token, $recipe, $maximumLengthMessage);
+
+        $client->jsonRequest('POST', '/api/recipes/'.$recipe->getSlug().'/comments', [
+            'message' => str_repeat('a', 2001),
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertValidationError($client);
+
+        $client->jsonRequest('PATCH', '/api/comments/'.$commentId, [
+            'message' => str_repeat('a', 2001),
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertValidationError($client);
+
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->clear();
+        $storedComment = $entityManager->getRepository(Comment::class)->find($commentId);
+
+        self::assertInstanceOf(Comment::class, $storedComment);
+        self::assertSame($maximumLengthMessage, $storedComment->getMessage());
+        self::assertSame(1, $entityManager->getRepository(Comment::class)->count([]));
+    }
+
+    public function testCommentCreatePayloadIsStrictlyValidated(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+
+        foreach ([
+            [],
+            ['message' => '   '],
+            ['message' => null],
+            ['message' => 123],
+            ['message' => 'Valid message', 'unexpected' => true],
+        ] as $payload) {
+            $client->jsonRequest('POST', '/api/recipes/'.$recipe->getSlug().'/comments', $payload, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+            $this->assertValidationError($client);
+        }
+
+        self::assertSame(0, static::getContainer()->get(EntityManagerInterface::class)->getRepository(Comment::class)->count([]));
+    }
+
+    public function testCommentUpdateAllowsMissingMessageButRejectsInvalidValuesAndUnexpectedFields(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $commentId = $this->createComment($client, $token, $recipe, 'Original message');
+
+        $client->jsonRequest('PATCH', '/api/comments/'.$commentId, [], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Original message', $this->jsonResponse($client)['message']);
+
+        foreach ([
+            ['message' => ''],
+            ['message' => null],
+            ['message' => ['not a string']],
+            ['unexpected' => true],
+        ] as $payload) {
+            $client->jsonRequest('PATCH', '/api/comments/'.$commentId, $payload, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+            $this->assertValidationError($client);
+        }
+    }
+
     public function testUserCanCreateThreadedCommentsOnPublishedRecipe(): void
     {
         $client = static::createClient();
@@ -298,5 +391,15 @@ final class CommentApiTest extends WebTestCase
         self::assertIsArray($payload);
 
         return $payload;
+    }
+
+    private function assertValidationError(KernelBrowser $client): void
+    {
+        $payload = $this->jsonResponse($client);
+
+        self::assertSame(422, $payload['error']['status']);
+        self::assertSame('validation_failed', $payload['error']['code']);
+        self::assertSame('Validation failed.', $payload['error']['message']);
+        self::assertNotEmpty($payload['error']['violations']);
     }
 }

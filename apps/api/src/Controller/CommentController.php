@@ -17,6 +17,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class CommentController extends AbstractController
 {
@@ -41,6 +44,7 @@ final class CommentController extends AbstractController
         #[CurrentUser] ?User $user,
         RecipeRepository $recipeRepository,
         CommentRepository $commentRepository,
+        ValidatorInterface $validator,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         if (!$user instanceof User) {
@@ -55,13 +59,27 @@ final class CommentController extends AbstractController
         }
 
         $payload = $this->decodeJson($request);
-        $message = trim((string) ($payload['message'] ?? ''));
-        if ('' === $message) {
-            throw new BadRequestHttpException('Comment message is required.');
+        $violations = $validator->validate($payload, new Assert\Collection(
+            fields: [
+                'message' => new Assert\Required([
+                    new Assert\NotNull(),
+                    new Assert\Type('string'),
+                    new Assert\NotBlank(),
+                ]),
+                'parentId' => new Assert\Optional([
+                    new Assert\Type('integer'),
+                    new Assert\Positive(),
+                ]),
+            ],
+            allowExtraFields: false,
+        ));
+
+        if ($violations->count() > 0) {
+            return $this->validationErrorResponse($violations);
         }
 
         $comment = new Comment($recipe, $user);
-        $comment->setMessage($message);
+        $comment->setMessage((string) $payload['message']);
 
         if (isset($payload['parentId'])) {
             $parent = $commentRepository->find((int) $payload['parentId']);
@@ -70,6 +88,11 @@ final class CommentController extends AbstractController
             }
 
             $comment->setParent($parent);
+        }
+
+        $violations = $validator->validate($comment);
+        if ($violations->count() > 0) {
+            return $this->validationErrorResponse($violations);
         }
 
         $entityManager->persist($comment);
@@ -83,6 +106,7 @@ final class CommentController extends AbstractController
         Comment $comment,
         Request $request,
         #[CurrentUser] ?User $user,
+        ValidatorInterface $validator,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         $this->denyUnlessCommentCanBeManaged($comment, $user);
@@ -92,14 +116,28 @@ final class CommentController extends AbstractController
         }
 
         $payload = $this->decodeJson($request);
+        $violations = $validator->validate($payload, new Assert\Collection(
+            fields: [
+                'message' => new Assert\Optional([
+                    new Assert\NotNull(),
+                    new Assert\Type('string'),
+                    new Assert\NotBlank(),
+                ]),
+                'moderationStatus' => new Assert\Optional([
+                    new Assert\NotNull(),
+                    new Assert\Type('string'),
+                ]),
+            ],
+            allowExtraFields: false,
+            allowMissingFields: true,
+        ));
+
+        if ($violations->count() > 0) {
+            return $this->validationErrorResponse($violations);
+        }
 
         if (array_key_exists('message', $payload)) {
-            $message = trim((string) $payload['message']);
-            if ('' === $message) {
-                throw new BadRequestHttpException('Comment message is required.');
-            }
-
-            $comment->setMessage($message);
+            $comment->setMessage((string) $payload['message']);
         }
 
         if (array_key_exists('moderationStatus', $payload)) {
@@ -108,6 +146,11 @@ final class CommentController extends AbstractController
             }
 
             $comment->setModerationStatus($this->moderationStatus((string) $payload['moderationStatus']));
+        }
+
+        $violations = $validator->validate($comment);
+        if ($violations->count() > 0) {
+            return $this->validationErrorResponse($violations);
         }
 
         $entityManager->flush();
@@ -191,5 +234,27 @@ final class CommentController extends AbstractController
     private function moderationStatus(string $value): CommentModerationStatus
     {
         return CommentModerationStatus::tryFrom($value) ?? throw new BadRequestHttpException('Invalid moderation status.');
+    }
+
+    private function validationErrorResponse(ConstraintViolationListInterface $violations): JsonResponse
+    {
+        $errors = [];
+
+        foreach ($violations as $violation) {
+            $errors[] = [
+                'property' => $violation->getPropertyPath(),
+                'message' => $violation->getMessage(),
+            ];
+        }
+
+        return $this->json([
+            'error' => [
+                'status' => JsonResponse::HTTP_UNPROCESSABLE_ENTITY,
+                'code' => 'validation_failed',
+                'message' => 'Validation failed.',
+                'violations' => $errors,
+            ],
+            'errors' => $errors,
+        ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

@@ -38,6 +38,12 @@ in-memory access token and refresh-token session cookie. Because the refresh
 token is not explicitly revoked in the API at logout time, server-side
 revocation remains a production hardening task.
 
+Soft-deleted accounts receive a generic `401 Unauthorized` response when they
+attempt to log in, refresh a session, or use an existing access token. Applying
+account deletion through an admin user mutation or report moderation also
+revokes all refresh tokens for that account. Restoring the account allows it to
+authenticate again, but does not restore revoked refresh tokens.
+
 Register payload:
 
 ```json

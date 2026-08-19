@@ -439,6 +439,11 @@ tokens are single-use and rotate on refresh. Frontend logout clears local
 session state, but a server-side logout/revocation endpoint is not implemented
 yet.
 
+Soft-deleted accounts cannot authenticate with a password, refresh a session,
+or authorize API requests with an access token issued before deletion. Applying
+account deletion through either administration path revokes all refresh tokens;
+restoration permits new authentication without restoring those tokens.
+
 Roles:
 
 - `ROLE_USER`;

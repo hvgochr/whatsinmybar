@@ -16,6 +16,7 @@ use App\Repository\RecipeRepository;
 use App\Repository\ReportRepository;
 use App\Repository\UserRepository;
 use App\Security\RecipeAccess;
+use App\Service\UserAccountAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -76,6 +77,7 @@ final class ReportController extends AbstractController
         RecipeRepository $recipeRepository,
         CommentRepository $commentRepository,
         UserRepository $userRepository,
+        UserAccountAccess $userAccountAccess,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
@@ -91,7 +93,7 @@ final class ReportController extends AbstractController
         }
 
         if (array_key_exists('moderationStatus', $payload)) {
-            $this->applyModerationStatus($report, (string) $payload['moderationStatus'], $recipeRepository, $commentRepository, $userRepository);
+            $this->applyModerationStatus($report, (string) $payload['moderationStatus'], $recipeRepository, $commentRepository, $userRepository, $userAccountAccess);
         }
 
         $entityManager->flush();
@@ -150,11 +152,12 @@ final class ReportController extends AbstractController
         RecipeRepository $recipeRepository,
         CommentRepository $commentRepository,
         UserRepository $userRepository,
+        UserAccountAccess $userAccountAccess,
     ): void {
         match ($report->getTargetType()) {
             ReportTargetType::Recipe => $this->applyRecipeModerationStatus($report->getTargetId(), $moderationStatus, $recipeRepository),
             ReportTargetType::Comment => $this->applyCommentModerationStatus($report->getTargetId(), $moderationStatus, $commentRepository),
-            ReportTargetType::User => $this->applyUserModerationStatus($report->getTargetId(), $moderationStatus, $userRepository),
+            ReportTargetType::User => $this->applyUserModerationStatus($report->getTargetId(), $moderationStatus, $userRepository, $userAccountAccess),
         };
     }
 
@@ -178,7 +181,7 @@ final class ReportController extends AbstractController
         $comment->setModerationStatus(CommentModerationStatus::tryFrom($moderationStatus) ?? throw new BadRequestHttpException('Invalid moderation status.'));
     }
 
-    private function applyUserModerationStatus(int $targetId, string $moderationStatus, UserRepository $userRepository): void
+    private function applyUserModerationStatus(int $targetId, string $moderationStatus, UserRepository $userRepository, UserAccountAccess $userAccountAccess): void
     {
         $user = $userRepository->find($targetId);
         if (!$user instanceof User) {
@@ -186,8 +189,8 @@ final class ReportController extends AbstractController
         }
 
         match ($moderationStatus) {
-            RecipeModerationStatus::Visible->value => $user->setDeletedAt(null),
-            RecipeModerationStatus::Removed->value => $user->setDeletedAt(new \DateTimeImmutable()),
+            RecipeModerationStatus::Visible->value => $userAccountAccess->setDeleted($user, false),
+            RecipeModerationStatus::Removed->value => $userAccountAccess->setDeleted($user, true),
             default => throw new BadRequestHttpException('User moderation status must be visible or removed.'),
         };
     }

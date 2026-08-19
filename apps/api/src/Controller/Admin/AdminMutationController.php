@@ -12,6 +12,7 @@ use App\Repository\CategoryRepository;
 use App\Repository\IngredientRepository;
 use App\Repository\RecipeRepository;
 use App\Service\RecipeAlcoholClassificationUpdater;
+use App\Service\UserAccountAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,7 +25,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 final class AdminMutationController extends AbstractController
 {
     #[Route('/api/admin/users/{id}', name: 'api_admin_users_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
-    public function updateUser(User $user, Request $request, EntityManagerInterface $entityManager): JsonResponse
+    public function updateUser(User $user, Request $request, EntityManagerInterface $entityManager, UserAccountAccess $userAccountAccess): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
@@ -35,7 +36,7 @@ final class AdminMutationController extends AbstractController
         }
 
         if (array_key_exists('deleted', $payload)) {
-            $user->setDeletedAt($this->boolean($payload['deleted'], 'deleted') ? new \DateTimeImmutable() : null);
+            $userAccountAccess->setDeleted($user, $this->boolean($payload['deleted'], 'deleted'));
         }
 
         $entityManager->flush();

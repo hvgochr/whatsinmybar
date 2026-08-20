@@ -4,13 +4,14 @@ namespace App\Repository;
 
 use App\Entity\Ingredient;
 use App\Entity\Recipe;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use App\Pagination\PageRequest;
+use App\Pagination\PageResult;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<Recipe>
+ * @extends PaginatedRepository<Recipe>
  */
-final class RecipeRepository extends ServiceEntityRepository
+final class RecipeRepository extends PaginatedRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -18,18 +19,19 @@ final class RecipeRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return list<Recipe>
+     * @return PageResult<Recipe>
      */
-    public function findLatestForAdmin(): array
+    public function paginateLatestForAdmin(PageRequest $pagination): PageResult
     {
-        return $this->createQueryBuilder('recipe')
+        $query = $this->createQueryBuilder('recipe')
             ->leftJoin('recipe.author', 'author')
             ->addSelect('author')
             ->orderBy('recipe.updatedAt', 'DESC')
             ->addOrderBy('recipe.id', 'DESC')
             ->getQuery()
-            ->getResult()
         ;
+
+        return $this->paginate($query, $pagination);
     }
 
     /**

@@ -3,13 +3,14 @@
 namespace App\Repository;
 
 use App\Entity\Category;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use App\Pagination\PageRequest;
+use App\Pagination\PageResult;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<Category>
+ * @extends PaginatedRepository<Category>
  */
-final class CategoryRepository extends ServiceEntityRepository
+final class CategoryRepository extends PaginatedRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -17,15 +18,16 @@ final class CategoryRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return list<Category>
+     * @return PageResult<Category>
      */
-    public function findLatestForAdmin(): array
+    public function paginateLatestForAdmin(PageRequest $pagination): PageResult
     {
-        return $this->createQueryBuilder('category')
+        $query = $this->createQueryBuilder('category')
             ->orderBy('category.updatedAt', 'DESC')
             ->addOrderBy('category.id', 'DESC')
             ->getQuery()
-            ->getResult()
         ;
+
+        return $this->paginate($query, $pagination);
     }
 }

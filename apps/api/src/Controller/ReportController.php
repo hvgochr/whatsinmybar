@@ -11,6 +11,8 @@ use App\Enum\RecipeModerationStatus;
 use App\Enum\ReportReason;
 use App\Enum\ReportStatus;
 use App\Enum\ReportTargetType;
+use App\Pagination\PageRequest;
+use App\Pagination\PaginatedResponse;
 use App\Repository\CommentRepository;
 use App\Repository\RecipeRepository;
 use App\Repository\ReportRepository;
@@ -94,16 +96,17 @@ final class ReportController extends AbstractController
     }
 
     #[Route('/api/admin/reports', name: 'api_admin_reports_list', methods: ['GET'])]
-    public function list(ReportRepository $reportRepository): JsonResponse
+    public function list(Request $request, ReportRepository $reportRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        $pagination = PageRequest::fromRequest($request);
+        $page = $reportRepository->paginateLatestForAdmin($pagination);
 
-        return $this->json([
-            'items' => array_map(
-                fn (Report $report): array => $this->payload($report),
-                $reportRepository->findLatest(),
-            ),
-        ]);
+        return $this->json(PaginatedResponse::from(
+            $page,
+            $pagination,
+            fn (Report $report): array => $this->payload($report),
+        ));
     }
 
     #[Route('/api/admin/reports/{id}', name: 'api_admin_reports_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]

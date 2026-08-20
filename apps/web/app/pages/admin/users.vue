@@ -3,21 +3,22 @@ import AdminBadge from '../../components/admin/AdminBadge.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
+import PaginationNav from '../../components/common/PaginationNav.vue'
+import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { AdminUser } from '../../types/api'
 
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:users', () => api.admin.users.list())
-const users = ref<AdminUser[]>([])
+const { error, items: users, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<AdminUser>(
+  'admin:users',
+  '/admin/users',
+  api.admin.users.list
+)
 const rowPending = ref<Record<number, boolean>>({})
 const rowMessage = ref<Record<number, string>>({})
 const rowError = ref<Record<number, string>>({})
-
-watch(data, (nextData) => {
-  users.value = nextData?.items ?? []
-}, { immediate: true })
 
 useSeoMeta({
   title: 'Admin users | What\'s In My Bar',
@@ -154,5 +155,13 @@ function setDeleted(user: AdminUser, event: Event) {
         No users found.
       </p>
     </div>
+
+    <PaginationNav
+      v-if="!pending && !error"
+      aria-label="User list pagination"
+      :next-to="nextTo"
+      :pagination="pagination"
+      :previous-to="previousTo"
+    />
   </AdminShell>
 </template>

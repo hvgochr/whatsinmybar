@@ -303,6 +303,18 @@ export interface ReportPayload {
   message?: string | null
 }
 
-export interface AdminList<T> {
+export interface ItemList<T> {
   items: T[]
+}
+
+export interface PaginatedList<T> extends ItemList<T> {
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
+export interface PaginationParams {
+  page?: number
+  pageSize?: number
 }

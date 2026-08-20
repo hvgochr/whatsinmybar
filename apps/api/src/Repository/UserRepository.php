@@ -3,16 +3,17 @@
 namespace App\Repository;
 
 use App\Entity\User;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use App\Pagination\PageRequest;
+use App\Pagination\PageResult;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 
 /**
- * @extends ServiceEntityRepository<User>
+ * @extends PaginatedRepository<User>
  */
-final class UserRepository extends ServiceEntityRepository implements PasswordUpgraderInterface
+final class UserRepository extends PaginatedRepository implements PasswordUpgraderInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -42,15 +43,16 @@ final class UserRepository extends ServiceEntityRepository implements PasswordUp
     }
 
     /**
-     * @return list<User>
+     * @return PageResult<User>
      */
-    public function findLatestForAdmin(): array
+    public function paginateLatestForAdmin(PageRequest $pagination): PageResult
     {
-        return $this->createQueryBuilder('user')
+        $query = $this->createQueryBuilder('user')
             ->orderBy('user.createdAt', 'DESC')
             ->addOrderBy('user.id', 'DESC')
             ->getQuery()
-            ->getResult()
         ;
+
+        return $this->paginate($query, $pagination);
     }
 }

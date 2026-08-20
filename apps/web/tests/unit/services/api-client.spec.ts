@@ -143,6 +143,33 @@ describe('api client', () => {
     }))
   })
 
+  it('passes pagination parameters to every admin collection', async () => {
+    const fetch = vi.fn(async () => ({
+      items: [],
+      page: 2,
+      pageSize: 10,
+      totalItems: 0,
+      totalPages: 0
+    }))
+    const api = createTestClient(fetch, {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token'
+    })
+
+    await api.admin.users.list({ page: 2, pageSize: 10 })
+    await api.admin.recipes.list({ page: 2, pageSize: 10 })
+    await api.admin.categories.list({ page: 2, pageSize: 10 })
+    await api.admin.ingredients.list({ page: 2, pageSize: 10 })
+    await api.admin.reports.list({ page: 2, pageSize: 10 })
+
+    for (const [path, options] of fetch.mock.calls) {
+      expect(path).toMatch(/^\/admin\/(users|recipes|categories|ingredients|reports)$/)
+      expect(options).toEqual(expect.objectContaining({
+        query: { page: 2, pageSize: 10 }
+      }))
+    }
+  })
+
   it('manages recipe workflow subresources', async () => {
     const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
       if (path === '/recipe_steps') {

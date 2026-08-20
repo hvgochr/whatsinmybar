@@ -149,7 +149,12 @@ final class ReportApiTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $items = $this->jsonResponse($client)['items'];
+        $page = $this->jsonResponse($client);
+        self::assertSame(1, $page['page']);
+        self::assertSame(20, $page['pageSize']);
+        self::assertSame(1, $page['totalItems']);
+        self::assertSame(1, $page['totalPages']);
+        $items = $page['items'];
         self::assertIsArray($items);
         self::assertNotEmpty($items);
         self::assertSame($reportId, $items[0]['id']);
@@ -298,6 +303,20 @@ final class ReportApiTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testAdminReportListRejectsInvalidPaginationParameters(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $adminToken = $this->loginAsUser($client, roles: ['ROLE_ADMIN']);
+
+        $client->request('GET', '/api/admin/reports?pageSize=101', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        self::assertSame('pageSize must be between 1 and 100.', $this->jsonResponse($client)['error']['message']);
     }
 
     public function testMinorCannotReportAlcoholicRecipe(): void

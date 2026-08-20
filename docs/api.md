@@ -251,9 +251,20 @@ Admin list endpoints return:
 
 ```json
 {
-  "items": []
+  "items": [],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 0,
+  "totalPages": 0
 }
 ```
+
+All admin list endpoints accept positive integer `page` and `pageSize` query
+parameters. `page` defaults to `1`; `pageSize` defaults to `20` and cannot
+exceed `100`. Invalid values return the standard `400 bad_request` error. A
+page beyond `totalPages` is successful and returns an empty `items` array while
+preserving the requested page and total metadata. Results use a stable
+descending timestamp order with the numeric ID as a descending tie-breaker.
 
 Admin mutations are always protected server-side with `ROLE_ADMIN`.
 

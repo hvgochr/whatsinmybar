@@ -3,16 +3,21 @@ import AdminBadge from '../../components/admin/AdminBadge.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
+import PaginationNav from '../../components/common/PaginationNav.vue'
 import UiButton from '../../components/ui/button/Button.vue'
 import UiInput from '../../components/ui/input/Input.vue'
+import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { Ingredient } from '../../types/api'
 
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:ingredients', () => api.admin.ingredients.list())
-const ingredients = ref<Ingredient[]>([])
+const { error, items: ingredients, nextTo, pagination, pending, previousTo, refresh } = await usePaginatedAdminList<Ingredient>(
+  'admin:ingredients',
+  '/admin/ingredients',
+  api.admin.ingredients.list
+)
 const createForm = reactive({
   containsAlcohol: false,
   name: '',
@@ -25,10 +30,6 @@ const rowPending = ref<Record<string, boolean>>({})
 const rowError = ref<Record<string, string>>({})
 const rowMessage = ref<Record<string, string>>({})
 
-watch(data, (nextData) => {
-  ingredients.value = nextData?.items ?? []
-}, { immediate: true })
-
 useSeoMeta({
   title: 'Admin ingredients | What\'s In My Bar',
   description: 'Create ingredients and maintain alcohol classification.'
@@ -40,12 +41,12 @@ async function createIngredient() {
   createSuccess.value = null
 
   try {
-    const ingredient = await api.admin.ingredients.create({
+    await api.admin.ingredients.create({
       containsAlcohol: createForm.containsAlcohol,
       name: createForm.name.trim(),
       slug: createForm.slug.trim() || undefined
     })
-    ingredients.value = [ingredient, ...ingredients.value]
+    await refresh()
     createForm.containsAlcohol = false
     createForm.name = ''
     createForm.slug = ''
@@ -159,5 +160,13 @@ function stringValue(value: FormDataEntryValue | null): string {
         No ingredients found.
       </p>
     </section>
+
+    <PaginationNav
+      v-if="!pending && !error"
+      aria-label="Ingredient list pagination"
+      :next-to="nextTo"
+      :pagination="pagination"
+      :previous-to="previousTo"
+    />
   </AdminShell>
 </template>

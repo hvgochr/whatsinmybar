@@ -5,10 +5,10 @@ import PublicPageHeader from '../../components/common/PublicPageHeader.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
 import RecipeSearchPanel from '../../components/recipes/RecipeSearchPanel.vue'
 import { collectionItems, collectionLastPage, collectionTotal } from '../../utils/api-collections'
+import { paginationState } from '../../utils/pagination'
 import {
   activeRecipeFilters,
   cleanRecipeSearchQuery,
-  paginationState,
   recipeSearchQueryFromForm,
   recipeSearchStateFromQuery
 } from '../../utils/recipe-search'
@@ -45,11 +45,11 @@ const totalRecipes = computed(() => collectionTotal(recipesCollection.value))
 const pagination = computed(() => paginationState({
   currentPage: searchState.value.page,
   itemsOnPage: recipes.value.length,
-  lastPage: collectionLastPage(recipesCollection.value),
+  totalPages: collectionLastPage(recipesCollection.value),
   totalItems: totalRecipes.value
 }))
-const previousPageTo = computed(() => recipePageTo(searchState.value.page - 1))
-const nextPageTo = computed(() => recipePageTo(searchState.value.page + 1))
+const previousPageTo = computed(() => recipePageTo(pagination.value.previousPage))
+const nextPageTo = computed(() => recipePageTo(pagination.value.nextPage))
 
 useSeoMeta({
   title: 'Cocktail recipes | What\'s In My Bar',
@@ -110,7 +110,7 @@ function recipePageTo(page: number) {
         {{ totalRecipes }} recipe{{ totalRecipes === 1 ? '' : 's' }}
       </p>
       <p v-if="totalRecipes > 0" class="text-sm font-bold text-muted-foreground">
-        Page {{ pagination.currentPage }}<span v-if="pagination.lastPage"> of {{ pagination.lastPage }}</span>
+        Page {{ pagination.currentPage }}<span v-if="pagination.totalPages"> of {{ pagination.totalPages }}</span>
       </p>
     </div>
 
@@ -139,16 +139,11 @@ function recipePageTo(page: number) {
     </section>
 
     <PaginationNav
-      v-if="!recipesPending && !recipesError && recipes.length > 0"
-      :current-page="pagination.currentPage"
-      :has-next-page="pagination.hasNextPage"
-      :has-previous-page="pagination.hasPreviousPage"
-      :last-page="pagination.lastPage"
+      v-if="!recipesPending && !recipesError"
+      aria-label="Recipe results pagination"
       :next-to="nextPageTo"
+      :pagination="pagination"
       :previous-to="previousPageTo"
-      :result-end="pagination.resultEnd"
-      :result-start="pagination.resultStart"
-      :total-items="pagination.totalItems"
     />
   </main>
 </template>

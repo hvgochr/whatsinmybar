@@ -1,33 +1,32 @@
 <script setup lang="ts">
+import type { PaginationState } from '../../utils/pagination'
 import UiButton from '../ui/button/Button.vue'
 
-defineProps<{
-  currentPage: number
-  hasNextPage: boolean
-  hasPreviousPage: boolean
-  lastPage: number | null
+withDefaults(defineProps<{
+  ariaLabel?: string
   nextTo: Record<string, unknown>
+  pagination: PaginationState
   previousTo: Record<string, unknown>
-  resultEnd: number
-  resultStart: number
-  totalItems: number
-}>()
+}>(), {
+  ariaLabel: 'Results pagination'
+})
 </script>
 
 <template>
   <nav
-    v-if="totalItems > 0"
+    v-if="pagination.totalItems > 0"
     class="mt-8 flex flex-col gap-4 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between"
-    aria-label="Recipe results pagination"
+    :aria-label="ariaLabel"
   >
     <p class="text-sm font-bold text-muted-foreground">
-      Showing {{ resultStart }}-{{ resultEnd }} of {{ totalItems }}
-      <span v-if="lastPage"> · Page {{ currentPage }} of {{ lastPage }}</span>
-      <span v-else> · Page {{ currentPage }}</span>
+      <span v-if="pagination.resultStart > 0">Showing {{ pagination.resultStart }}-{{ pagination.resultEnd }} of {{ pagination.totalItems }}</span>
+      <span v-else>{{ pagination.totalItems }} total result{{ pagination.totalItems === 1 ? '' : 's' }}</span>
+      <span v-if="pagination.totalPages !== null"> · Page {{ pagination.currentPage }} of {{ pagination.totalPages }}</span>
+      <span v-else> · Page {{ pagination.currentPage }}</span>
     </p>
 
     <div class="flex flex-wrap gap-2">
-      <UiButton v-if="hasPreviousPage" as-child variant="outline">
+      <UiButton v-if="pagination.hasPreviousPage" as-child variant="outline">
         <NuxtLink :to="previousTo">
           Previous
         </NuxtLink>
@@ -36,7 +35,7 @@ defineProps<{
         Previous
       </UiButton>
 
-      <UiButton v-if="hasNextPage" as-child variant="outline">
+      <UiButton v-if="pagination.hasNextPage" as-child variant="outline">
         <NuxtLink :to="nextTo">
           Next
         </NuxtLink>

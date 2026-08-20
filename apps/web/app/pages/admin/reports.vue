@@ -3,7 +3,9 @@ import AdminBadge from '../../components/admin/AdminBadge.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
+import PaginationNav from '../../components/common/PaginationNav.vue'
 import UiButton from '../../components/ui/button/Button.vue'
+import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { ModerationStatus, Report, ReportStatus } from '../../types/api'
 import {
@@ -16,18 +18,17 @@ import {
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:reports', () => api.admin.reports.list())
-const reports = ref<Report[]>([])
+const { error, items: reports, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<Report>(
+  'admin:reports',
+  '/admin/reports',
+  api.admin.reports.list
+)
 const rowPending = ref<Record<number, boolean>>({})
 const rowError = ref<Record<number, string>>({})
 const rowMessage = ref<Record<number, string>>({})
 
 const userModerationOptions = computed(() => adminModerationStatusOptions.filter(option => option.value === 'visible' || option.value === 'removed'))
 const openReports = computed(() => reports.value.filter(report => report.status === 'open'))
-
-watch(data, (nextData) => {
-  reports.value = nextData?.items ?? []
-}, { immediate: true })
 
 useSeoMeta({
   title: 'Admin reports | What\'s In My Bar',
@@ -76,12 +77,12 @@ function stringValue(value: FormDataEntryValue | null): string {
           Total reports
         </p>
         <p class="mt-2 text-3xl font-black">
-          {{ reports.length }}
+          {{ pagination.totalItems }}
         </p>
       </article>
       <article class="rounded-lg border border-border bg-card p-4">
         <p class="text-sm font-bold text-muted-foreground">
-          Open
+          Open on this page
         </p>
         <p class="mt-2 text-3xl font-black">
           {{ openReports.length }}
@@ -89,7 +90,7 @@ function stringValue(value: FormDataEntryValue | null): string {
       </article>
       <article class="rounded-lg border border-border bg-card p-4">
         <p class="text-sm font-bold text-muted-foreground">
-          Reviewed
+          Reviewed on this page
         </p>
         <p class="mt-2 text-3xl font-black">
           {{ reports.length - openReports.length }}
@@ -171,5 +172,13 @@ function stringValue(value: FormDataEntryValue | null): string {
         No reports found.
       </p>
     </section>
+
+    <PaginationNav
+      v-if="!pending && !error"
+      aria-label="Report list pagination"
+      :next-to="nextTo"
+      :pagination="pagination"
+      :previous-to="previousTo"
+    />
   </AdminShell>
 </template>

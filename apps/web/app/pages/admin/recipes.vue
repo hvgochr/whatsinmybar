@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import AdminBadge from '../../components/admin/AdminBadge.vue'
+import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
 import UiButton from '../../components/ui/button/Button.vue'
 import { ApiRequestError } from '../../services/api-client'
 import type { AdminRecipe, ModerationStatus, RecipeStatus } from '../../types/api'
+import { adminPageFromQuery } from '../../utils/admin-pagination'
 import { adminModerationStatusOptions, adminRecipeStatusOptions } from '../../utils/admin'
 
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:recipes', () => api.admin.recipes.list())
+const route = useRoute()
+const page = computed(() => adminPageFromQuery(route.query))
+const { data, pending, error } = await useAsyncData(`admin:recipes:${route.fullPath}`, () => api.admin.recipes.list({ page: page.value }), { watch: [() => route.fullPath] })
 const recipes = ref<AdminRecipe[]>([])
 const rowPending = ref<Record<string, boolean>>({})
 const rowMessage = ref<Record<string, string>>({})
@@ -163,5 +167,13 @@ function deleteRecipe(recipe: AdminRecipe) {
         No recipes found.
       </p>
     </div>
+
+    <AdminPagination
+      v-if="!pending && !error && data"
+      :page="data.page"
+      path="/admin/recipes"
+      :total-items="data.totalItems"
+      :total-pages="data.totalPages"
+    />
   </AdminShell>
 </template>

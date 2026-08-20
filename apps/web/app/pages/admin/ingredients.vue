@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminBadge from '../../components/admin/AdminBadge.vue'
+import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
@@ -7,11 +8,14 @@ import UiButton from '../../components/ui/button/Button.vue'
 import UiInput from '../../components/ui/input/Input.vue'
 import { ApiRequestError } from '../../services/api-client'
 import type { Ingredient } from '../../types/api'
+import { adminPageFromQuery } from '../../utils/admin-pagination'
 
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:ingredients', () => api.admin.ingredients.list())
+const route = useRoute()
+const page = computed(() => adminPageFromQuery(route.query))
+const { data, pending, error, refresh } = await useAsyncData(`admin:ingredients:${route.fullPath}`, () => api.admin.ingredients.list({ page: page.value }), { watch: [() => route.fullPath] })
 const ingredients = ref<Ingredient[]>([])
 const createForm = reactive({
   containsAlcohol: false,
@@ -40,12 +44,12 @@ async function createIngredient() {
   createSuccess.value = null
 
   try {
-    const ingredient = await api.admin.ingredients.create({
+    await api.admin.ingredients.create({
       containsAlcohol: createForm.containsAlcohol,
       name: createForm.name.trim(),
       slug: createForm.slug.trim() || undefined
     })
-    ingredients.value = [ingredient, ...ingredients.value]
+    await refresh()
     createForm.containsAlcohol = false
     createForm.name = ''
     createForm.slug = ''
@@ -159,5 +163,13 @@ function stringValue(value: FormDataEntryValue | null): string {
         No ingredients found.
       </p>
     </section>
+
+    <AdminPagination
+      v-if="!pending && !error && data"
+      :page="data.page"
+      path="/admin/ingredients"
+      :total-items="data.totalItems"
+      :total-pages="data.totalPages"
+    />
   </AdminShell>
 </template>

@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import AdminBadge from '../../components/admin/AdminBadge.vue'
+import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
 import { ApiRequestError } from '../../services/api-client'
 import type { AdminUser } from '../../types/api'
+import { adminPageFromQuery } from '../../utils/admin-pagination'
 
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:users', () => api.admin.users.list())
+const route = useRoute()
+const page = computed(() => adminPageFromQuery(route.query))
+const { data, pending, error } = await useAsyncData(`admin:users:${route.fullPath}`, () => api.admin.users.list({ page: page.value }), { watch: [() => route.fullPath] })
 const users = ref<AdminUser[]>([])
 const rowPending = ref<Record<number, boolean>>({})
 const rowMessage = ref<Record<number, string>>({})
@@ -154,5 +158,13 @@ function setDeleted(user: AdminUser, event: Event) {
         No users found.
       </p>
     </div>
+
+    <AdminPagination
+      v-if="!pending && !error && data"
+      :page="data.page"
+      path="/admin/users"
+      :total-items="data.totalItems"
+      :total-pages="data.totalPages"
+    />
   </AdminShell>
 </template>

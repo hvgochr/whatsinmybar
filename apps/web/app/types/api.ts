@@ -305,4 +305,13 @@ export interface ReportPayload {
 
 export interface AdminList<T> {
   items: T[]
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+}
+
+export interface AdminPaginationParams {
+  page?: number
+  pageSize?: number
 }

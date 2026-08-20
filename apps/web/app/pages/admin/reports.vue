@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminBadge from '../../components/admin/AdminBadge.vue'
+import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
@@ -12,11 +13,14 @@ import {
   adminReportStatusOptions,
   adminStatusLabel
 } from '../../utils/admin'
+import { adminPageFromQuery } from '../../utils/admin-pagination'
 
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:reports', () => api.admin.reports.list())
+const route = useRoute()
+const page = computed(() => adminPageFromQuery(route.query))
+const { data, pending, error } = await useAsyncData(`admin:reports:${route.fullPath}`, () => api.admin.reports.list({ page: page.value }), { watch: [() => route.fullPath] })
 const reports = ref<Report[]>([])
 const rowPending = ref<Record<number, boolean>>({})
 const rowError = ref<Record<number, string>>({})
@@ -76,12 +80,12 @@ function stringValue(value: FormDataEntryValue | null): string {
           Total reports
         </p>
         <p class="mt-2 text-3xl font-black">
-          {{ reports.length }}
+          {{ data?.totalItems ?? 0 }}
         </p>
       </article>
       <article class="rounded-lg border border-border bg-card p-4">
         <p class="text-sm font-bold text-muted-foreground">
-          Open
+          Open on this page
         </p>
         <p class="mt-2 text-3xl font-black">
           {{ openReports.length }}
@@ -89,7 +93,7 @@ function stringValue(value: FormDataEntryValue | null): string {
       </article>
       <article class="rounded-lg border border-border bg-card p-4">
         <p class="text-sm font-bold text-muted-foreground">
-          Reviewed
+          Reviewed on this page
         </p>
         <p class="mt-2 text-3xl font-black">
           {{ reports.length - openReports.length }}
@@ -171,5 +175,13 @@ function stringValue(value: FormDataEntryValue | null): string {
         No reports found.
       </p>
     </section>
+
+    <AdminPagination
+      v-if="!pending && !error && data"
+      :page="data.page"
+      path="/admin/reports"
+      :total-items="data.totalItems"
+      :total-pages="data.totalPages"
+    />
   </AdminShell>
 </template>

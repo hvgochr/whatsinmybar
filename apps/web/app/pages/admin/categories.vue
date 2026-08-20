@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
@@ -7,11 +8,14 @@ import UiInput from '../../components/ui/input/Input.vue'
 import UiTextarea from '../../components/ui/textarea/Textarea.vue'
 import { ApiRequestError } from '../../services/api-client'
 import type { Category } from '../../types/api'
+import { adminPageFromQuery } from '../../utils/admin-pagination'
 
 await useRequireAdmin()
 
 const api = useApi()
-const { data, pending, error } = await useAsyncData('admin:categories', () => api.admin.categories.list())
+const route = useRoute()
+const page = computed(() => adminPageFromQuery(route.query))
+const { data, pending, error, refresh } = await useAsyncData(`admin:categories:${route.fullPath}`, () => api.admin.categories.list({ page: page.value }), { watch: [() => route.fullPath] })
 const categories = ref<Category[]>([])
 const createForm = reactive({
   description: '',
@@ -40,12 +44,12 @@ async function createCategory() {
   createSuccess.value = null
 
   try {
-    const category = await api.admin.categories.create({
+    await api.admin.categories.create({
       description: createForm.description.trim() || null,
       name: createForm.name.trim(),
       slug: createForm.slug.trim() || undefined
     })
-    categories.value = [category, ...categories.value]
+    await refresh()
     createForm.description = ''
     createForm.name = ''
     createForm.slug = ''
@@ -154,5 +158,13 @@ function stringValue(value: FormDataEntryValue | null): string {
         No categories found.
       </p>
     </section>
+
+    <AdminPagination
+      v-if="!pending && !error && data"
+      :page="data.page"
+      path="/admin/categories"
+      :total-items="data.totalItems"
+      :total-pages="data.totalPages"
+    />
   </AdminShell>
 </template>

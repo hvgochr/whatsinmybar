@@ -1,5 +1,6 @@
 import type {
   AdminList,
+  AdminPaginationParams,
   AdminRecipe,
   AdminUser,
   ApiCollection,
@@ -82,24 +83,24 @@ export interface ApiClient {
   admin: {
     categories: {
       create: (payload: Partial<Category>) => Promise<Category>
-      list: () => Promise<AdminList<Category>>
+      list: (params?: AdminPaginationParams) => Promise<AdminList<Category>>
       update: (slug: string, payload: Partial<Category>) => Promise<Category>
     }
     ingredients: {
       create: (payload: Partial<Ingredient>) => Promise<Ingredient>
-      list: () => Promise<AdminList<Ingredient>>
+      list: (params?: AdminPaginationParams) => Promise<AdminList<Ingredient>>
       update: (slug: string, payload: Partial<Ingredient>) => Promise<Ingredient>
     }
     recipes: {
-      list: () => Promise<AdminList<AdminRecipe>>
+      list: (params?: AdminPaginationParams) => Promise<AdminList<AdminRecipe>>
       update: (slug: string, payload: Partial<AdminRecipe>) => Promise<AdminRecipe>
     }
     reports: {
-      list: () => Promise<AdminList<Report>>
+      list: (params?: AdminPaginationParams) => Promise<AdminList<Report>>
       update: (id: number, payload: Partial<Report> & { moderationStatus?: ModerationStatus }) => Promise<Report>
     }
     users: {
-      list: () => Promise<AdminList<AdminUser>>
+      list: (params?: AdminPaginationParams) => Promise<AdminList<AdminUser>>
       update: (id: number, payload: Partial<AdminUser>) => Promise<AdminUser>
     }
   }
@@ -234,24 +235,24 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     admin: {
       categories: {
         create: (payload) => request<Category>('/admin/categories', { body: payload, method: 'POST' }),
-        list: () => request<AdminList<Category>>('/admin/categories'),
+        list: (params = {}) => request<AdminList<Category>>('/admin/categories', { query: adminPaginationQuery(params) }),
         update: (slug, payload) => request<Category>(`/admin/categories/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
       },
       ingredients: {
         create: (payload) => request<Ingredient>('/admin/ingredients', { body: payload, method: 'POST' }),
-        list: () => request<AdminList<Ingredient>>('/admin/ingredients'),
+        list: (params = {}) => request<AdminList<Ingredient>>('/admin/ingredients', { query: adminPaginationQuery(params) }),
         update: (slug, payload) => request<Ingredient>(`/admin/ingredients/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
       },
       recipes: {
-        list: () => request<AdminList<AdminRecipe>>('/admin/recipes'),
+        list: (params = {}) => request<AdminList<AdminRecipe>>('/admin/recipes', { query: adminPaginationQuery(params) }),
         update: (slug, payload) => request<AdminRecipe>(`/admin/recipes/${encodeURIComponent(slug)}`, { body: payload, method: 'PATCH' })
       },
       reports: {
-        list: () => request<AdminList<Report>>('/admin/reports'),
+        list: (params = {}) => request<AdminList<Report>>('/admin/reports', { query: adminPaginationQuery(params) }),
         update: (id, payload) => request<Report>(`/admin/reports/${id}`, { body: payload, method: 'PATCH' })
       },
       users: {
-        list: () => request<AdminList<AdminUser>>('/admin/users'),
+        list: (params = {}) => request<AdminList<AdminUser>>('/admin/users', { query: adminPaginationQuery(params) }),
         update: (id, payload) => request<AdminUser>(`/admin/users/${id}`, { body: payload, method: 'PATCH' })
       }
     },
@@ -339,6 +340,13 @@ export function normalizeApiError(error: unknown): ApiRequestError {
   const violations = apiError?.violations ?? payload?.errors ?? []
 
   return new ApiRequestError(message, status, code, payload, violations)
+}
+
+function adminPaginationQuery(params: AdminPaginationParams): Record<string, QueryValue> {
+  return {
+    page: params.page,
+    pageSize: params.pageSize
+  }
 }
 
 function fetchOptions(config: ApiClientConfig, options: ApiRequestOptions): Record<string, unknown> {

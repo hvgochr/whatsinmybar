@@ -32,14 +32,18 @@ final class AdminCatalogApiTest extends WebTestCase
         ]);
 
         self::assertResponseIsSuccessful();
-        self::assertContains($user->getUsername(), array_column($this->jsonResponse($client)['items'], 'username'));
+        $userPage = $this->jsonResponse($client);
+        $this->assertDefaultPaginationMetadata($userPage);
+        self::assertContains($user->getUsername(), array_column($userPage['items'], 'username'));
 
         $client->request('GET', '/api/admin/recipes', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
         ]);
 
         self::assertResponseIsSuccessful();
-        $recipeRows = $this->jsonResponse($client)['items'];
+        $recipePage = $this->jsonResponse($client);
+        $this->assertDefaultPaginationMetadata($recipePage);
+        $recipeRows = $recipePage['items'];
         self::assertContains($recipe->getSlug(), array_column($recipeRows, 'slug'));
         $matchingRecipeRows = array_values(array_filter(
             $recipeRows,
@@ -55,14 +59,98 @@ final class AdminCatalogApiTest extends WebTestCase
         ]);
 
         self::assertResponseIsSuccessful();
-        self::assertContains($category->getSlug(), array_column($this->jsonResponse($client)['items'], 'slug'));
+        $categoryPage = $this->jsonResponse($client);
+        $this->assertDefaultPaginationMetadata($categoryPage);
+        self::assertContains($category->getSlug(), array_column($categoryPage['items'], 'slug'));
 
         $client->request('GET', '/api/admin/ingredients', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
         ]);
 
         self::assertResponseIsSuccessful();
-        self::assertContains($ingredient->getSlug(), array_column($this->jsonResponse($client)['items'], 'slug'));
+        $ingredientPage = $this->jsonResponse($client);
+        $this->assertDefaultPaginationMetadata($ingredientPage);
+        self::assertContains($ingredient->getSlug(), array_column($ingredientPage['items'], 'slug'));
+    }
+
+    public function testAdminCatalogPaginationIsBoundedDeterministicAndHandlesOutOfRangePages(): void
+    {
+        $client = static::createClient();
+        $this->clearContent();
+        $adminToken = $this->loginAsUser($client, ['ROLE_ADMIN']);
+
+        for ($index = 1; $index <= 21; ++$index) {
+            $this->createCategory(sprintf('Paginated Category %02d', $index));
+        }
+
+        $client->request('GET', '/api/admin/categories', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $defaultPage = $this->jsonResponse($client);
+        self::assertCount(20, $defaultPage['items']);
+        self::assertSame(20, $defaultPage['pageSize']);
+        self::assertSame(21, $defaultPage['totalItems']);
+        self::assertSame(2, $defaultPage['totalPages']);
+
+        $client->request('GET', '/api/admin/categories?page=1&pageSize=5', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $firstPage = $this->jsonResponse($client);
+        self::assertCount(5, $firstPage['items']);
+        self::assertSame(1, $firstPage['page']);
+        self::assertSame(5, $firstPage['pageSize']);
+        self::assertSame(21, $firstPage['totalItems']);
+        self::assertSame(5, $firstPage['totalPages']);
+        $firstPageIds = array_column($firstPage['items'], 'id');
+        $sortedFirstPageIds = $firstPageIds;
+        rsort($sortedFirstPageIds);
+        self::assertSame($sortedFirstPageIds, $firstPageIds);
+
+        $client->request('GET', '/api/admin/categories?page=2&pageSize=5', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $secondPage = $this->jsonResponse($client);
+        self::assertCount(5, $secondPage['items']);
+        self::assertSame([], array_intersect($firstPageIds, array_column($secondPage['items'], 'id')));
+
+        $client->request('GET', '/api/admin/categories?page=6&pageSize=5', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $outOfRangePage = $this->jsonResponse($client);
+        self::assertSame([], $outOfRangePage['items']);
+        self::assertSame(6, $outOfRangePage['page']);
+        self::assertSame(21, $outOfRangePage['totalItems']);
+        self::assertSame(5, $outOfRangePage['totalPages']);
+    }
+
+    public function testAdminCatalogsRejectInvalidPaginationParameters(): void
+    {
+        $client = static::createClient();
+        $adminToken = $this->loginAsUser($client, ['ROLE_ADMIN']);
+
+        foreach (['users', 'recipes', 'categories', 'ingredients'] as $resource) {
+            $client->request('GET', '/api/admin/'.$resource.'?page=0', server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+            self::assertSame('page must be a positive integer.', $this->jsonResponse($client)['error']['message']);
+
+            $client->request('GET', '/api/admin/'.$resource.'?pageSize=101', server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+            self::assertSame('pageSize must be between 1 and 100.', $this->jsonResponse($client)['error']['message']);
+        }
     }
 
     public function testNonAdminCannotListAdminCatalogs(): void
@@ -139,10 +227,10 @@ final class AdminCatalogApiTest extends WebTestCase
         return $recipe;
     }
 
-    private function createCategory(): Category
+    private function createCategory(?string $name = null): Category
     {
         $category = new Category();
-        $category->setName('Admin Category '.bin2hex(random_bytes(4)));
+        $category->setName($name ?? 'Admin Category '.bin2hex(random_bytes(4)));
 
         $entityManager = static::getContainer()->get(EntityManagerInterface::class);
         $entityManager->persist($category);
@@ -170,6 +258,18 @@ final class AdminCatalogApiTest extends WebTestCase
         foreach (['report', 'comment', 'favorite', 'recipe_ingredient', 'recipe_step', 'recipe_category', 'recipe', 'category', 'ingredient'] as $table) {
             $connection->executeStatement(sprintf('DELETE FROM %s', $table));
         }
+    }
+
+    /**
+     * @param array<array-key, mixed> $payload
+     */
+    private function assertDefaultPaginationMetadata(array $payload): void
+    {
+        self::assertSame(1, $payload['page']);
+        self::assertSame(20, $payload['pageSize']);
+        self::assertIsInt($payload['totalItems']);
+        self::assertIsInt($payload['totalPages']);
+        self::assertLessThanOrEqual(20, count($payload['items']));
     }
 
     /**

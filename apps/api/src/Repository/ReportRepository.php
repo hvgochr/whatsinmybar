@@ -3,7 +3,10 @@
 namespace App\Repository;
 
 use App\Entity\Report;
+use App\Pagination\AdminPage;
+use App\Pagination\AdminPagination;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -17,15 +20,19 @@ final class ReportRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return list<Report>
+     * @return AdminPage<Report>
      */
-    public function findLatest(): array
+    public function paginateLatestForAdmin(AdminPagination $pagination): AdminPage
     {
-        return $this->createQueryBuilder('report')
+        $query = $this->createQueryBuilder('report')
             ->orderBy('report.createdAt', 'DESC')
             ->addOrderBy('report.id', 'DESC')
+            ->setFirstResult($pagination->offset())
+            ->setMaxResults($pagination->pageSize)
             ->getQuery()
-            ->getResult()
         ;
+        $paginator = new Paginator($query, fetchJoinCollection: false);
+
+        return new AdminPage(array_values(iterator_to_array($paginator)), count($paginator));
     }
 }

@@ -5,7 +5,7 @@ namespace App\Pagination;
 /**
  * @template T of object
  */
-final readonly class AdminPage
+final readonly class PageResult
 {
     /**
      * @param list<T> $items

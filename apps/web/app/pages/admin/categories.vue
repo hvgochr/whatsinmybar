@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
+import PaginationNav from '../../components/common/PaginationNav.vue'
 import UiButton from '../../components/ui/button/Button.vue'
 import UiInput from '../../components/ui/input/Input.vue'
 import UiTextarea from '../../components/ui/textarea/Textarea.vue'
+import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { Category } from '../../types/api'
-import { adminPageFromQuery } from '../../utils/admin-pagination'
 
 await useRequireAdmin()
 
 const api = useApi()
-const route = useRoute()
-const page = computed(() => adminPageFromQuery(route.query))
-const { data, pending, error, refresh } = await useAsyncData(`admin:categories:${route.fullPath}`, () => api.admin.categories.list({ page: page.value }), { watch: [() => route.fullPath] })
-const categories = ref<Category[]>([])
+const { error, items: categories, nextTo, pagination, pending, previousTo, refresh } = await usePaginatedAdminList<Category>(
+  'admin:categories',
+  '/admin/categories',
+  api.admin.categories.list
+)
 const createForm = reactive({
   description: '',
   name: '',
@@ -28,10 +29,6 @@ const createSuccess = ref<string | null>(null)
 const rowPending = ref<Record<string, boolean>>({})
 const rowError = ref<Record<string, string>>({})
 const rowMessage = ref<Record<string, string>>({})
-
-watch(data, (nextData) => {
-  categories.value = nextData?.items ?? []
-}, { immediate: true })
 
 useSeoMeta({
   title: 'Admin categories | What\'s In My Bar',
@@ -159,12 +156,12 @@ function stringValue(value: FormDataEntryValue | null): string {
       </p>
     </section>
 
-    <AdminPagination
-      v-if="!pending && !error && data"
-      :page="data.page"
-      path="/admin/categories"
-      :total-items="data.totalItems"
-      :total-pages="data.totalPages"
+    <PaginationNav
+      v-if="!pending && !error"
+      aria-label="Category list pagination"
+      :next-to="nextTo"
+      :pagination="pagination"
+      :previous-to="previousTo"
     />
   </AdminShell>
 </template>

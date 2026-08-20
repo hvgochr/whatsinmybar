@@ -1,5 +1,6 @@
 import type { LocationQuery } from 'vue-router'
 import type { RecipeSearchParams } from '../types/api'
+import { pageFromQuery } from './pagination'
 import { firstQueryValue, optionalQueryValue } from './route-query'
 
 export interface RecipeSearchState extends RecipeSearchParams {
@@ -7,16 +8,6 @@ export interface RecipeSearchState extends RecipeSearchParams {
 }
 
 export type RecipeSearchSort = NonNullable<RecipeSearchParams['sort']>
-
-export interface RecipePaginationState {
-  currentPage: number
-  hasNextPage: boolean
-  hasPreviousPage: boolean
-  lastPage: number | null
-  resultEnd: number
-  resultStart: number
-  totalItems: number
-}
 
 const defaultSort: RecipeSearchSort = 'newest'
 
@@ -27,7 +18,7 @@ export function recipeSearchStateFromQuery(query: LocationQuery): RecipeSearchSt
     category: textValue(firstQueryValue(query, 'category')),
     ingredient: textValue(firstQueryValue(query, 'ingredient')),
     minFavorites: positiveNumberValue(firstQueryValue(query, 'minFavorites')),
-    page: pageValue(firstQueryValue(query, 'page')),
+    page: pageFromQuery(query),
     publishedAfter: textValue(firstQueryValue(query, 'publishedAfter')),
     publishedBefore: textValue(firstQueryValue(query, 'publishedBefore')),
     q: textValue(firstQueryValue(query, 'q')),
@@ -76,35 +67,6 @@ export function activeRecipeFilters(state: RecipeSearchState): Array<{ label: st
   ].filter((filter): filter is { label: string, value: string } => Boolean(filter))
 }
 
-export function paginationState(options: {
-  currentPage: number
-  itemsOnPage: number
-  lastPage: number | null
-  totalItems: number
-}): RecipePaginationState {
-  const isLastKnownPage = options.lastPage !== null && options.currentPage === options.lastPage
-  const resultStart = options.totalItems === 0
-    ? 0
-    : isLastKnownPage
-      ? Math.max(1, options.totalItems - options.itemsOnPage + 1)
-      : ((options.currentPage - 1) * options.itemsOnPage) + 1
-  const resultEnd = options.totalItems === 0 ? 0 : Math.min(options.totalItems, resultStart + options.itemsOnPage - 1)
-  const hasPreviousPage = options.currentPage > 1
-  const hasNextPage = options.lastPage
-    ? options.currentPage < options.lastPage
-    : resultEnd < options.totalItems
-
-  return {
-    currentPage: options.currentPage,
-    hasNextPage,
-    hasPreviousPage,
-    lastPage: options.lastPage,
-    resultEnd,
-    resultStart,
-    totalItems: options.totalItems
-  }
-}
-
 function alcoholValue(value: string | undefined): RecipeSearchParams['alcohol'] {
   return value === 'with' || value === 'without' ? value : undefined
 }
@@ -117,10 +79,6 @@ function positiveNumberValue(value: string | undefined): number | undefined {
   const number = Number(value)
 
   return Number.isInteger(number) && number > 0 ? number : undefined
-}
-
-function pageValue(value: string | undefined): number {
-  return positiveNumberValue(value) ?? 1
 }
 
 function textValue(value: string | undefined): string | undefined {

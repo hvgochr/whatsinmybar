@@ -5,7 +5,7 @@ namespace App\Pagination;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
-final readonly class AdminPagination
+final readonly class PageRequest
 {
     public const DEFAULT_PAGE_SIZE = 20;
     public const MAX_PAGE_SIZE = 100;

@@ -3,19 +3,17 @@
 namespace App\Repository;
 
 use App\Entity\User;
-use App\Pagination\AdminPage;
-use App\Pagination\AdminPagination;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\ORM\Tools\Pagination\Paginator;
+use App\Pagination\PageRequest;
+use App\Pagination\PageResult;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 
 /**
- * @extends ServiceEntityRepository<User>
+ * @extends PaginatedRepository<User>
  */
-final class UserRepository extends ServiceEntityRepository implements PasswordUpgraderInterface
+final class UserRepository extends PaginatedRepository implements PasswordUpgraderInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -45,19 +43,16 @@ final class UserRepository extends ServiceEntityRepository implements PasswordUp
     }
 
     /**
-     * @return AdminPage<User>
+     * @return PageResult<User>
      */
-    public function paginateLatestForAdmin(AdminPagination $pagination): AdminPage
+    public function paginateLatestForAdmin(PageRequest $pagination): PageResult
     {
         $query = $this->createQueryBuilder('user')
             ->orderBy('user.createdAt', 'DESC')
             ->addOrderBy('user.id', 'DESC')
-            ->setFirstResult($pagination->offset())
-            ->setMaxResults($pagination->pageSize)
             ->getQuery()
         ;
-        $paginator = new Paginator($query, fetchJoinCollection: false);
 
-        return new AdminPage(array_values(iterator_to_array($paginator)), count($paginator));
+        return $this->paginate($query, $pagination);
     }
 }

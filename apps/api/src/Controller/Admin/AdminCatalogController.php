@@ -6,8 +6,8 @@ use App\Entity\Category;
 use App\Entity\Ingredient;
 use App\Entity\Recipe;
 use App\Entity\User;
-use App\Pagination\AdminPage;
-use App\Pagination\AdminPagination;
+use App\Pagination\PageRequest;
+use App\Pagination\PaginatedResponse;
 use App\Repository\CategoryRepository;
 use App\Repository\IngredientRepository;
 use App\Repository\RecipeRepository;
@@ -23,9 +23,9 @@ final class AdminCatalogController extends AbstractController
     public function users(Request $request, UserRepository $userRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
-        $pagination = AdminPagination::fromRequest($request);
+        $pagination = PageRequest::fromRequest($request);
 
-        return $this->json($this->pagePayload(
+        return $this->json(PaginatedResponse::from(
             $userRepository->paginateLatestForAdmin($pagination),
             $pagination,
             fn (User $user): array => $this->userPayload($user),
@@ -36,9 +36,9 @@ final class AdminCatalogController extends AbstractController
     public function recipes(Request $request, RecipeRepository $recipeRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
-        $pagination = AdminPagination::fromRequest($request);
+        $pagination = PageRequest::fromRequest($request);
 
-        return $this->json($this->pagePayload(
+        return $this->json(PaginatedResponse::from(
             $recipeRepository->paginateLatestForAdmin($pagination),
             $pagination,
             fn (Recipe $recipe): array => $this->recipePayload($recipe),
@@ -49,9 +49,9 @@ final class AdminCatalogController extends AbstractController
     public function categories(Request $request, CategoryRepository $categoryRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
-        $pagination = AdminPagination::fromRequest($request);
+        $pagination = PageRequest::fromRequest($request);
 
-        return $this->json($this->pagePayload(
+        return $this->json(PaginatedResponse::from(
             $categoryRepository->paginateLatestForAdmin($pagination),
             $pagination,
             fn (Category $category): array => $this->categoryPayload($category),
@@ -62,32 +62,13 @@ final class AdminCatalogController extends AbstractController
     public function ingredients(Request $request, IngredientRepository $ingredientRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
-        $pagination = AdminPagination::fromRequest($request);
+        $pagination = PageRequest::fromRequest($request);
 
-        return $this->json($this->pagePayload(
+        return $this->json(PaginatedResponse::from(
             $ingredientRepository->paginateLatestForAdmin($pagination),
             $pagination,
             fn (Ingredient $ingredient): array => $this->ingredientPayload($ingredient),
         ));
-    }
-
-    /**
-     * @template T of object
-     *
-     * @param AdminPage<T>                      $page
-     * @param callable(T): array<string, mixed> $payload
-     *
-     * @return array{items: list<array<string, mixed>>, page: int, pageSize: int, totalItems: int, totalPages: int}
-     */
-    private function pagePayload(AdminPage $page, AdminPagination $pagination, callable $payload): array
-    {
-        return [
-            'items' => array_map($payload, $page->items),
-            'page' => $pagination->page,
-            'pageSize' => $pagination->pageSize,
-            'totalItems' => $page->totalItems,
-            'totalPages' => $pagination->totalPages($page->totalItems),
-        ];
     }
 
     /**

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import AdminBadge from '../../components/admin/AdminBadge.vue'
-import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
+import PaginationNav from '../../components/common/PaginationNav.vue'
 import UiButton from '../../components/ui/button/Button.vue'
+import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { ModerationStatus, Report, ReportStatus } from '../../types/api'
 import {
@@ -13,25 +14,21 @@ import {
   adminReportStatusOptions,
   adminStatusLabel
 } from '../../utils/admin'
-import { adminPageFromQuery } from '../../utils/admin-pagination'
 
 await useRequireAdmin()
 
 const api = useApi()
-const route = useRoute()
-const page = computed(() => adminPageFromQuery(route.query))
-const { data, pending, error } = await useAsyncData(`admin:reports:${route.fullPath}`, () => api.admin.reports.list({ page: page.value }), { watch: [() => route.fullPath] })
-const reports = ref<Report[]>([])
+const { error, items: reports, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<Report>(
+  'admin:reports',
+  '/admin/reports',
+  api.admin.reports.list
+)
 const rowPending = ref<Record<number, boolean>>({})
 const rowError = ref<Record<number, string>>({})
 const rowMessage = ref<Record<number, string>>({})
 
 const userModerationOptions = computed(() => adminModerationStatusOptions.filter(option => option.value === 'visible' || option.value === 'removed'))
 const openReports = computed(() => reports.value.filter(report => report.status === 'open'))
-
-watch(data, (nextData) => {
-  reports.value = nextData?.items ?? []
-}, { immediate: true })
 
 useSeoMeta({
   title: 'Admin reports | What\'s In My Bar',
@@ -80,7 +77,7 @@ function stringValue(value: FormDataEntryValue | null): string {
           Total reports
         </p>
         <p class="mt-2 text-3xl font-black">
-          {{ data?.totalItems ?? 0 }}
+          {{ pagination.totalItems }}
         </p>
       </article>
       <article class="rounded-lg border border-border bg-card p-4">
@@ -176,12 +173,12 @@ function stringValue(value: FormDataEntryValue | null): string {
       </p>
     </section>
 
-    <AdminPagination
-      v-if="!pending && !error && data"
-      :page="data.page"
-      path="/admin/reports"
-      :total-items="data.totalItems"
-      :total-pages="data.totalPages"
+    <PaginationNav
+      v-if="!pending && !error"
+      aria-label="Report list pagination"
+      :next-to="nextTo"
+      :pagination="pagination"
+      :previous-to="previousTo"
     />
   </AdminShell>
 </template>

@@ -1,29 +1,26 @@
 <script setup lang="ts">
 import AdminBadge from '../../components/admin/AdminBadge.vue'
-import AdminPagination from '../../components/admin/AdminPagination.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
+import PaginationNav from '../../components/common/PaginationNav.vue'
 import UiButton from '../../components/ui/button/Button.vue'
+import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { AdminRecipe, ModerationStatus, RecipeStatus } from '../../types/api'
-import { adminPageFromQuery } from '../../utils/admin-pagination'
 import { adminModerationStatusOptions, adminRecipeStatusOptions } from '../../utils/admin'
 
 await useRequireAdmin()
 
 const api = useApi()
-const route = useRoute()
-const page = computed(() => adminPageFromQuery(route.query))
-const { data, pending, error } = await useAsyncData(`admin:recipes:${route.fullPath}`, () => api.admin.recipes.list({ page: page.value }), { watch: [() => route.fullPath] })
-const recipes = ref<AdminRecipe[]>([])
+const { error, items: recipes, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<AdminRecipe>(
+  'admin:recipes',
+  '/admin/recipes',
+  api.admin.recipes.list
+)
 const rowPending = ref<Record<string, boolean>>({})
 const rowMessage = ref<Record<string, string>>({})
 const rowError = ref<Record<string, string>>({})
-
-watch(data, (nextData) => {
-  recipes.value = nextData?.items ?? []
-}, { immediate: true })
 
 useSeoMeta({
   title: 'Admin recipes | What\'s In My Bar',
@@ -168,12 +165,12 @@ function deleteRecipe(recipe: AdminRecipe) {
       </p>
     </div>
 
-    <AdminPagination
-      v-if="!pending && !error && data"
-      :page="data.page"
-      path="/admin/recipes"
-      :total-items="data.totalItems"
-      :total-pages="data.totalPages"
+    <PaginationNav
+      v-if="!pending && !error"
+      aria-label="Recipe administration pagination"
+      :next-to="nextTo"
+      :pagination="pagination"
+      :previous-to="previousTo"
     />
   </AdminShell>
 </template>

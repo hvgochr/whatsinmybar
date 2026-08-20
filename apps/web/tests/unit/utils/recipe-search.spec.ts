@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { collectionLastPage, pageFromUrl } from '../../../app/utils/api-collections'
+import { paginationState } from '../../../app/utils/pagination'
 import {
   activeRecipeFilters,
   cleanRecipeSearchQuery,
-  paginationState,
   recipeSearchQueryFromForm,
   recipeSearchStateFromQuery
 } from '../../../app/utils/recipe-search'
@@ -79,13 +79,15 @@ describe('recipe search helpers', () => {
     expect(paginationState({
       currentPage: 2,
       itemsOnPage: 12,
-      lastPage: 4,
+      totalPages: 4,
       totalItems: 42
     })).toEqual({
       currentPage: 2,
       hasNextPage: true,
       hasPreviousPage: true,
-      lastPage: 4,
+      nextPage: 3,
+      previousPage: 1,
+      totalPages: 4,
       resultEnd: 24,
       resultStart: 13,
       totalItems: 42
@@ -94,13 +96,15 @@ describe('recipe search helpers', () => {
     expect(paginationState({
       currentPage: 4,
       itemsOnPage: 6,
-      lastPage: 4,
+      totalPages: 4,
       totalItems: 42
     })).toEqual({
       currentPage: 4,
       hasNextPage: false,
       hasPreviousPage: true,
-      lastPage: 4,
+      nextPage: 5,
+      previousPage: 3,
+      totalPages: 4,
       resultEnd: 42,
       resultStart: 37,
       totalItems: 42

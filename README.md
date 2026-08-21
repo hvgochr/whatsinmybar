@@ -90,4 +90,4 @@ volumes, and a manual deployment runbook.
 
 A public production launch still requires a VPS and domain, external backups,
 monitoring, security hardening, a decision or implementation for S3-compatible
-uploads, dynamic sitemap generation, and final refresh-token/logout hardening.
+uploads, dynamic sitemap generation, and final deployment acceptance testing.

@@ -20,6 +20,11 @@ final readonly class UserAccountAccess
             return;
         }
 
+        $this->revokeRefreshTokens($user);
+    }
+
+    public function revokeRefreshTokens(User $user): void
+    {
         foreach ($this->entityManager->getRepository(RefreshToken::class)->findBy(['username' => $user->getUserIdentifier()]) as $refreshToken) {
             $this->entityManager->remove($refreshToken);
         }

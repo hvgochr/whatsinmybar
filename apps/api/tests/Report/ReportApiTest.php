@@ -413,7 +413,7 @@ final class ReportApiTest extends WebTestCase
     }
 
     /**
-     * @return array{token: string, refresh_token: string}
+     * @return array{token: string}
      */
     private function loginExistingUser(KernelBrowser $client, User $user): array
     {
@@ -426,7 +426,7 @@ final class ReportApiTest extends WebTestCase
 
         $payload = $this->jsonResponse($client);
         self::assertIsString($payload['token']);
-        self::assertIsString($payload['refresh_token']);
+        self::assertArrayNotHasKey('refresh_token', $payload);
 
         return $payload;
     }

@@ -6,8 +6,11 @@ useSeoMeta({
 })
 
 onMounted(async () => {
-  auth.clearSession()
-  await navigateTo('/login', { replace: true })
+  try {
+    await auth.logout()
+  } finally {
+    await navigateTo('/login', { replace: true })
+  }
 })
 </script>
 

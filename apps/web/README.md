@@ -40,10 +40,10 @@ const auth = useAuth()
 `useAuth()` owns the browser session workflow:
 
 - access token: Nuxt state, kept in memory only
-- refresh token: session cookie named `wimb_refresh_token`
+- refresh token: server-managed HttpOnly cookie, never exposed to Nuxt code
 - no token is written to `localStorage`
 - `401` API responses trigger one refresh attempt, then the original request is replayed
-- failed refresh clears the token state
+- logout and failed refreshes revoke or clear the server-managed cookie
 
 Runtime API URLs:
 

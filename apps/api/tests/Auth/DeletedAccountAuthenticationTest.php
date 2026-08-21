@@ -21,13 +21,13 @@ final class DeletedAccountAuthenticationTest extends WebTestCase
         $client->jsonRequest('POST', '/api/auth/login', [
             'email' => $user->getEmail(),
             'password' => $password,
-        ]);
+        ], ['HTTPS' => 'on']);
 
         self::assertResponseIsSuccessful();
 
         $tokens = $this->jsonResponse($client);
         self::assertIsString($tokens['token']);
-        self::assertIsString($tokens['refresh_token']);
+        self::assertArrayNotHasKey('refresh_token', $tokens);
 
         $user->setDeletedAt(new \DateTimeImmutable());
         static::getContainer()->get(EntityManagerInterface::class)->flush();
@@ -47,8 +47,9 @@ final class DeletedAccountAuthenticationTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
         $this->assertDeletionStateIsNotDisclosed($client);
 
-        $client->jsonRequest('POST', '/api/auth/refresh', [
-            'refresh_token' => $tokens['refresh_token'],
+        $client->jsonRequest('POST', '/api/auth/refresh', [], [
+            'HTTPS' => 'on',
+            'HTTP_X_CSRF_PROTECTION' => '1',
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);

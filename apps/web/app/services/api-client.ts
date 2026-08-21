@@ -53,8 +53,6 @@ export interface ApiClientConfig {
   fetch: FetchLike
   getAccessToken: () => string | null
   setAccessToken: (token: string | null) => void
-  getRefreshToken: () => string | null
-  setRefreshToken: (token: string | null) => void
   clearTokens: () => void
 }
 
@@ -107,7 +105,8 @@ export interface ApiClient {
   }
   auth: {
     login: (payload: LoginPayload) => Promise<AuthTokens>
-    refresh: (refreshToken: string) => Promise<AuthTokens>
+    logout: () => Promise<void>
+    refresh: () => Promise<AuthTokens>
     register: (payload: RegisterPayload) => Promise<User>
   }
   categories: {
@@ -164,26 +163,24 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
 
   const setTokens = (tokens: AuthTokens): void => {
     config.setAccessToken(tokens.token)
-    config.setRefreshToken(tokens.refresh_token)
   }
 
   const refreshTokens = async (): Promise<AuthTokens> => {
-    const refreshToken = config.getRefreshToken()
-
-    if (!refreshToken) {
-      throw new ApiRequestError('Authentication required.', 401, 'unauthorized')
-    }
-
     refreshPromise ??= request<AuthTokens>('/auth/refresh', {
       auth: false,
-      body: { refresh_token: refreshToken },
+      headers: csrfProtectionHeaders(),
       method: 'POST'
     })
       .then((tokens) => {
         setTokens(tokens)
         return tokens
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        await config.fetch('/auth/logout', fetchOptions(config, {
+          auth: false,
+          headers: csrfProtectionHeaders(),
+          method: 'POST'
+        })).catch(() => undefined)
         config.clearTokens()
         throw normalizeApiError(error)
       })
@@ -205,7 +202,6 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
         && options.auth !== false
         && normalizedError.status === 401
         && !path.endsWith('/auth/refresh')
-        && config.getRefreshToken()
       ) {
         await refreshTokens()
 
@@ -259,9 +255,16 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     },
     auth: {
       login: (payload) => request<AuthTokens>('/auth/login', { auth: false, body: payload, method: 'POST' }),
-      refresh: (refreshToken) => request<AuthTokens>('/auth/refresh', {
+      logout: async () => {
+        await request('/auth/logout', {
+          auth: false,
+          headers: csrfProtectionHeaders(),
+          method: 'POST'
+        })
+      },
+      refresh: () => request<AuthTokens>('/auth/refresh', {
         auth: false,
-        body: { refresh_token: refreshToken },
+        headers: csrfProtectionHeaders(),
         method: 'POST'
       }),
       register: (payload) => request<User>('/auth/register', { auth: false, body: payload, method: 'POST' })
@@ -362,9 +365,14 @@ function fetchOptions(config: ApiClientConfig, options: ApiRequestOptions): Reco
   return {
     ...fetchOptions,
     baseURL: config.baseURL,
+    credentials: 'include',
     headers: resolvedHeaders,
     query: query ? cleanQuery(query) : undefined
   }
+}
+
+function csrfProtectionHeaders(): HeadersInit {
+  return { 'X-CSRF-Protection': '1' }
 }
 
 function recipeSearchQuery(params: RecipeSearchParams): Record<string, string | number | boolean> {

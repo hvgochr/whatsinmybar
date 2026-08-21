@@ -5,7 +5,6 @@ export function useAuth() {
   const api = useApi()
   const accessToken = useState<string | null>('auth.accessToken', () => null)
   const currentUser = useState<User | null>('auth.currentUser', () => null)
-  const refreshToken = useRefreshTokenCookie()
 
   const isAuthenticated = computed(() => Boolean(accessToken.value && currentUser.value))
 
@@ -47,17 +46,18 @@ export function useAuth() {
   }
 
   const refreshSession = async (): Promise<AuthTokens | null> => {
-    if (!refreshToken.value) {
-      return null
-    }
-
     try {
-      const tokens = await api.auth.refresh(refreshToken.value)
+      const tokens = await api.auth.refresh()
       applyTokens(tokens)
 
       return tokens
     } catch (error: unknown) {
       clearSession()
+
+      if (error instanceof ApiRequestError && error.status === 401) {
+        return null
+      }
+
       throw error
     }
   }
@@ -74,6 +74,14 @@ export function useAuth() {
     return fetchCurrentUser()
   }
 
+  const logout = async (): Promise<void> => {
+    try {
+      await api.auth.logout()
+    } finally {
+      clearSession()
+    }
+  }
+
   return {
     accessToken: readonly(accessToken),
     currentUser: readonly(currentUser),
@@ -81,18 +89,10 @@ export function useAuth() {
     clearSession,
     fetchCurrentUser,
     login,
+    logout,
     refreshSession,
     register,
     restoreSession,
     setCurrentUser
   }
-}
-
-export function useRefreshTokenCookie() {
-  return useCookie<string | null>('wimb_refresh_token', {
-    default: () => null,
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
-  })
 }

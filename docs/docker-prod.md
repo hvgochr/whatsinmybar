@@ -74,6 +74,11 @@ APP_DOMAIN=the public hostname without https:// or a path
 CORS_ALLOW_ORIGIN=an anchored regular expression for https://APP_DOMAIN
 ```
 
+The API forces `Secure` on its HttpOnly refresh-token cookie in production.
+Keep the browser API URL behind the same public HTTPS origin. Credentialed CORS
+is enabled for the configured origin because login, refresh, and logout manage
+that cookie; do not broaden `CORS_ALLOW_ORIGIN` to `*`.
+
 Validate interpolation without starting containers:
 
 ```bash

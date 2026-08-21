@@ -97,7 +97,6 @@ export interface PublicProfile {
 
 export interface AuthTokens {
   token: string
-  refresh_token: string
 }
 
 export interface RegisterPayload {

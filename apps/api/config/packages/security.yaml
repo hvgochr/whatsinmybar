@@ -27,12 +27,15 @@ security:
                 success_handler: lexik_jwt_authentication.handler.authentication_success
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
         refresh:
-            pattern: ^/api/auth/refresh$
+            pattern: ^/api/auth/(refresh|logout)$
             stateless: true
             provider: app_user_provider
             user_checker: App\Security\DeletedUserChecker
             refresh-jwt:
                 check_path: /api/auth/refresh
+                invalidate_token_on_logout: true
+            logout:
+                path: api_auth_logout
         api:
             pattern: ^/api
             stateless: true
@@ -55,6 +58,7 @@ security:
         - { path: ^/api/auth/register$, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/login$, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/refresh$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/logout$, roles: PUBLIC_ACCESS }
         - { path: ^/api/me$, roles: ROLE_USER }
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }

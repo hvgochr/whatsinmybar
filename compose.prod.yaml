@@ -39,6 +39,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.prod}
       DEFAULT_URI: https://${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
+      REFRESH_TOKEN_COOKIE_SECURE: "1"
       SYMFONY_TRUSTED_PROXIES: 127.0.0.1,REMOTE_ADDR
     expose:
       - "8080"

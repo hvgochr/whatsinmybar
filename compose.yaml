@@ -32,6 +32,7 @@ services:
       DATABASE_URL: 'postgresql://app:app@postgres:5432/whatsinmybar?serverVersion=16&charset=utf8'
       DEFAULT_URI: 'http://localhost:8080'
       JWT_SECRET: dev-only-change-me-at-least-32-bytes
+      REFRESH_TOKEN_COOKIE_SECURE: "0"
     ports:
       - "127.0.0.1:8000:80"
     volumes:

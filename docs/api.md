@@ -26,6 +26,7 @@ expect simple JSON unless JSON-LD metadata is specifically needed.
 POST  /auth/register
 POST  /auth/login
 POST  /auth/refresh
+POST  /auth/logout
 GET   /me
 PATCH /me
 PATCH /me/password
@@ -33,16 +34,41 @@ POST  /me/avatar
 GET   /users/{username}
 ```
 
-There is currently no server-side logout endpoint. Nuxt logout clears the
-in-memory access token and refresh-token session cookie. Because the refresh
-token is not explicitly revoked in the API at logout time, server-side
-revocation remains a production hardening task.
+Successful login and refresh responses contain only the short-lived access
+token:
+
+```json
+{
+  "token": "..."
+}
+```
+
+The API stores the 30-day refresh token in a host-only `refresh_token` cookie
+with `HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, and `Secure` in production.
+The browser must include credentials on login, refresh, and logout requests.
+Frontend JavaScript never receives or reads the refresh-token value.
+
+`POST /auth/refresh` has no JSON payload. It consumes the cookie, rejects replay
+of the previous single-use token, and rotates both the access token and refresh
+cookie. `POST /auth/logout` revokes the current refresh token and expires the
+cookie. Both cookie-authenticated endpoints require this header:
+
+```text
+X-CSRF-Protection: 1
+```
+
+The non-simple header forces cross-origin browser requests through the
+credentialed CORS policy; `SameSite=Strict` provides an additional cookie
+boundary. Missing protection returns `403 Forbidden`.
 
 Soft-deleted accounts receive a generic `401 Unauthorized` response when they
 attempt to log in, refresh a session, or use an existing access token. Applying
 account deletion through an admin user mutation or report moderation also
 revokes all refresh tokens for that account. Restoring the account allows it to
 authenticate again, but does not restore revoked refresh tokens.
+
+Changing a password also revokes every refresh token for that account. Existing
+access tokens retain only their normal short lifetime.
 
 Register payload:
 

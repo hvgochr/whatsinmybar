@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Service\Account\PasswordChanger;
 use App\Service\Upload\AvatarStorageInterface;
+use App\Service\UserAccountAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -164,6 +165,7 @@ final class AuthController extends AbstractController
         #[CurrentUser] ?User $user,
         ValidatorInterface $validator,
         PasswordChanger $passwordChanger,
+        UserAccountAccess $userAccountAccess,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         if (!$user instanceof User) {
@@ -189,6 +191,7 @@ final class AuthController extends AbstractController
             throw new BadRequestHttpException('Current password is invalid.');
         }
 
+        $userAccountAccess->revokeRefreshTokens($user);
         $entityManager->flush();
 
         return $this->json(['changed' => true]);

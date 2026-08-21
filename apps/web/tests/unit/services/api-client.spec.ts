@@ -22,8 +22,7 @@ describe('api client', () => {
       return user
     })
     const api = createTestClient(fetch, {
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token'
+      accessToken: 'access-token'
     })
 
     await expect(api.account.me()).resolves.toEqual(user)
@@ -32,12 +31,10 @@ describe('api client', () => {
 
   it('refreshes tokens and retries once after an authenticated 401', async () => {
     const tokens: AuthTokens = {
-      token: 'new-access-token',
-      refresh_token: 'new-refresh-token'
+      token: 'new-access-token'
     }
     const state = {
-      accessToken: 'expired-token',
-      refreshToken: 'refresh-token'
+      accessToken: 'expired-token'
     }
     const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
       const authorization = (options?.headers as Headers).get('Authorization')
@@ -48,7 +45,9 @@ describe('api client', () => {
 
       if (path === '/auth/refresh') {
         expect(authorization).toBeNull()
-        expect(options?.body).toEqual({ refresh_token: 'refresh-token' })
+        expect(options?.body).toBeUndefined()
+        expect((options?.headers as Headers).get('X-CSRF-Protection')).toBe('1')
+        expect(options?.credentials).toBe('include')
 
         return tokens
       }
@@ -61,16 +60,20 @@ describe('api client', () => {
     const api = createTestClient(fetch, state)
 
     await expect(api.account.me()).resolves.toEqual(user)
-    expect(state).toEqual(tokensToState(tokens))
+    expect(state).toEqual({ accessToken: tokens.token })
     expect(fetch).toHaveBeenCalledTimes(3)
   })
 
   it('clears tokens when refresh fails', async () => {
     const state = {
-      accessToken: 'expired-token',
-      refreshToken: 'refresh-token'
+      accessToken: 'expired-token'
     }
-    const fetch = vi.fn(async () => {
+    const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
+      if (path === '/auth/logout') {
+        expect((options?.headers as Headers).get('X-CSRF-Protection')).toBe('1')
+        return undefined
+      }
+
       throw unauthorizedError()
     })
     const api = createTestClient(fetch, state)
@@ -79,7 +82,8 @@ describe('api client', () => {
       code: 'unauthorized',
       status: 401
     })
-    expect(state).toEqual({ accessToken: null, refreshToken: null })
+    expect(state).toEqual({ accessToken: null })
+    expect(fetch).toHaveBeenCalledWith('/auth/logout', expect.objectContaining({ credentials: 'include' }))
   })
 
   it('exposes public taxonomy and profile endpoints without bearer tokens', async () => {
@@ -109,8 +113,7 @@ describe('api client', () => {
       throw new Error(`Unexpected request: ${path}`)
     })
     const api = createTestClient(fetch, {
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token'
+      accessToken: 'access-token'
     })
 
     await api.categories.list()
@@ -123,8 +126,7 @@ describe('api client', () => {
   it('maps alcohol recipe filters to boolean API query values', async () => {
     const fetch = vi.fn(async () => ({ member: [] }))
     const api = createTestClient(fetch, {
-      accessToken: null,
-      refreshToken: null
+      accessToken: null
     })
 
     await api.recipes.list({ alcohol: 'with', page: 2 })
@@ -173,8 +175,7 @@ describe('api client', () => {
       throw new Error(`Unexpected request: ${path}`)
     })
     const api = createTestClient(fetch, {
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token'
+      accessToken: 'access-token'
     })
 
     await expect(api.recipeSteps.create({
@@ -207,7 +208,7 @@ describe('api client', () => {
 
 function createTestClient(
   fetch: <T>(request: string, options?: Record<string, unknown>) => Promise<T>,
-  state: { accessToken: string | null, refreshToken: string | null }
+  state: { accessToken: string | null }
 ) {
   return createApiClient({
     baseURL: '/api',
@@ -216,22 +217,10 @@ function createTestClient(
     setAccessToken: (token) => {
       state.accessToken = token
     },
-    getRefreshToken: () => state.refreshToken,
-    setRefreshToken: (token) => {
-      state.refreshToken = token
-    },
     clearTokens: () => {
       state.accessToken = null
-      state.refreshToken = null
     }
   })
-}
-
-function tokensToState(tokens: AuthTokens): { accessToken: string, refreshToken: string } {
-  return {
-    accessToken: tokens.token,
-    refreshToken: tokens.refresh_token
-  }
 }
 
 function unauthorizedError() {

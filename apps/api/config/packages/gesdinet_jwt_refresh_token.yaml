@@ -4,4 +4,14 @@ gesdinet_jwt_refresh_token:
     ttl_update: true
     single_use: true
     cookie:
-        enabled: false
+        enabled: true
+        same_site: strict
+        path: /api/auth
+        http_only: true
+        secure: '%env(bool:REFRESH_TOKEN_COOKIE_SECURE)%'
+        remove_token_from_body: true
+
+when@test:
+    gesdinet_jwt_refresh_token:
+        cookie:
+            secure: true

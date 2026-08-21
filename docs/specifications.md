@@ -433,11 +433,13 @@ Preferred frontend security approach:
 - rotate refresh tokens;
 - invalidate refresh tokens on logout.
 
-Current V1 implementation keeps the access token in Nuxt memory and the refresh
-token in a secure, SameSite session cookie readable by the frontend. Refresh
-tokens are single-use and rotate on refresh. Frontend logout clears local
-session state, but a server-side logout/revocation endpoint is not implemented
-yet.
+The final V1 transport keeps the access token in Nuxt memory and the refresh
+token in a host-only, HttpOnly cookie scoped to `/api/auth`. The cookie uses
+`SameSite=Strict` and is `Secure` in production. Refresh tokens are single-use
+and rotate on refresh; their values are omitted from JSON responses. Refresh
+and logout require a custom anti-CSRF header and credentialed, origin-restricted
+CORS. Server-side logout revokes the current refresh token, and password changes
+revoke every refresh token for the account.
 
 Soft-deleted accounts cannot authenticate with a password, refresh a session,
 or authorize API requests with an access token issued before deletion. Applying
@@ -740,18 +742,15 @@ Remaining before the V1 production launch:
 
 1. Implement the dynamic sitemap required by the SEO specification.
 2. Implement and select the S3-compatible production storage adapter, or formally accept and back up local upload storage.
-3. Decide and harden the refresh-token transport for the final production threat model.
-4. Add server-side logout/revocation if refresh tokens must become unusable immediately on logout.
-5. Provision the VPS and complete DNS, firewall, SSH hardening, real TLS, monitoring, log retention, and off-site backups.
-6. Test database and upload restoration on an isolated environment.
-7. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
-8. Run a final accessibility, responsive layout, security, and end-to-end acceptance pass.
+3. Provision the VPS and complete DNS, firewall, SSH hardening, real TLS, monitoring, log retention, and off-site backups.
+4. Test database and upload restoration on an isolated environment.
+5. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
+6. Run a final accessibility, responsive layout, security, and end-to-end acceptance pass.
 
 ## 14. Open Decisions
 
 The following details still require a product or infrastructure decision:
 
-- final cookie versus bearer-token transport details for Nuxt SSR;
 - whether recipe and category slugs become immutable after publication;
 - maximum comment nesting depth in the UI;
 - final upload transformations and image dimension policy;

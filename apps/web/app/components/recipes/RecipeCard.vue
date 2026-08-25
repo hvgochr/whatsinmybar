@@ -2,6 +2,7 @@
 import type { RecipeResource } from '../../types/api'
 import { categoryName, categorySlug, formatPublicDate, formatRecipeMeta, publicDescription } from '../../utils/public-content'
 import RecipeImage from './RecipeImage.vue'
+import FavoriteButton from '../social/FavoriteButton.vue'
 
 const props = defineProps<{
   recipe: RecipeResource
@@ -9,6 +10,18 @@ const props = defineProps<{
 
 const categories = computed(() => props.recipe.categories?.slice(0, 2) ?? [])
 const meta = computed(() => formatRecipeMeta(props.recipe))
+const favoriteCount = ref(props.recipe.favoriteCount)
+const favorited = ref(props.recipe.favorited)
+
+watch(() => props.recipe, (recipe) => {
+  favoriteCount.value = recipe.favoriteCount
+  favorited.value = recipe.favorited
+})
+
+function updateFavorite(state: { count: number, favorited: boolean }) {
+  favoriteCount.value = state.count
+  favorited.value = state.favorited
+}
 </script>
 
 <template>
@@ -56,18 +69,19 @@ const meta = computed(() => formatRecipeMeta(props.recipe))
               </NuxtLink>
             </dd>
           </div>
-          <div class="flex gap-1 font-bold text-foreground">
-            <dt class="sr-only">
-              Favorites
-            </dt>
-            <dd>{{ recipe.favoriteCount }} saved</dd>
-          </div>
         </div>
         <div v-if="recipe.publishedAt" class="flex gap-1">
           <dt>Published</dt>
           <dd>{{ formatPublicDate(recipe.publishedAt) }}</dd>
         </div>
       </dl>
+
+      <FavoriteButton
+        :count="favoriteCount"
+        :favorited="favorited"
+        :recipe-slug="recipe.slug"
+        @updated="updateFavorite"
+      />
     </div>
   </article>
 </template>

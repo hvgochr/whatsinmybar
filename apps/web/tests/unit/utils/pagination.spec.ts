@@ -11,6 +11,14 @@ describe('pagination', () => {
     expect(pageFromQuery({ page: String(Number.MAX_SAFE_INTEGER + 1) })).toBe(1)
   })
 
+  it('supports independent named pagination query parameters', () => {
+    expect(pageFromQuery({ ownedPage: '2', savedPage: '4' }, 'savedPage')).toBe(4)
+    expect(pageLocation('/account/library', { ownedPage: '2', savedPage: '4' }, 3, 'ownedPage')).toEqual({
+      path: '/account/library',
+      query: { ownedPage: '3', savedPage: '4' }
+    })
+  })
+
   it('builds page locations while preserving filters and clean first-page URLs', () => {
     expect(pageLocation('/recipes', { alcohol: 'without', page: '3' }, 1)).toEqual({
       path: '/recipes',

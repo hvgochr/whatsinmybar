@@ -13,19 +13,17 @@ export interface PaginationState {
   totalPages: number | null
 }
 
-export function pageFromQuery(query: LocationQuery): number {
-  const value = Number(firstQueryValue(query, 'page'))
+export function pageFromQuery(query: LocationQuery, key = 'page'): number {
+  const value = Number(firstQueryValue(query, key))
 
   return Number.isSafeInteger(value) && value > 0 ? value : 1
 }
 
-export function pageLocation(path: string, query: LocationQuery, page: number) {
-  const nextQuery = { ...query }
+export function pageLocation(path: string, query: LocationQuery, page: number, key = 'page') {
+  const nextQuery = Object.fromEntries(Object.entries(query).filter(([queryKey]) => queryKey !== key))
 
   if (page > 1) {
-    nextQuery.page = String(page)
-  } else {
-    delete nextQuery.page
+    nextQuery[key] = String(page)
   }
 
   return { path, query: nextQuery }

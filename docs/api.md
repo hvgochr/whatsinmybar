@@ -31,6 +31,8 @@ GET   /me
 PATCH /me
 PATCH /me/password
 POST  /me/avatar
+GET   /me/recipes
+GET   /me/saved-recipes
 GET   /users/{username}
 ```
 
@@ -124,6 +126,27 @@ Password change payload:
 
 Avatar upload is multipart with the `avatar` file field.
 
+`GET /me/recipes` and `GET /me/saved-recipes` are private account-library
+collections. They do not accept a user identifier: the bearer token always
+selects the current account. Both accept `page` and `pageSize` (default `20`,
+maximum `100`) and return:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 0,
+  "totalPages": 0
+}
+```
+
+Owned recipes include the current user's visible drafts, published recipes,
+and archived recipes, excluding soft-deleted recipes. Saved recipes include
+only published, moderation-visible recipes. Both collections enforce alcohol
+visibility, and each recipe summary includes the viewer-specific `favorited`
+boolean.
+
 ## Recipes
 
 ```text
@@ -197,6 +220,10 @@ publishedAfter
 publishedBefore
 sort=popular|newest|oldest
 ```
+
+Recipe item and collection representations include `favorited`. It is `true`
+only when the authenticated viewer has saved that recipe; it is `false` for
+anonymous viewers and other authenticated users.
 
 The API contract for `alcohol` is boolean:
 

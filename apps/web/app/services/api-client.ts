@@ -77,6 +77,8 @@ export interface ApiClient {
     avatar: (file: Blob) => Promise<User>
     changePassword: (payload: PasswordChangePayload) => Promise<{ changed: boolean }>
     me: () => Promise<User>
+    ownedRecipes: (params?: PaginationParams) => Promise<PaginatedList<RecipeResource>>
+    savedRecipes: (params?: PaginationParams) => Promise<PaginatedList<RecipeResource>>
     update: (payload: UpdateMePayload) => Promise<User>
   }
   admin: {
@@ -227,6 +229,8 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       avatar: (file) => upload<User>('/me/avatar', 'avatar', file),
       changePassword: (payload) => request<{ changed: boolean }>('/me/password', { body: payload, method: 'PATCH' }),
       me: () => request<User>('/me'),
+      ownedRecipes: (params = {}) => request<PaginatedList<RecipeResource>>('/me/recipes', { query: paginationQuery(params) }),
+      savedRecipes: (params = {}) => request<PaginatedList<RecipeResource>>('/me/saved-recipes', { query: paginationQuery(params) }),
       update: (payload) => request<User>('/me', { body: payload, method: 'PATCH' })
     },
     admin: {

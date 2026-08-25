@@ -42,6 +42,14 @@ const zeroProofRecipe = {
   favorited: false
 }
 
+const draftRecipe = {
+  ...zeroProofRecipe,
+  id: 3,
+  title: 'Unfinished Collins',
+  slug: 'unfinished-collins',
+  status: 'draft'
+}
+
 createServer((request, response) => {
   const url = new URL(request.url ?? '/', 'http://127.0.0.1:3001')
   const authorized = request.headers.authorization === 'Bearer adult-access-token'
@@ -67,6 +75,20 @@ createServer((request, response) => {
 
   if (url.pathname === '/api/me') {
     return authorized ? json(response, 200, adultUser) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/me/recipes') {
+    return authorized ? paginated(response, [draftRecipe, negroni]) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/me/saved-recipes') {
+    return authorized ? paginated(response, [negroni]) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/recipes/negroni/favorite' && request.method === 'DELETE') {
+    return authorized
+      ? json(response, 200, { recipeSlug: 'negroni', favoriteCount: 3, favorited: false, changed: true })
+      : apiError(response, 401, 'Unauthorized.')
   }
 
   if (url.pathname === '/api/recipes/negroni/comments') {
@@ -115,5 +137,15 @@ function apiError(response, status, message) {
       code: 'unauthorized',
       message
     }
+  })
+}
+
+function paginated(response, items) {
+  return json(response, 200, {
+    items,
+    page: 1,
+    pageSize: 20,
+    totalItems: items.length,
+    totalPages: items.length > 0 ? 1 : 0
   })
 }

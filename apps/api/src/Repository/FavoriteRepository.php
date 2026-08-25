@@ -25,4 +25,28 @@ final class FavoriteRepository extends ServiceEntityRepository
             'recipe' => $recipe,
         ]);
     }
+
+    /**
+     * @param list<Recipe> $recipes
+     *
+     * @return list<int>
+     */
+    public function findRecipeIdsForUser(User $user, array $recipes): array
+    {
+        if ([] === $recipes) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('favorite')
+            ->select('IDENTITY(favorite.recipe) AS recipeId')
+            ->andWhere('favorite.user = :user')
+            ->andWhere('favorite.recipe IN (:recipes)')
+            ->setParameter('user', $user)
+            ->setParameter('recipes', $recipes)
+            ->getQuery()
+            ->getScalarResult()
+        ;
+
+        return array_map(static fn (array $row): int => (int) $row['recipeId'], $rows);
+    }
 }

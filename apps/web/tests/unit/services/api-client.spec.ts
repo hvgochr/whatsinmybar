@@ -210,6 +210,27 @@ describe('api client', () => {
     }
   })
 
+  it('loads both private account library collections with pagination', async () => {
+    const fetch = vi.fn(async () => ({
+      items: [],
+      page: 3,
+      pageSize: 5,
+      totalItems: 0,
+      totalPages: 0
+    }))
+    const api = createTestClient(fetch, { accessToken: 'access-token' })
+
+    await api.account.ownedRecipes({ page: 3, pageSize: 5 })
+    await api.account.savedRecipes({ page: 3, pageSize: 5 })
+
+    expect(fetch).toHaveBeenNthCalledWith(1, '/me/recipes', expect.objectContaining({
+      query: { page: 3, pageSize: 5 }
+    }))
+    expect(fetch).toHaveBeenNthCalledWith(2, '/me/saved-recipes', expect.objectContaining({
+      query: { page: 3, pageSize: 5 }
+    }))
+  })
+
   it('manages recipe workflow subresources', async () => {
     const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
       if (path === '/recipe_steps') {

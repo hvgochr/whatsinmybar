@@ -50,6 +50,25 @@ final class FavoriteApiTest extends WebTestCase
 
         $recipePayload = $this->jsonResponse($client);
         self::assertSame(1, $recipePayload['favoriteCount']);
+        self::assertTrue($recipePayload['favorited']);
+
+        $client->request('GET', '/api/recipes', server: [
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $collectionPayload = $this->jsonResponse($client);
+        $collectionRecipe = array_values(array_filter(
+            $collectionPayload,
+            static fn (array $item): bool => $recipe->getSlug() === $item['slug'],
+        ))[0];
+        self::assertTrue($collectionRecipe['favorited']);
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug());
+
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse($client)['favorited']);
 
         $client->request('DELETE', '/api/recipes/'.$recipe->getSlug().'/favorite', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
@@ -72,6 +91,13 @@ final class FavoriteApiTest extends WebTestCase
         self::assertSame(0, $secondRemove['favoriteCount']);
         self::assertFalse($secondRemove['favorited']);
         self::assertFalse($secondRemove['changed']);
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug(), server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse($client)['favorited']);
     }
 
     public function testMinorCannotFavoriteAlcoholicRecipe(): void

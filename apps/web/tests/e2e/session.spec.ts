@@ -24,6 +24,26 @@ test.describe('session bootstrap', () => {
     await expect(page.getByText('Authorized note')).toBeVisible()
   })
 
+  test('renders the private account library after session restoration', async ({ context, page }) => {
+    await context.addCookies([{
+      name: 'refresh_token',
+      value: 'valid-session',
+      domain: '127.0.0.1',
+      path: '/',
+      httpOnly: true,
+      sameSite: 'Strict'
+    }])
+
+    const response = await page.goto('/account/library')
+
+    expect(response?.ok()).toBe(true)
+    await expect(page.getByRole('heading', { name: 'Your recipe library' })).toBeVisible()
+    await expect(page.getByText('Unfinished Collins')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Publish' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Saved recipes' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Remove saved recipe' })).toBeVisible()
+  })
+
   test('clears an invalid session and keeps public pages usable', async ({ context, page }) => {
     await context.addCookies([{
       name: 'refresh_token',

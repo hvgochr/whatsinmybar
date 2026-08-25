@@ -15,6 +15,7 @@ use App\Enum\RecipeStatus;
 use App\Repository\RecipeRepository;
 use App\Security\RecipeAccess;
 use App\State\RecipeProcessor;
+use App\State\RecipeViewerStateProvider;
 use App\Util\SlugNormalizer;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -35,9 +36,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity(fields: ['slug'])]
 #[ApiResource(
     operations: [
-        new GetCollection(),
+        new GetCollection(provider: RecipeViewerStateProvider::class),
         new Post(security: "is_granted('ROLE_USER')", processor: RecipeProcessor::class),
-        new Get(security: "is_granted('".RecipeAccess::View."', object)"),
+        new Get(security: "is_granted('".RecipeAccess::View."', object)", provider: RecipeViewerStateProvider::class),
         new Patch(security: "is_granted('".RecipeAccess::Manage."', object)", processor: RecipeProcessor::class),
         new Delete(security: "is_granted('".RecipeAccess::Manage."', object)", processor: RecipeProcessor::class),
     ],
@@ -130,6 +131,8 @@ class Recipe
     #[ORM\Column(options: ['default' => 0])]
     #[Groups(['recipe:read'])]
     private int $favoriteCount = 0;
+
+    private bool $favorited = false;
 
     /**
      * @var Collection<int, Category>
@@ -385,6 +388,17 @@ class Recipe
     public function decrementFavoriteCount(): void
     {
         $this->favoriteCount = max(0, $this->favoriteCount - 1);
+    }
+
+    #[Groups(['recipe:read'])]
+    public function getFavorited(): bool
+    {
+        return $this->favorited;
+    }
+
+    public function setFavorited(bool $favorited): void
+    {
+        $this->favorited = $favorited;
     }
 
     /**

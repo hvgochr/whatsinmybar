@@ -262,11 +262,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
           method: 'POST'
         })
       },
-      refresh: () => request<AuthTokens>('/auth/refresh', {
-        auth: false,
-        headers: csrfProtectionHeaders(),
-        method: 'POST'
-      }),
+      refresh: refreshTokens,
       register: (payload) => request<User>('/auth/register', { auth: false, body: payload, method: 'POST' })
     },
     categories: {
@@ -276,7 +272,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     comments: {
       create: (recipeSlug, payload) => request<Comment>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { body: payload, method: 'POST' }),
       delete: (id) => request<Comment>(`/comments/${id}`, { method: 'DELETE' }),
-      list: (recipeSlug) => request<ItemList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { auth: false }),
+      list: (recipeSlug) => request<ItemList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`),
       update: (id, payload) => request<Comment>(`/comments/${id}`, { body: payload, method: 'PATCH' })
     },
     favorites: {

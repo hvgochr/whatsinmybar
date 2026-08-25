@@ -42,6 +42,8 @@ const auth = useAuth()
 - access token: Nuxt state, kept in memory only
 - refresh token: server-managed HttpOnly cookie, never exposed to Nuxt code
 - no token is written to `localStorage`
+- an application plugin restores valid sessions before SSR page data is loaded
+- viewer-sensitive Nuxt data is invalidated when authentication changes
 - `401` API responses trigger one refresh attempt, then the original request is replayed
 - logout and failed refreshes revoke or clear the server-managed cookie
 

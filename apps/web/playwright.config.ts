@@ -16,15 +16,23 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry'
   },
-  webServer: {
-    command: 'pnpm preview --host=127.0.0.1 --port=3000',
-    env: {
-      NUXT_API_BASE_URL: 'http://127.0.0.1:1/api'
+  webServer: [
+    {
+      command: 'node tests/e2e/fixtures/mock-api.mjs',
+      url: 'http://127.0.0.1:3001/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000
     },
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000
-  },
+    {
+      command: 'pnpm preview --host=127.0.0.1 --port=3000',
+      env: {
+        NUXT_API_BASE_URL: 'http://127.0.0.1:3001/api'
+      },
+      url: 'http://127.0.0.1:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000
+    }
+  ],
   projects: [
     {
       name: 'chromium',

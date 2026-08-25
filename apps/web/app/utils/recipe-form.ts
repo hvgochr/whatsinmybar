@@ -1,9 +1,9 @@
 import type {
   Category,
   IngredientUnit,
+  RecipeAggregatePayload,
   RecipeIngredient,
   RecipeIngredientPayload,
-  RecipePayload,
   RecipeResource,
   RecipeStep,
   RecipeStepPayload
@@ -93,13 +93,25 @@ export function recipeToForm(recipe: RecipeResource): RecipeFormState {
   }
 }
 
-export function buildRecipePayload(form: RecipeFormState): RecipePayload {
+export function buildRecipePayload(form: RecipeFormState): RecipeAggregatePayload {
   return {
     categories: form.categories.map(categoryIri),
     description: form.description.trim(),
     difficulty: form.difficulty,
+    ingredients: form.ingredients
+      .filter(row => row.ingredientSlug && row.quantity !== '')
+      .map(row => ({
+        ingredient: ingredientIri(row.ingredientSlug),
+        note: row.note.trim() || null,
+        quantity: row.quantity,
+        unit: row.unit
+      })),
     preparationTimeMinutes: Number(form.preparationTimeMinutes),
     servings: Number(form.servings),
+    steps: form.steps
+      .map(row => row.instruction.trim())
+      .filter(Boolean)
+      .map(instruction => ({ instruction })),
     title: form.title.trim()
   }
 }

@@ -107,7 +107,53 @@ POST   /recipes/{slug}/publish
 POST   /recipes/{slug}/archive
 POST   /recipes/{slug}/image
 DELETE /recipes/{slug}/image
+POST   /recipes/aggregate
+PUT    /recipes/{slug}/aggregate
 ```
+
+The recipe editor writes recipe content through the aggregate endpoints. `POST`
+creates a draft and `PUT` completely replaces the editable aggregate of an
+existing recipe. Both operations require an authenticated recipe manager and
+accept the same JSON object:
+
+```json
+{
+  "title": "Negroni",
+  "description": "A bitter, stirred classic.",
+  "difficulty": "easy",
+  "preparationTimeMinutes": 5,
+  "servings": 1,
+  "categories": ["/api/categories/classics"],
+  "steps": [
+    { "instruction": "Stir all ingredients with ice." },
+    { "instruction": "Strain into a chilled glass." }
+  ],
+  "ingredients": [
+    {
+      "ingredient": "/api/ingredients/gin",
+      "quantity": "30",
+      "unit": "ml",
+      "note": null
+    }
+  ]
+}
+```
+
+`steps` and `ingredients` are required, non-empty arrays. Their array order is
+the stored position, starting at `1`; clients do not send child IDs or
+positions. Categories and ingredients are referenced by API IRI. Quantity is a
+positive decimal string with at most six integer digits and two decimal places.
+
+The complete payload, including all saved categories, ordered `steps`, and
+ordered `recipeIngredients`, is validated before replacement. Metadata,
+categories, steps, measured ingredients, and computed alcohol status are then
+committed in one database transaction. A rejected or interrupted aggregate
+write leaves the previous stored aggregate unchanged. The response is the full
+`recipe:read` representation (`201` for create, `200` for update).
+
+Image upload remains a separate multipart operation. Publication remains a
+separate workflow operation and must only be requested after the aggregate
+write succeeds.
 
 Recipe collection query parameters:
 

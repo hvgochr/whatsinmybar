@@ -23,8 +23,10 @@ describe('recipe form helpers', () => {
       categories: ['/api/categories/classics', '/api/categories/aperitif'],
       description: 'Stirred classic',
       difficulty: 'medium',
+      ingredients: [],
       preparationTimeMinutes: 4,
       servings: 1,
+      steps: [],
       title: 'Negroni'
     })
   })

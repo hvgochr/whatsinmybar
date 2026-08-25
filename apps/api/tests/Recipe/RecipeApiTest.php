@@ -183,6 +183,122 @@ final class RecipeApiTest extends WebTestCase
         self::assertCount(1, $recipe['recipeIngredients']);
     }
 
+    public function testAuthorCanCreateAndReplaceACompleteRecipeAggregate(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $category = $this->createCategory();
+        $gin = $this->createIngredient(containsAlcohol: true);
+        $vermouth = $this->createIngredient(containsAlcohol: false);
+        $suffix = bin2hex(random_bytes(4));
+
+        $client->jsonRequest('POST', '/api/recipes/aggregate', [
+            'title' => sprintf('Transactional Martini %s', $suffix),
+            'description' => 'The original aggregate.',
+            'difficulty' => 'medium',
+            'preparationTimeMinutes' => 5,
+            'servings' => 1,
+            'categories' => ['/api/categories/'.$category->getSlug()],
+            'steps' => [
+                ['instruction' => 'Stir with ice.'],
+                ['instruction' => 'Strain into a glass.'],
+            ],
+            'ingredients' => [
+                $this->aggregateIngredient($gin, '60'),
+                $this->aggregateIngredient($vermouth, '15'),
+            ],
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $created = $this->jsonResponse($client);
+        self::assertSame('The original aggregate.', $created['description']);
+        self::assertSame(['Stir with ice.', 'Strain into a glass.'], array_column($created['steps'], 'instruction'));
+        self::assertSame([1, 2], array_column($created['steps'], 'position'));
+        self::assertCount(2, $created['recipeIngredients']);
+        self::assertTrue($created['containsAlcoholComputed']);
+
+        $client->jsonRequest('PUT', '/api/recipes/'.$created['slug'].'/aggregate', [
+            'title' => $created['title'],
+            'description' => 'The replacement aggregate.',
+            'difficulty' => 'hard',
+            'preparationTimeMinutes' => 8,
+            'servings' => 2,
+            'categories' => [],
+            'steps' => [
+                ['instruction' => 'Garnish with a twist.'],
+                ['instruction' => 'Stir gently.'],
+            ],
+            'ingredients' => [
+                $this->aggregateIngredient($vermouth, '30', unit: 'cl'),
+            ],
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $updated = $this->jsonResponse($client);
+        self::assertSame('The replacement aggregate.', $updated['description']);
+        self::assertSame('hard', $updated['difficulty']);
+        self::assertSame(['Garnish with a twist.', 'Stir gently.'], array_column($updated['steps'], 'instruction'));
+        self::assertSame([1, 2], array_column($updated['steps'], 'position'));
+        self::assertCount(1, $updated['recipeIngredients']);
+        self::assertSame('30.00', $updated['recipeIngredients'][0]['quantity']);
+        self::assertSame('cl', $updated['recipeIngredients'][0]['unit']);
+        self::assertFalse($updated['containsAlcoholComputed']);
+    }
+
+    public function testInvalidAggregateUpdateLeavesTheStoredRecipeUnchanged(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $ingredient = $this->createIngredient(containsAlcohol: false);
+        $suffix = bin2hex(random_bytes(4));
+
+        $client->jsonRequest('POST', '/api/recipes/aggregate', [
+            'title' => sprintf('Rollback Highball %s', $suffix),
+            'description' => 'Keep this description.',
+            'difficulty' => 'easy',
+            'preparationTimeMinutes' => 3,
+            'servings' => 1,
+            'categories' => [],
+            'steps' => [['instruction' => 'Keep this step.']],
+            'ingredients' => [$this->aggregateIngredient($ingredient, '50')],
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $created = $this->jsonResponse($client);
+
+        $client->jsonRequest('PUT', '/api/recipes/'.$created['slug'].'/aggregate', [
+            'title' => $created['title'],
+            'description' => 'This must not be stored.',
+            'difficulty' => 'hard',
+            'preparationTimeMinutes' => 10,
+            'servings' => 4,
+            'categories' => [],
+            'steps' => [['instruction' => '']],
+            'ingredients' => [$this->aggregateIngredient($ingredient, '25')],
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+
+        $client->request('GET', '/api/recipes/'.$created['slug'], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->jsonResponse($client);
+        self::assertSame('Keep this description.', $stored['description']);
+        self::assertSame('easy', $stored['difficulty']);
+        self::assertSame(['Keep this step.'], array_column($stored['steps'], 'instruction'));
+        self::assertSame('50.00', $stored['recipeIngredients'][0]['quantity']);
+    }
+
     private function loginAsUser(KernelBrowser $client): string
     {
         $password = 'very-secure-password';
@@ -244,6 +360,19 @@ final class RecipeApiTest extends WebTestCase
         $entityManager->flush();
 
         return $ingredient;
+    }
+
+    /**
+     * @return array{ingredient: string, quantity: string, unit: string, note: null}
+     */
+    private function aggregateIngredient(Ingredient $ingredient, string $quantity, string $unit = 'ml'): array
+    {
+        return [
+            'ingredient' => '/api/ingredients/'.$ingredient->getSlug(),
+            'quantity' => $quantity,
+            'unit' => $unit,
+            'note' => null,
+        ];
     }
 
     private function clearRecipes(): void

@@ -491,6 +491,9 @@ DELETE /recipes/{slug}
 POST   /recipes/{slug}/image
 DELETE /recipes/{slug}/image
 
+POST   /recipes/aggregate
+PUT    /recipes/{slug}/aggregate
+
 POST   /recipes/{slug}/publish
 POST   /recipes/{slug}/archive
 
@@ -524,6 +527,11 @@ PATCH  /admin/reports/{id}
 ```
 
 Exact API Platform route shapes may differ, but the contract should preserve these capabilities.
+
+Recipe editor creates and updates use the aggregate routes. Recipe metadata,
+categories, ordered steps, and ordered measured ingredients are validated and
+stored atomically. Image upload and publication remain separate operations;
+publication is attempted only after a successful aggregate write.
 
 User reports can apply profile moderation through `PATCH /admin/reports/{id}` with `moderationStatus=removed` to soft-delete a profile or `moderationStatus=visible` to restore it.
 

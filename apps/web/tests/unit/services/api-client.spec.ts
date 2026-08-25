@@ -64,6 +64,31 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledTimes(3)
   })
 
+  it('shares one refresh rotation between concurrent session restores', async () => {
+    const tokens: AuthTokens = {
+      token: 'new-access-token'
+    }
+    const state = {
+      accessToken: null
+    }
+    const fetch = vi.fn(async (path: string) => {
+      expect(path).toBe('/auth/refresh')
+
+      await Promise.resolve()
+
+      return tokens
+    })
+    const api = createTestClient(fetch, state)
+
+    await expect(Promise.all([
+      api.auth.refresh(),
+      api.auth.refresh()
+    ])).resolves.toEqual([tokens, tokens])
+
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(state.accessToken).toBe(tokens.token)
+  })
+
   it('clears tokens when refresh fails', async () => {
     const state = {
       accessToken: 'expired-token'
@@ -121,6 +146,19 @@ describe('api client', () => {
     await api.profiles.get('jane_doe')
 
     expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('includes the viewer token when listing comments', async () => {
+    const fetch = vi.fn(async (_path: string, options?: Record<string, unknown>) => {
+      expect((options?.headers as Headers).get('Authorization')).toBe('Bearer access-token')
+
+      return { items: [] }
+    })
+    const api = createTestClient(fetch, {
+      accessToken: 'access-token'
+    })
+
+    await api.comments.list('negroni')
   })
 
   it('maps alcohol recipe filters to boolean API query values', async () => {

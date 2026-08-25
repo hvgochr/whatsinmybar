@@ -8,13 +8,23 @@ export function useAuth() {
 
   const isAuthenticated = computed(() => Boolean(accessToken.value && currentUser.value))
 
+  const invalidateViewerData = (): void => {
+    clearNuxtData()
+  }
+
   const applyTokens = (tokens: AuthTokens): void => {
     api.setTokens(tokens)
   }
 
   const clearSession = (): void => {
+    const hadSession = Boolean(accessToken.value || currentUser.value)
+
     api.clearTokens()
     currentUser.value = null
+
+    if (hadSession) {
+      invalidateViewerData()
+    }
   }
 
   const setCurrentUser = (user: User): void => {
@@ -22,8 +32,14 @@ export function useAuth() {
   }
 
   const fetchCurrentUser = async (): Promise<User> => {
+    const hadUser = Boolean(currentUser.value)
+
     try {
       currentUser.value = await api.account.me()
+
+      if (!hadUser) {
+        invalidateViewerData()
+      }
 
       return currentUser.value
     } catch (error: unknown) {
@@ -63,6 +79,10 @@ export function useAuth() {
   }
 
   const restoreSession = async (): Promise<User | null> => {
+    if (currentUser.value && accessToken.value) {
+      return currentUser.value
+    }
+
     if (!accessToken.value) {
       await refreshSession()
     }

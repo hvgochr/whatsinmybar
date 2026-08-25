@@ -6,7 +6,7 @@ gesdinet_jwt_refresh_token:
     cookie:
         enabled: true
         same_site: strict
-        path: /api/auth
+        path: /
         http_only: true
         secure: '%env(bool:REFRESH_TOKEN_COOKIE_SECURE)%'
         remove_token_from_body: true

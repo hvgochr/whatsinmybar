@@ -44,7 +44,10 @@ token:
 ```
 
 The API stores the 30-day refresh token in a host-only `refresh_token` cookie
-with `HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, and `Secure` in production.
+with `HttpOnly`, `SameSite=Strict`, `Path=/`, and `Secure` in production. The
+root path allows Nuxt to receive the cookie on page requests and restore the
+viewer session before server-rendered API requests. The API ignores the cookie
+outside authentication endpoints.
 The browser must include credentials on login, refresh, and logout requests.
 Frontend JavaScript never receives or reads the refresh-token value.
 

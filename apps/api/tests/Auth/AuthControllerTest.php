@@ -48,7 +48,7 @@ final class AuthControllerTest extends WebTestCase
         self::assertTrue($loginCookie->isHttpOnly());
         self::assertTrue($loginCookie->isSecure());
         self::assertSame(Cookie::SAMESITE_STRICT, $loginCookie->getSameSite());
-        self::assertSame('/api/auth', $loginCookie->getPath());
+        self::assertSame('/', $loginCookie->getPath());
         $loginRefreshToken = $loginCookie->getValue();
 
         $client->request('GET', '/api/me', server: [
@@ -180,7 +180,7 @@ final class AuthControllerTest extends WebTestCase
             'refresh_token',
             $token,
             null,
-            '/api/auth',
+            '/',
             'localhost',
             true,
             true,

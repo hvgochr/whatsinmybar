@@ -76,18 +76,6 @@ function updateFavorite(state: { count: number, favorited: boolean }) {
   recipe.value.favorited = state.favorited
 }
 
-onMounted(async () => {
-  if (auth.currentUser.value) {
-    return
-  }
-
-  try {
-    await auth.restoreSession()
-  } catch {
-    // Public recipe pages stay readable when session restoration fails.
-  }
-})
-
 useSeoMeta({
   title: () => `${recipe.value?.title ?? 'Recipe'} | What's In My Bar`,
   description: () => pageDescription.value,

@@ -214,6 +214,47 @@ describe('api client', () => {
     await expect(api.recipes.removeImage('negroni')).resolves.toEqual({ imagePath: null, recipeSlug: 'negroni' })
   })
 
+  it('writes complete recipe aggregates through one request', async () => {
+    const payload = {
+      categories: ['/api/categories/classics'],
+      description: 'A stirred classic.',
+      difficulty: 'easy',
+      ingredients: [{ ingredient: '/api/ingredients/gin', note: null, quantity: '45', unit: 'ml' as const }],
+      preparationTimeMinutes: 5,
+      servings: 1,
+      steps: [{ instruction: 'Stir with ice.' }],
+      title: 'Negroni'
+    }
+    const recipe = {
+      ...payload,
+      containsAlcohol: true,
+      favoriteCount: 0,
+      imagePath: null,
+      moderationStatus: 'visible' as const,
+      publishedAt: null,
+      recipeIngredients: [],
+      slug: 'negroni',
+      status: 'draft' as const
+    }
+    const fetch = vi.fn(async () => recipe)
+    const api = createTestClient(fetch, {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token'
+    })
+
+    await expect(api.recipes.create(payload)).resolves.toEqual(recipe)
+    await expect(api.recipes.update('negroni', payload)).resolves.toEqual(recipe)
+
+    expect(fetch).toHaveBeenNthCalledWith(1, '/recipes/aggregate', expect.objectContaining({
+      body: payload,
+      method: 'POST'
+    }))
+    expect(fetch).toHaveBeenNthCalledWith(2, '/recipes/negroni/aggregate', expect.objectContaining({
+      body: payload,
+      method: 'PUT'
+    }))
+  })
+
   it('normalizes validation errors', () => {
     const error = normalizeApiError({
       data: {

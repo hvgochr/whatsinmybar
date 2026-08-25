@@ -8,9 +8,7 @@ import UiTextarea from '../ui/textarea/Textarea.vue'
 import type { Category, Ingredient, RecipeResource, RecipeWorkflow } from '../../types/api'
 import { toFormErrors } from '../../utils/api-errors'
 import {
-  buildIngredientPayloads,
   buildRecipePayload,
-  buildStepPayloads,
   categoryChecked,
   createEmptyIngredientRow,
   createEmptyRecipeForm,
@@ -41,7 +39,7 @@ const successMessage = ref<string | null>(null)
 const selectedImage = ref<File | null>(null)
 const pendingAction = ref<'archive' | 'delete' | 'publish' | 'remove-image' | 'save' | null>(null)
 
-const isEdit = computed(() => props.mode === 'edit')
+const isEdit = computed(() => props.mode === 'edit' || currentRecipe.value !== null)
 const statusLabel = computed(() => currentRecipe.value?.status ?? 'draft')
 const hasRecipeImage = computed(() => Boolean(currentRecipe.value?.imagePath))
 const canPublish = computed(() => currentRecipe.value?.status !== 'published')
@@ -70,61 +68,54 @@ async function saveRecipe(action: 'publish' | 'save' = 'save') {
   }
 
   pendingAction.value = action
+  let phase: 'image' | 'navigation' | 'publish' | 'recipe' = 'recipe'
 
   try {
-    if (isEdit.value) {
-      await updateRecipe(action)
+    const creating = currentRecipe.value === null
+    const savedRecipe = creating
+      ? await api.recipes.create(buildRecipePayload(form))
+      : await api.recipes.update(currentRecipe.value!.slug, buildRecipePayload(form))
+
+    currentRecipe.value = savedRecipe
+    replaceForm(recipeToForm(savedRecipe))
+
+    if (selectedImage.value) {
+      phase = 'image'
+      await uploadSelectedImage(savedRecipe.slug)
+    }
+
+    if (action === 'publish') {
+      phase = 'publish'
+      applyWorkflow(await api.recipes.publish(savedRecipe.slug))
+    }
+
+    if (creating) {
+      phase = 'navigation'
+      await router.push(action === 'publish' ? `/recipes/${savedRecipe.slug}` : `/recipes/${savedRecipe.slug}/edit`)
       return
     }
 
-    await createRecipe(action)
+    successMessage.value = action === 'publish'
+      ? 'Recipe changes have been saved and published.'
+      : 'Recipe changes have been saved.'
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
-    fieldErrors.value = formErrors.fields
-    formError.value = formErrors.message
+    const detail = formErrors.message ?? Object.values(formErrors.fields)[0] ?? 'Something went wrong. Please try again.'
+
+    if (phase === 'image' || phase === 'publish' || phase === 'navigation') {
+      fieldErrors.value = {}
+      formError.value = phase === 'image'
+        ? `Recipe content was saved, but the image upload failed. ${detail}`
+        : phase === 'publish'
+          ? `Recipe changes were saved, but publication failed. ${detail}`
+          : `Recipe changes were saved, but the next page could not be opened. ${detail}`
+    } else {
+      fieldErrors.value = formErrors.fields
+      formError.value = `Recipe could not be saved. ${detail}`
+    }
   } finally {
     pendingAction.value = null
   }
-}
-
-async function createRecipe(action: 'publish' | 'save') {
-  const recipe = await api.recipes.create({
-    ...buildRecipePayload(form),
-    status: 'draft'
-  })
-
-  await replaceRecipeParts(recipe.slug, null)
-  await uploadSelectedImage(recipe.slug)
-
-  if (action === 'publish') {
-    await api.recipes.publish(recipe.slug)
-    await router.push(`/recipes/${recipe.slug}`)
-    return
-  }
-
-  await router.push(`/recipes/${recipe.slug}/edit`)
-}
-
-async function updateRecipe(action: 'publish' | 'save') {
-  if (!currentRecipe.value) {
-    return
-  }
-
-  const previousRecipe = currentRecipe.value
-  const updatedRecipe = await api.recipes.update(previousRecipe.slug, buildRecipePayload(form))
-
-  await replaceRecipeParts(updatedRecipe.slug, previousRecipe)
-  await uploadSelectedImage(updatedRecipe.slug)
-
-  if (action === 'publish') {
-    await api.recipes.publish(updatedRecipe.slug)
-  }
-
-  currentRecipe.value = await api.recipes.get(updatedRecipe.slug)
-  replaceForm(recipeToForm(currentRecipe.value))
-  successMessage.value = action === 'publish'
-    ? 'Recipe changes have been saved and published.'
-    : 'Recipe changes have been saved.'
 }
 
 async function archiveRecipe() {
@@ -227,28 +218,6 @@ function onImageChange(event: Event) {
 
 function onCategoryChange(category: Category, event: Event) {
   toggleCategory(form, category, (event.target as HTMLInputElement).checked)
-}
-
-async function replaceRecipeParts(recipeSlug: string, previousRecipe: RecipeResource | null) {
-  for (const step of previousRecipe?.steps ?? []) {
-    if (step.id) {
-      await api.recipeSteps.delete(step.id)
-    }
-  }
-
-  for (const recipeIngredient of previousRecipe?.recipeIngredients ?? []) {
-    if (recipeIngredient.id) {
-      await api.recipeIngredients.delete(recipeIngredient.id)
-    }
-  }
-
-  for (const stepPayload of buildStepPayloads(form, recipeSlug)) {
-    await api.recipeSteps.create(stepPayload)
-  }
-
-  for (const ingredientPayload of buildIngredientPayloads(form, recipeSlug)) {
-    await api.recipeIngredients.create(ingredientPayload)
-  }
 }
 
 async function uploadSelectedImage(recipeSlug: string) {

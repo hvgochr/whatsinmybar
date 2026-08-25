@@ -183,6 +183,22 @@ export interface RecipePayload {
   categories?: string[]
 }
 
+export interface RecipeAggregatePayload {
+  title: string
+  description: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  preparationTimeMinutes: number
+  servings: number
+  categories: string[]
+  steps: Array<Pick<RecipeStepPayload, 'instruction'>>
+  ingredients: Array<{
+    ingredient: string
+    quantity: string
+    unit: IngredientUnit
+    note?: string | null
+  }>
+}
+
 export interface RecipeResource {
   id?: ApiId
   authorUsername?: string | null

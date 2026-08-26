@@ -118,30 +118,27 @@ function errorStatus(error: unknown): number {
           <NuxtLink v-for="category in recipe.categories" :key="categorySlug(category)" class="rounded-sm border px-2 py-1 text-xs text-muted-foreground hover:text-foreground" :to="`/categories/${categorySlug(category)}`">{{ categoryName(category) }}</NuxtLink>
         </div>
         <div class="mt-6 flex flex-wrap justify-center gap-3">
-          <FavoriteButton :count="recipe.favoriteCount" :favorited="recipe.favorited" :recipe-slug="recipe.slug" @updated="updateFavorite" />
           <UiButton v-if="canEditRecipe" as-child variant="outline"><NuxtLink :to="`/recipes/${recipe.slug}/edit`">Edit recipe</NuxtLink></UiButton>
+          <ReportAction :login-redirect="`/recipes/${recipe.slug}`" :target-id="recipe.id" target-type="recipe" />
         </div>
       </header>
 
-      <div class="mx-auto max-w-6xl overflow-hidden rounded-md border bg-muted">
-        <RecipeImage eager :recipe="recipe" />
+      <div class="relative mx-auto max-w-6xl overflow-hidden rounded-md border bg-muted">
+        <RecipeImage eager variant="detail" :recipe="recipe" />
+        <FavoriteButton overlay :contrast="Boolean(recipe.imagePath)" :count="recipe.favoriteCount" :favorited="recipe.favorited" :recipe-slug="recipe.slug" @updated="updateFavorite" />
       </div>
 
-      <div v-if="recipe.containsAlcohol" class="mx-auto mt-6 max-w-4xl rounded-md border bg-muted px-4 py-3 text-sm">
-        This recipe contains alcohol. Availability is determined by your authenticated session and enforced by the API.
-      </div>
-
-      <div class="mx-auto mt-12 grid max-w-5xl gap-12 lg:grid-cols-[minmax(16rem,0.65fr)_minmax(0,1.35fr)]">
-        <aside>
+      <div class="mx-auto mt-14 grid max-w-3xl gap-14">
+        <section>
           <h2 class="section-heading">Ingredients</h2>
           <ul v-if="sortedIngredients.length > 0" class="mt-5 divide-y border-y">
             <li v-for="recipeIngredient in sortedIngredients" :key="recipeIngredient.id ?? recipeIngredient.position" class="py-3 text-sm leading-6">{{ formatIngredientAmount(recipeIngredient) }}</li>
           </ul>
           <p v-else class="mt-4 text-sm text-muted-foreground">Ingredients have not been listed yet.</p>
-        </aside>
+        </section>
 
         <section>
-          <h2 class="section-heading">Method</h2>
+          <h2 class="section-heading">Preparation</h2>
           <ol v-if="sortedSteps.length > 0" class="mt-5 space-y-6">
             <li v-for="step in sortedSteps" :key="step.id ?? step.position" class="grid grid-cols-[2rem_minmax(0,1fr)] gap-4">
               <span class="text-sm font-semibold text-muted-foreground">{{ step.position }}.</span>
@@ -152,15 +149,8 @@ function errorStatus(error: unknown): number {
         </section>
       </div>
 
-      <section class="mx-auto mt-14 grid max-w-5xl gap-10 border-t pt-10 lg:grid-cols-[minmax(0,1fr)_15rem]">
+      <section class="mx-auto mt-14 max-w-3xl border-t pt-10">
         <RecipeComments :comments="comments" :recipe-slug="recipe.slug" />
-        <aside>
-          <h2 class="text-sm font-semibold">Recipe actions</h2>
-          <div class="mt-3 grid gap-2">
-            <UiButton as-child variant="outline"><NuxtLink to="/recipes">Back to recipes</NuxtLink></UiButton>
-            <ReportAction :login-redirect="`/recipes/${recipe.slug}`" :target-id="recipe.id" target-type="recipe" />
-          </div>
-        </aside>
       </section>
 
       <section v-if="relatedRecipes.length > 0" class="mt-16 border-t pt-10" aria-labelledby="related-recipes-title">
@@ -176,7 +166,7 @@ function errorStatus(error: unknown): number {
     <EmptyState
       action-label="Browse recipes"
       action-to="/recipes"
-      :description="errorStatus(recipeError) === 403 ? 'This recipe is not available to your current account. Alcohol visibility and moderation rules are enforced by the API.' : 'This recipe is unavailable.'"
+      :description="errorStatus(recipeError) === 403 ? 'This recipe is not available to you.' : 'This recipe is unavailable.'"
       :title="errorStatus(recipeError) === 403 ? 'Recipe restricted' : 'Recipe unavailable'"
     />
   </main>

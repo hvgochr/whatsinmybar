@@ -9,9 +9,3 @@ export function firstQueryValue(query: LocationQuery, key: string): string | und
 
   return value ?? undefined
 }
-
-export function optionalQueryValue(value: FormDataEntryValue | null): string | undefined {
-  const normalizedValue = typeof value === 'string' ? value.trim() : ''
-
-  return normalizedValue || undefined
-}

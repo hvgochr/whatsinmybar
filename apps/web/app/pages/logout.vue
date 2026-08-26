@@ -21,7 +21,7 @@ onMounted(async () => {
         Logging out
       </h1>
       <p class="mt-2 text-sm text-muted-foreground">
-        Your session is being cleared.
+        You are being logged out.
       </p>
     </section>
   </main>

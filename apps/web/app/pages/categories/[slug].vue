@@ -64,7 +64,7 @@ function errorStatus(error: unknown): number {
     />
 
     <div v-if="pending" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading category recipes">
-      <div v-for="index in 4" :key="index" class="space-y-3"><div class="aspect-[4/3] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /></div>
+      <div v-for="index in 4" :key="index" class="space-y-3"><div class="aspect-[4/5] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /></div>
     </div>
 
     <EmptyState

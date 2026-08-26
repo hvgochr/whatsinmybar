@@ -41,7 +41,8 @@ useHead({
 <template>
   <main>
     <section class="border-b" aria-labelledby="home-title">
-      <div class="container-page py-14 sm:py-20">
+      <div class="container-page flex py-16 sm:py-24 lg:min-h-[76svh] lg:items-center lg:py-20">
+        <div>
         <p class="mb-3 text-sm font-medium text-muted-foreground">Cocktail recipes from real home bars</p>
         <h1 id="home-title" class="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">Find a recipe worth making.</h1>
         <p class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
@@ -50,6 +51,7 @@ useHead({
         <div class="mt-7 flex flex-wrap gap-3">
           <UiButton as-child><NuxtLink to="/recipes">Explore recipes</NuxtLink></UiButton>
           <UiButton as-child variant="outline"><NuxtLink to="/categories">Browse categories</NuxtLink></UiButton>
+        </div>
         </div>
       </div>
     </section>
@@ -64,7 +66,7 @@ useHead({
           <NuxtLink class="text-sm font-medium underline-offset-4 hover:underline" to="/recipes?sort=popular">View all</NuxtLink>
         </div>
         <div v-if="recipesPending" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading popular recipes">
-          <div v-for="index in 4" :key="index" class="space-y-3"><div class="aspect-[4/3] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /></div>
+          <div v-for="index in 4" :key="index" class="space-y-3"><div class="aspect-[4/5] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /></div>
         </div>
         <div v-else-if="featuredRecipes.length" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
           <RecipeCard v-for="recipe in featuredRecipes" :key="recipe.slug" :recipe="recipe" />

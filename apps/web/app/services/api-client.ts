@@ -316,7 +316,7 @@ export function normalizeApiError(error: unknown): ApiRequestError {
   const apiError = payload?.error
   const status = apiError?.status ?? fetchError.statusCode ?? fetchError.status ?? fetchError.response?.status ?? 0
   const code = apiError?.code ?? codeFromStatus(status)
-  const message = apiError?.message ?? payload?.message ?? fetchError.statusMessage ?? fetchError.message ?? 'API request failed.'
+  const message = apiError?.message ?? payload?.message ?? fetchError.statusMessage ?? fetchError.message ?? 'Request failed.'
   const violations = apiError?.violations ?? payload?.errors ?? []
 
   return new ApiRequestError(message, status, code, payload, violations)

@@ -3,6 +3,7 @@ import { ApiRequestError } from '../../services/api-client'
 import type { Comment } from '../../types/api'
 import { buildCommentTree } from '../../utils/social'
 import FormAlert from '../common/FormAlert.vue'
+import DestructiveConfirm from '../common/DestructiveConfirm.vue'
 import CommentTreeItem from './CommentTreeItem.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
@@ -20,6 +21,9 @@ const pending = ref(false)
 const pendingActionId = ref<number | null>(null)
 const formError = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
+const deleteTarget = ref<Comment | null>(null)
+const deleteDialogOpen = ref(false)
+const deleteError = ref<string | null>(null)
 
 const commentTree = computed(() => buildCommentTree(comments.value))
 
@@ -65,17 +69,26 @@ async function updateComment(payload: { comment: Comment, message: string }) {
 async function deleteComment(comment: Comment) {
   pendingActionId.value = comment.id
   formError.value = null
+  deleteError.value = null
   successMessage.value = null
 
   try {
     const deletedComment = await api.comments.delete(comment.id)
     comments.value = comments.value.map(currentComment => currentComment.id === deletedComment.id ? deletedComment : currentComment)
     successMessage.value = 'Comment deleted.'
+    deleteDialogOpen.value = false
+    deleteTarget.value = null
   } catch (error: unknown) {
-    formError.value = socialErrorMessage(error, 'Comment could not be deleted.')
+    deleteError.value = socialErrorMessage(error, 'Comment could not be deleted.')
   } finally {
     pendingActionId.value = null
   }
+}
+
+function requestDelete(comment: Comment) {
+  deleteTarget.value = comment
+  deleteError.value = null
+  deleteDialogOpen.value = true
 }
 
 function submitRootComment() {
@@ -142,7 +155,7 @@ function socialErrorMessage(error: unknown, fallback: string): string {
         :current-user="auth.currentUser.value"
         :node="comment"
         :pending-action-id="pendingActionId"
-        @delete="deleteComment"
+        @request-delete="requestDelete"
         @reply="createComment"
         @update="updateComment"
       />
@@ -151,5 +164,15 @@ function socialErrorMessage(error: unknown, fallback: string): string {
     <p v-else class="mt-5 text-muted-foreground">
       No public comments yet.
     </p>
+
+    <DestructiveConfirm
+      v-model:open="deleteDialogOpen"
+      confirm-label="Delete comment"
+      :description="`The comment by ${deleteTarget?.authorUsername ?? 'this member'} will be permanently removed from the conversation.`"
+      :error="deleteError"
+      :pending="deleteTarget ? pendingActionId === deleteTarget.id : false"
+      title="Delete this comment?"
+      @confirm="deleteTarget && deleteComment(deleteTarget)"
+    />
   </section>
 </template>

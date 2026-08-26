@@ -59,7 +59,7 @@ async function submitRegister() {
     <section class="w-full max-w-lg" aria-labelledby="register-title">
       <div class="mb-7 text-center">
         <h1 id="register-title" class="text-3xl font-semibold tracking-tight">Create an account</h1>
-        <p class="mt-2 text-sm text-muted-foreground">Your birth date is required so the API can enforce alcohol visibility.</p>
+        <p class="mt-2 text-sm text-muted-foreground">Your birth date helps determine which recipes are available to you.</p>
       </div>
       <div class="rounded-md border bg-card p-6 sm:p-7">
         <form class="grid gap-5" novalidate @submit.prevent="submitRegister">

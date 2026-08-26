@@ -51,7 +51,7 @@ function friendlyErrorMessage(error: ApiRequestError): string {
   }
 
   if (error.status === 0) {
-    return 'The API is currently unreachable.'
+    return 'The service is currently unreachable.'
   }
 
   return genericMessage

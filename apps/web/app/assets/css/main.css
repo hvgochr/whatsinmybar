@@ -75,6 +75,31 @@
   --destructive-foreground: 240 6% 10%;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 7% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 7% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 6% 10%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --border: 240 4% 20%;
+    --input: 240 4% 20%;
+    --ring: 240 5% 65%;
+    --destructive: 0 0% 98%;
+    --destructive-foreground: 240 6% 10%;
+  }
+}
+
 @layer base {
   * { @apply border-border; }
   html { @apply min-h-full scroll-smooth bg-background; }
@@ -101,6 +126,12 @@
   .field-error { @apply text-sm font-medium text-foreground underline decoration-2 underline-offset-2; }
   .surface { @apply rounded-md border bg-card text-card-foreground; }
   .status-label { @apply inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-xs font-medium capitalize text-muted-foreground; }
+  .control { @apply h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2; }
+  .admin-table { @apply min-w-full divide-y divide-border text-sm; }
+  .admin-table thead { @apply bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground; }
+  .admin-table th { @apply whitespace-nowrap px-4 py-3; }
+  .admin-table tbody { @apply divide-y divide-border; }
+  .admin-table td { @apply px-4 py-4 align-top; }
 }
 
 @media (prefers-reduced-motion: reduce) {

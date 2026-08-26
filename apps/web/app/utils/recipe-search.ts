@@ -1,7 +1,7 @@
 import type { LocationQuery } from 'vue-router'
 import type { RecipeSearchParams } from '../types/api'
 import { pageFromQuery } from './pagination'
-import { firstQueryValue, optionalQueryValue } from './route-query'
+import { firstQueryValue } from './route-query'
 
 export interface RecipeSearchState extends RecipeSearchParams {
   page: number
@@ -26,21 +26,7 @@ export function recipeSearchStateFromQuery(query: LocationQuery): RecipeSearchSt
   }
 }
 
-export function recipeSearchQueryFromForm(form: FormData): Record<string, string | undefined> {
-  return cleanRecipeSearchQuery({
-    alcohol: optionalQueryValue(form.get('alcohol')),
-    author: optionalQueryValue(form.get('author')),
-    category: optionalQueryValue(form.get('category')),
-    ingredient: optionalQueryValue(form.get('ingredient')),
-    minFavorites: optionalQueryValue(form.get('minFavorites')),
-    publishedAfter: optionalQueryValue(form.get('publishedAfter')),
-    publishedBefore: optionalQueryValue(form.get('publishedBefore')),
-    q: optionalQueryValue(form.get('q')),
-    sort: optionalQueryValue(form.get('sort'))
-  })
-}
-
-export function cleanRecipeSearchQuery(query: Record<string, string | number | undefined>): Record<string, string | undefined> {
+export function cleanRecipeSearchQuery(query: Partial<Record<keyof RecipeSearchState, string | number | undefined>>): Record<string, string | undefined> {
   const cleanQuery: Record<string, string | undefined> = {}
 
   for (const [key, value] of Object.entries(query)) {
@@ -54,17 +40,17 @@ export function cleanRecipeSearchQuery(query: Record<string, string | number | u
   return cleanQuery
 }
 
-export function activeRecipeFilters(state: RecipeSearchState): Array<{ label: string, value: string }> {
+export function activeRecipeFilters(state: RecipeSearchState): Array<{ key: string, label: string, value: string }> {
   return [
-    state.q ? { label: 'Search', value: state.q } : null,
-    state.category ? { label: 'Category', value: state.category } : null,
-    state.ingredient ? { label: 'Ingredient', value: state.ingredient } : null,
-    state.alcohol ? { label: 'Alcohol', value: state.alcohol === 'with' ? 'With alcohol' : 'Zero-proof' } : null,
-    state.author ? { label: 'Author', value: state.author } : null,
-    state.minFavorites ? { label: 'Minimum saves', value: String(state.minFavorites) } : null,
-    state.publishedAfter ? { label: 'After', value: state.publishedAfter } : null,
-    state.publishedBefore ? { label: 'Before', value: state.publishedBefore } : null
-  ].filter((filter): filter is { label: string, value: string } => Boolean(filter))
+    state.q ? { key: 'q', label: 'Search', value: state.q } : null,
+    state.category ? { key: 'category', label: 'Category', value: state.category } : null,
+    state.ingredient ? { key: 'ingredient', label: 'Ingredient', value: state.ingredient } : null,
+    state.alcohol ? { key: 'alcohol', label: 'Alcohol', value: state.alcohol === 'with' ? 'With alcohol' : 'Zero-proof' } : null,
+    state.author ? { key: 'author', label: 'Author', value: state.author } : null,
+    state.minFavorites ? { key: 'minFavorites', label: 'Minimum saves', value: String(state.minFavorites) } : null,
+    state.publishedAfter ? { key: 'publishedAfter', label: 'After', value: state.publishedAfter } : null,
+    state.publishedBefore ? { key: 'publishedBefore', label: 'Before', value: state.publishedBefore } : null
+  ].filter((filter): filter is { key: string, label: string, value: string } => Boolean(filter))
 }
 
 function alcoholValue(value: string | undefined): RecipeSearchParams['alcohol'] {

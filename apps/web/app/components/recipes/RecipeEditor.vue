@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { ArrowDown01Icon, ArrowUp01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
 import FormAlert from '../common/FormAlert.vue'
 import FormField from '../common/FormField.vue'
+import DestructiveConfirm from '../common/DestructiveConfirm.vue'
 import RecipeImage from './RecipeImage.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiInput from '../ui/input/Input.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import type { Category, Ingredient, RecipeResource, RecipeWorkflow } from '../../types/api'
 import { toFormErrors } from '../../utils/api-errors'
 import {
@@ -31,6 +34,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const api = useApi()
+const auth = useAuth()
 
 const form = reactive<RecipeFormState>(createEmptyRecipeForm())
 const currentRecipe = ref<RecipeResource | null>(props.initialRecipe ?? null)
@@ -40,6 +44,8 @@ const successMessage = ref<string | null>(null)
 const selectedImage = ref<File | null>(null)
 const pendingAction = ref<'archive' | 'delete' | 'publish' | 'remove-image' | 'save' | null>(null)
 const deleteDialogOpen = ref(false)
+const removeImageDialogOpen = ref(false)
+const destructiveError = ref<string | null>(null)
 
 const isEdit = computed(() => props.mode === 'edit' || currentRecipe.value !== null)
 const statusLabel = computed(() => currentRecipe.value?.status ?? 'draft')
@@ -151,10 +157,11 @@ async function deleteRecipe() {
   try {
     await api.recipes.delete(currentRecipe.value.slug)
     deleteDialogOpen.value = false
-    await router.push('/my-recipes')
+    await router.push(auth.currentUser.value ? `/users/${auth.currentUser.value.username}#my-recipes` : '/recipes')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     formError.value = formErrors.message
+    destructiveError.value = formErrors.message
   } finally {
     pendingAction.value = null
   }
@@ -175,9 +182,11 @@ async function removeImage() {
       imagePath: imageState.imagePath
     }
     successMessage.value = 'Recipe image has been removed.'
+    removeImageDialogOpen.value = false
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     formError.value = formErrors.message
+    destructiveError.value = formErrors.message
   } finally {
     pendingAction.value = null
   }
@@ -287,6 +296,7 @@ function clearMessages() {
   fieldErrors.value = {}
   formError.value = null
   successMessage.value = null
+  destructiveError.value = null
 }
 
 function replaceForm(nextForm: RecipeFormState) {
@@ -380,22 +390,18 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
           />
         </FormField>
 
-        <div class="grid gap-4 md:grid-cols-3">
-          <FormField id="recipe-difficulty" label="Difficulty">
-            <select id="recipe-difficulty" v-model="form.difficulty" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground" name="difficulty">
-              <option value="easy">
-                Easy
-              </option>
-              <option value="medium">
-                Medium
-              </option>
-              <option value="hard">
-                Hard
-              </option>
-            </select>
-          </FormField>
+        <div class="grid max-w-xl gap-5">
+          <fieldset class="grid gap-2">
+            <legend class="field-label mb-1">Difficulty</legend>
+            <RadioGroup v-model="form.difficulty" class="grid grid-cols-3 gap-2" name="difficulty">
+              <label v-for="difficulty in ['easy', 'medium', 'hard'] as const" :key="difficulty" class="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium capitalize has-[[data-state=checked]]:bg-primary has-[[data-state=checked]]:text-primary-foreground">
+                <RadioGroupItem :id="`recipe-difficulty-${difficulty}`" :value="difficulty" class="border-current data-[state=checked]:bg-current" />
+                {{ difficulty }}
+              </label>
+            </RadioGroup>
+          </fieldset>
 
-          <FormField id="recipe-prep-time" v-slot="field" label="Preparation time" :error="fieldErrors.preparationTimeMinutes">
+          <FormField id="recipe-prep-time" v-slot="field" label="Preparation time" help="Minutes from start to finish." :error="fieldErrors.preparationTimeMinutes">
             <UiInput
               id="recipe-prep-time"
               v-model="form.preparationTimeMinutes"
@@ -407,7 +413,7 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
             />
           </FormField>
 
-          <FormField id="recipe-servings" v-slot="field" label="Servings" :error="fieldErrors.servings">
+          <FormField id="recipe-servings" v-slot="field" label="Servings" help="Number of servings the recipe makes." :error="fieldErrors.servings">
             <UiInput
               id="recipe-servings"
               v-model="form.servings"
@@ -448,9 +454,18 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
           <p v-if="selectedImage" class="text-sm text-muted-foreground">
             Selected: {{ selectedImage.name }}
           </p>
-          <UiButton v-if="isEdit && hasRecipeImage" type="button" variant="outline" :disabled="Boolean(pendingAction)" @click="removeImage">
-            {{ pendingAction === 'remove-image' ? 'Removing...' : 'Remove image' }}
-          </UiButton>
+          <DestructiveConfirm
+            v-if="isEdit && hasRecipeImage"
+            v-model:open="removeImageDialogOpen"
+            confirm-label="Remove image"
+            description="The current recipe image will be permanently removed. You can upload a replacement after saving."
+            :error="destructiveError"
+            :pending="pendingAction === 'remove-image'"
+            title="Remove this image?"
+            @confirm="removeImage"
+          >
+            <template #trigger><UiButton type="button" variant="outline" :disabled="Boolean(pendingAction)" @click="destructiveError = null">Remove image</UiButton></template>
+          </DestructiveConfirm>
         </div>
       </div>
     </section>
@@ -502,9 +517,9 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
         <div
           v-for="(recipeIngredient, index) in form.ingredients"
           :key="`ingredient-${index}`"
-          class="grid gap-3 rounded-md border bg-background p-3 xl:grid-cols-[minmax(170px,1fr)_100px_120px_minmax(150px,1fr)_auto]"
+          class="grid gap-3 rounded-md border bg-background p-3 md:grid-cols-2 xl:grid-cols-[minmax(170px,1fr)_100px_120px_minmax(150px,1fr)_132px] xl:items-center"
         >
-          <select v-model="recipeIngredient.ingredientSlug" class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" :aria-label="`Ingredient ${index + 1}`">
+          <select v-model="recipeIngredient.ingredientSlug" class="control" :aria-label="`Ingredient ${index + 1}`">
             <option value="">
               Choose ingredient
             </option>
@@ -513,22 +528,16 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
             </option>
           </select>
           <UiInput v-model="recipeIngredient.quantity" :aria-label="`Quantity ${index + 1}`" min="0" step="0.01" type="number" />
-          <select v-model="recipeIngredient.unit" class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" :aria-label="`Unit ${index + 1}`">
+          <select v-model="recipeIngredient.unit" class="control" :aria-label="`Unit ${index + 1}`">
             <option v-for="unit in ingredientUnitOptions" :key="unit.value" :value="unit.value">
               {{ unit.label }}
             </option>
           </select>
           <UiInput v-model="recipeIngredient.note" :aria-label="`Ingredient note ${index + 1}`" type="text" />
-          <div class="flex flex-wrap items-center gap-2">
-            <UiButton type="button" variant="outline" size="sm" :disabled="index === 0" @click="moveIngredient(index, -1)">
-              Up
-            </UiButton>
-            <UiButton type="button" variant="outline" size="sm" :disabled="index === form.ingredients.length - 1" @click="moveIngredient(index, 1)">
-              Down
-            </UiButton>
-            <UiButton type="button" variant="ghost" size="sm" @click="removeIngredient(index)">
-              Remove
-            </UiButton>
+          <div class="flex items-center justify-end gap-1 md:col-span-2 xl:col-span-1">
+            <UiButton type="button" variant="outline" size="icon" :disabled="index === 0" :aria-label="`Move ingredient ${index + 1} up`" @click="moveIngredient(index, -1)"><HugeiconsIcon :icon="ArrowUp01Icon" :size="17" :stroke-width="1.75" aria-hidden="true" /></UiButton>
+            <UiButton type="button" variant="outline" size="icon" :disabled="index === form.ingredients.length - 1" :aria-label="`Move ingredient ${index + 1} down`" @click="moveIngredient(index, 1)"><HugeiconsIcon :icon="ArrowDown01Icon" :size="17" :stroke-width="1.75" aria-hidden="true" /></UiButton>
+            <UiButton type="button" variant="ghost" size="icon" :aria-label="`Remove ingredient ${index + 1}`" @click="removeIngredient(index)"><HugeiconsIcon :icon="Delete02Icon" :size="17" :stroke-width="1.75" aria-hidden="true" /></UiButton>
           </div>
         </div>
       </div>
@@ -560,16 +569,10 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
             {{ index + 1 }}.
           </span>
           <UiTextarea v-model="step.instruction" :aria-label="`Step ${index + 1}`" class="min-h-24" rows="3" />
-          <div class="flex flex-wrap items-start gap-2">
-            <UiButton type="button" variant="outline" size="sm" :disabled="index === 0" @click="moveStep(index, -1)">
-              Up
-            </UiButton>
-            <UiButton type="button" variant="outline" size="sm" :disabled="index === form.steps.length - 1" @click="moveStep(index, 1)">
-              Down
-            </UiButton>
-            <UiButton type="button" variant="ghost" size="sm" @click="removeStep(index)">
-              Remove
-            </UiButton>
+          <div class="flex items-start gap-1">
+            <UiButton type="button" variant="outline" size="icon" :disabled="index === 0" :aria-label="`Move step ${index + 1} up`" @click="moveStep(index, -1)"><HugeiconsIcon :icon="ArrowUp01Icon" :size="17" :stroke-width="1.75" aria-hidden="true" /></UiButton>
+            <UiButton type="button" variant="outline" size="icon" :disabled="index === form.steps.length - 1" :aria-label="`Move step ${index + 1} down`" @click="moveStep(index, 1)"><HugeiconsIcon :icon="ArrowDown01Icon" :size="17" :stroke-width="1.75" aria-hidden="true" /></UiButton>
+            <UiButton type="button" variant="ghost" size="icon" :aria-label="`Remove step ${index + 1}`" @click="removeStep(index)"><HugeiconsIcon :icon="Delete02Icon" :size="17" :stroke-width="1.75" aria-hidden="true" /></UiButton>
           </div>
         </div>
       </div>
@@ -592,9 +595,18 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       <UiButton v-if="canArchive" type="button" variant="outline" :disabled="Boolean(pendingAction)" @click="archiveRecipe">
         {{ pendingAction === 'archive' ? 'Archiving...' : 'Archive recipe' }}
       </UiButton>
-      <UiButton v-if="isEdit" type="button" variant="destructive" :disabled="Boolean(pendingAction)" @click="deleteDialogOpen = true">
-        {{ pendingAction === 'delete' ? 'Deleting...' : 'Delete recipe' }}
-      </UiButton>
+      <DestructiveConfirm
+        v-if="isEdit"
+        v-model:open="deleteDialogOpen"
+        confirm-label="Delete recipe"
+        :description="`“${currentRecipe?.title ?? 'This recipe'}” will be removed from public and personal collections. This cannot be undone.`"
+        :error="destructiveError"
+        :pending="pendingAction === 'delete'"
+        title="Delete this recipe?"
+        @confirm="deleteRecipe"
+      >
+        <template #trigger><UiButton type="button" variant="destructive" :disabled="Boolean(pendingAction)" @click="destructiveError = null">Delete recipe</UiButton></template>
+      </DestructiveConfirm>
       <UiButton v-if="currentRecipe" as-child type="button" variant="ghost">
         <NuxtLink :to="`/recipes/${currentRecipe.slug}`">
           View public page
@@ -603,18 +615,6 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       </div>
     </section>
 
-    <Dialog v-model:open="deleteDialogOpen">
-      <DialogContent class="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete this recipe?</DialogTitle>
-          <DialogDescription>This removes the recipe from public and personal listings. This action cannot be undone from the frontend.</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <UiButton type="button" variant="outline" :disabled="pendingAction === 'delete'" @click="deleteDialogOpen = false">Cancel</UiButton>
-          <UiButton type="button" variant="destructive" :disabled="pendingAction === 'delete'" @click="deleteRecipe">{{ pendingAction === 'delete' ? 'Deleting…' : 'Delete recipe' }}</UiButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
       </div>
     </div>
   </form>

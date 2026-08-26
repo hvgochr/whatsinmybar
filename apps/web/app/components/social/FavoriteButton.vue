@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ApiRequestError } from '../../services/api-client'
 import { FavouriteIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import UiButton from '../ui/button/Button.vue'
+import { ApiRequestError } from '../../services/api-client'
 
-const props = defineProps<{
-  compact?: boolean
+const props = withDefaults(defineProps<{
+  contrast?: boolean
   count: number
   favorited: boolean
+  overlay?: boolean
   recipeSlug: string
-}>()
+}>(), {
+  contrast: true,
+  overlay: false
+})
 
 const emit = defineEmits<{
   updated: [state: { count: number, favorited: boolean }]
@@ -21,18 +24,16 @@ const count = ref(props.count)
 const favorited = ref(props.favorited)
 const pending = ref(false)
 const errorMessage = ref<string | null>(null)
-const loginTo = computed(() => `/login?redirect=${encodeURIComponent(`/recipes/${props.recipeSlug}`)}`)
+const label = computed(() => favorited.value ? `Remove ${props.recipeSlug} from favorites` : `Add ${props.recipeSlug} to favorites`)
 
-watch(() => props.count, (nextCount) => {
-  count.value = nextCount
-})
-
-watch(() => props.favorited, (nextFavorited) => {
-  favorited.value = nextFavorited
-})
+watch(() => props.count, nextCount => { count.value = nextCount })
+watch(() => props.favorited, nextFavorited => { favorited.value = nextFavorited })
 
 async function toggleFavorite() {
+  if (pending.value) return
+
   if (!auth.isAuthenticated.value) {
+    await navigateTo(`/login?redirect=${encodeURIComponent(`/recipes/${props.recipeSlug}`)}`)
     return
   }
 
@@ -48,9 +49,7 @@ async function toggleFavorite() {
     favorited.value = state.favorited
     emit('updated', { count: state.favoriteCount, favorited: state.favorited })
   } catch (error: unknown) {
-    errorMessage.value = error instanceof ApiRequestError
-      ? error.message
-      : 'Favorite could not be updated.'
+    errorMessage.value = error instanceof ApiRequestError ? error.message : 'Favorite could not be updated.'
   } finally {
     pending.value = false
   }
@@ -58,45 +57,28 @@ async function toggleFavorite() {
 </script>
 
 <template>
-  <div v-if="compact">
-    <UiButton
-      v-if="auth.isAuthenticated.value"
+  <div class="inline-flex" :class="overlay ? 'absolute top-3 right-3 z-20' : 'relative'">
+    <button
       type="button"
-      size="icon-sm"
-      :variant="favorited ? 'default' : 'outline'"
+      class="group/favorite inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+      :class="contrast ? 'text-white focus-visible:ring-offset-black/60' : 'text-foreground focus-visible:ring-offset-background'"
+      :aria-label="auth.isAuthenticated.value ? label : 'Log in to save this recipe'"
+      :aria-pressed="auth.isAuthenticated.value ? favorited : undefined"
       :disabled="pending"
-      :aria-label="favorited ? `Remove ${recipeSlug} from favorites` : `Add ${recipeSlug} to favorites`"
-      @click="toggleFavorite"
+      :title="auth.isAuthenticated.value ? label : 'Log in to save this recipe'"
+      @click.stop.prevent="toggleFavorite"
     >
-      <HugeiconsIcon :icon="FavouriteIcon" :size="17" :stroke-width="1.75" aria-hidden="true" />
-    </UiButton>
-    <UiButton v-else as-child size="icon-sm" variant="outline" aria-label="Log in to save recipe">
-      <NuxtLink :to="loginTo"><HugeiconsIcon :icon="FavouriteIcon" :size="17" :stroke-width="1.75" aria-hidden="true" /></NuxtLink>
-    </UiButton>
-    <span class="sr-only">{{ count }} saves</span>
-  </div>
-  <div v-else class="rounded-md border bg-card p-4 text-card-foreground">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <p class="text-sm font-medium text-foreground">
-          {{ count }} saved
-        </p>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Keep recipes on your shelf for later.
-        </p>
-      </div>
-
-      <UiButton v-if="auth.isAuthenticated.value" type="button" :variant="favorited ? 'outline' : 'default'" :disabled="pending" @click="toggleFavorite">
-        {{ pending ? 'Saving...' : favorited ? 'Saved' : 'Save' }}
-      </UiButton>
-      <UiButton v-else as-child variant="outline">
-        <NuxtLink :to="loginTo">
-          Log in to save
-        </NuxtLink>
-      </UiButton>
-    </div>
-
-    <p v-if="errorMessage" class="mt-3 text-sm font-bold text-destructive">
+      <HugeiconsIcon
+        :icon="FavouriteIcon"
+        :size="21"
+        :stroke-width="1.9"
+        :fill="favorited ? 'currentColor' : 'none'"
+        aria-hidden="true"
+      />
+      <span class="tabular-nums">{{ count }}</span>
+      <span class="sr-only">{{ pending ? 'Updating favorite' : '' }}</span>
+    </button>
+    <p v-if="errorMessage" role="alert" class="absolute top-full right-0 z-30 mt-1 w-52 rounded-sm border bg-background p-2 text-xs text-foreground">
       {{ errorMessage }}
     </p>
   </div>

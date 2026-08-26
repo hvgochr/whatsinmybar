@@ -4,6 +4,8 @@ import type { HTMLAttributes } from 'vue'
 import { cn } from '../../../lib/utils'
 import { buttonVariants, type ButtonVariants } from './variants'
 
+defineOptions({ inheritAttrs: false })
+
 interface Props extends PrimitiveProps {
   class?: HTMLAttributes['class']
   size?: ButtonVariants['size']
@@ -20,6 +22,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 <template>
   <Primitive
+    v-bind="$attrs"
     :as="as"
     :as-child="asChild"
     :class="cn(buttonVariants({ variant, size }), props.class)"

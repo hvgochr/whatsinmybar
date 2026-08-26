@@ -9,7 +9,6 @@ import { paginationState } from '../../utils/pagination'
 import {
   activeRecipeFilters,
   cleanRecipeSearchQuery,
-  recipeSearchQueryFromForm,
   recipeSearchStateFromQuery
 } from '../../utils/recipe-search'
 
@@ -31,14 +30,14 @@ const ingredients = computed(() => collectionItems(ingredientsCollection.value))
 const activeFilters = computed(() => {
   return activeRecipeFilters(searchState.value).map((filter) => {
     if (filter.label === 'Category') {
-      return { ...filter, value: categories.value.find(category => category.slug === filter.value)?.name ?? filter.value }
+      return { ...filter, to: filterRemovalTo(filter.key), value: categories.value.find(category => category.slug === filter.value)?.name ?? filter.value }
     }
 
     if (filter.label === 'Ingredient') {
-      return { ...filter, value: ingredients.value.find(ingredient => ingredient.slug === filter.value)?.name ?? filter.value }
+      return { ...filter, to: filterRemovalTo(filter.key), value: ingredients.value.find(ingredient => ingredient.slug === filter.value)?.name ?? filter.value }
     }
 
-    return filter
+    return { ...filter, to: filterRemovalTo(filter.key) }
   })
 })
 const totalRecipes = computed(() => collectionTotal(recipesCollection.value))
@@ -66,13 +65,18 @@ useHead({
   ]
 })
 
-function applyFilters(event: Event) {
-  const form = new FormData(event.currentTarget as HTMLFormElement)
-
+function applyFilters(state: typeof searchState.value) {
   return navigateTo({
     path: '/recipes',
-    query: recipeSearchQueryFromForm(form)
+    query: cleanRecipeSearchQuery(state)
   })
+}
+
+function filterRemovalTo(key: string) {
+  const query = Object.fromEntries(
+    Object.entries(cleanRecipeSearchQuery(searchState.value)).filter(([queryKey]) => queryKey !== key && queryKey !== 'page')
+  )
+  return { path: '/recipes', query }
 }
 
 function recipePageTo(page: number) {
@@ -102,7 +106,7 @@ function recipePageTo(page: number) {
       :ingredients="ingredients"
       :pending="recipesPending"
       :state="searchState"
-      @submit="applyFilters"
+      @apply="applyFilters"
     />
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -115,7 +119,7 @@ function recipePageTo(page: number) {
     </div>
 
     <div v-if="recipesPending" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading recipes">
-      <div v-for="index in 8" :key="index" class="space-y-3"><div class="aspect-[4/3] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /><div class="h-4 w-1/2 animate-pulse rounded bg-muted" /></div>
+      <div v-for="index in 8" :key="index" class="space-y-3"><div class="aspect-[4/5] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /><div class="h-4 w-1/2 animate-pulse rounded bg-muted" /></div>
     </div>
 
     <EmptyState

@@ -24,7 +24,7 @@ defineProps<{
       </p>
     </div>
 
-    <UiButton v-if="actionLabel && actionTo" as-child>
+    <UiButton v-if="actionLabel && actionTo" as-child class="md:justify-self-end">
       <NuxtLink :to="actionTo">
         {{ actionLabel }}
       </NuxtLink>

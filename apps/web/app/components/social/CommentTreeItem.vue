@@ -18,7 +18,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  delete: [comment: Comment]
+  requestDelete: [comment: Comment]
   reply: [payload: { message: string, parentId: number }]
   update: [payload: { comment: Comment, message: string }]
 }>()
@@ -80,7 +80,7 @@ function submitReply() {
         <UiButton v-if="canManage && !isRemoved" type="button" size="sm" variant="outline" @click="editMode = !editMode">
           Edit
         </UiButton>
-        <UiButton v-if="canManage && !isRemoved" type="button" size="sm" variant="outline" :disabled="isPending" @click="emit('delete', node)">
+        <UiButton v-if="canManage && !isRemoved" type="button" size="sm" variant="outline" :disabled="isPending" @click="emit('requestDelete', node)">
           {{ isPending ? 'Deleting...' : 'Delete' }}
         </UiButton>
       </div>
@@ -104,7 +104,6 @@ function submitReply() {
 
     <ReportAction
       v-if="currentUser && !isRemoved"
-      compact
       :login-redirect="`/recipes/${node.recipeSlug}`"
       :target-id="node.id"
       target-type="comment"
@@ -130,7 +129,7 @@ function submitReply() {
         :depth="depth + 1"
         :node="reply"
         :pending-action-id="pendingActionId"
-        @delete="emit('delete', $event)"
+        @request-delete="emit('requestDelete', $event)"
         @reply="emit('reply', $event)"
         @update="emit('update', $event)"
       />

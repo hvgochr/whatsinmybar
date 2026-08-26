@@ -50,7 +50,7 @@ async function submitReport() {
 </script>
 
 <template>
-  <form class="grid gap-3 rounded-md border bg-background p-4" @submit.prevent="submitReport">
+  <form class="grid gap-4" @submit.prevent="submitReport">
     <FormAlert v-if="errorMessage" :message="errorMessage" tone="error" />
 
     <label class="grid gap-2">
@@ -64,7 +64,7 @@ async function submitReport() {
 
     <label class="grid gap-2">
       <span class="field-label">Details <span class="font-normal text-muted-foreground">optional</span></span>
-      <UiTextarea v-model="message" rows="3" placeholder="Add context for moderation" />
+      <UiTextarea v-model="message" rows="4" placeholder="Add any useful context" />
     </label>
 
     <div class="flex flex-wrap justify-end gap-2">

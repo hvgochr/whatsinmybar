@@ -2,6 +2,7 @@
 import UiButton from '../components/ui/button/Button.vue'
 import UiInput from '../components/ui/input/Input.vue'
 import UiTextarea from '../components/ui/textarea/Textarea.vue'
+import ThemeControl from '../components/navigation/ThemeControl.vue'
 import { imageUrl } from '../utils/public-content'
 import { toFormErrors } from '../utils/api-errors'
 
@@ -205,11 +206,17 @@ function onAvatarChange(event: Event) {
               View public profile
             </NuxtLink>
           </UiButton>
-          <UiButton as-child class="w-full" variant="outline"><NuxtLink to="/my-recipes">My recipes</NuxtLink></UiButton>
+          <UiButton as-child class="w-full" variant="outline"><NuxtLink :to="`/users/${user.username}#my-recipes`">My recipes</NuxtLink></UiButton>
         </div>
       </aside>
 
       <div class="grid gap-6">
+        <section id="appearance" class="scroll-mt-24 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="appearance-settings-title">
+          <h2 id="appearance-settings-title" class="section-heading">Appearance</h2>
+          <p class="section-description mb-5">Choose a light or dark interface, or follow your device setting.</p>
+          <ThemeControl inline />
+        </section>
+
         <section class="rounded-md border bg-card p-5 sm:p-6" aria-labelledby="profile-settings-title">
           <h2 id="profile-settings-title" class="section-heading">
             Profile details

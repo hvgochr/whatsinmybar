@@ -15,10 +15,10 @@ withDefaults(defineProps<{
 <template>
   <nav
     v-if="pagination.totalItems > 0"
-    class="mt-8 flex flex-col gap-4 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between"
+    class="mt-8 flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between"
     :aria-label="ariaLabel"
   >
-    <p class="text-sm font-bold text-muted-foreground">
+    <p class="text-sm text-muted-foreground">
       <span v-if="pagination.resultStart > 0">Showing {{ pagination.resultStart }}-{{ pagination.resultEnd }} of {{ pagination.totalItems }}</span>
       <span v-else>{{ pagination.totalItems }} total result{{ pagination.totalItems === 1 ? '' : 's' }}</span>
       <span v-if="pagination.totalPages !== null"> · Page {{ pagination.currentPage }} of {{ pagination.totalPages }}</span>

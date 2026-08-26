@@ -15,12 +15,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="page-shell">
-    <section class="auth-panel" aria-labelledby="logout-title">
-      <h1 id="logout-title" class="panel-title">
+  <main class="page-main grid min-h-[50vh] place-items-center">
+    <section class="w-full max-w-sm rounded-md border bg-card p-6 text-center" aria-labelledby="logout-title">
+      <h1 id="logout-title" class="text-xl font-semibold">
         Logging out
       </h1>
-      <p class="panel-copy">
+      <p class="mt-2 text-sm text-muted-foreground">
         Your session is being cleared.
       </p>
     </section>

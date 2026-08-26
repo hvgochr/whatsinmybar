@@ -22,7 +22,7 @@ const message = ref('')
 const pending = ref(false)
 const errorMessage = ref<string | null>(null)
 
-const selectClass = 'min-h-12 rounded-lg border border-input bg-background px-3.5 py-3 text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+const selectClass = 'h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
 async function submitReport() {
   pending.value = true
@@ -50,11 +50,11 @@ async function submitReport() {
 </script>
 
 <template>
-  <form class="grid gap-3 rounded-lg border border-border bg-background p-4" @submit.prevent="submitReport">
+  <form class="grid gap-3 rounded-md border bg-background p-4" @submit.prevent="submitReport">
     <FormAlert v-if="errorMessage" :message="errorMessage" tone="error" />
 
     <label class="grid gap-2">
-      <span class="text-sm font-black">Reason</span>
+      <span class="field-label">Reason</span>
       <select v-model="reason" :class="selectClass">
         <option v-for="option in reportReasonOptions" :key="option.value" :value="option.value">
           {{ option.label }}
@@ -63,7 +63,7 @@ async function submitReport() {
     </label>
 
     <label class="grid gap-2">
-      <span class="text-sm font-black">Details <span class="font-semibold text-muted-foreground">optional</span></span>
+      <span class="field-label">Details <span class="font-normal text-muted-foreground">optional</span></span>
       <UiTextarea v-model="message" rows="3" placeholder="Add context for moderation" />
     </label>
 

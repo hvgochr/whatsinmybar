@@ -87,13 +87,13 @@ function recipePageTo(page: number) {
 </script>
 
 <template>
-  <main class="page-shell">
+  <main class="page-main">
     <PublicPageHeader
       action-label="Share a recipe"
       action-to="/recipes/new"
-      description="Search the community shelf by flavor, ingredient, category, author, alcohol preference, and popularity."
-      eyebrow="Recipes"
-      title="Find your next cocktail"
+      description="Search published recipes by name, ingredient, category, author, alcohol preference, or popularity."
+      eyebrow="Explore"
+      title="Recipes"
     />
 
     <RecipeSearchPanel
@@ -106,16 +106,16 @@ function recipePageTo(page: number) {
     />
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm font-bold text-muted-foreground">
+      <p class="text-sm text-muted-foreground">
         {{ totalRecipes }} recipe{{ totalRecipes === 1 ? '' : 's' }}
       </p>
-      <p v-if="totalRecipes > 0" class="text-sm font-bold text-muted-foreground">
+      <p v-if="totalRecipes > 0" class="text-sm text-muted-foreground">
         Page {{ pagination.currentPage }}<span v-if="pagination.totalPages"> of {{ pagination.totalPages }}</span>
       </p>
     </div>
 
-    <div v-if="recipesPending" class="loading-panel">
-      Loading recipes...
+    <div v-if="recipesPending" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading recipes">
+      <div v-for="index in 8" :key="index" class="space-y-3"><div class="aspect-[4/3] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /><div class="h-4 w-1/2 animate-pulse rounded bg-muted" /></div>
     </div>
 
     <EmptyState
@@ -134,7 +134,7 @@ function recipePageTo(page: number) {
       title="No recipes match these filters"
     />
 
-    <section v-else class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Recipe results">
+    <section v-else class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Recipe results">
       <RecipeCard v-for="recipe in recipes" :key="recipe.slug" :recipe="recipe" />
     </section>
 

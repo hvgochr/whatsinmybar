@@ -11,12 +11,12 @@ defineProps<{
 </script>
 
 <template>
-  <header class="grid gap-6 py-8 md:grid-cols-[minmax(0,0.75fr)_auto] md:items-end md:py-12">
+  <header class="grid gap-6 py-4 md:grid-cols-[minmax(0,0.75fr)_auto] md:items-end md:py-6">
     <div>
-      <p v-if="eyebrow" class="eyebrow">
+      <p v-if="eyebrow" class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {{ eyebrow }}
       </p>
-      <h1 class="m-0 max-w-3xl text-4xl font-black leading-tight text-foreground md:text-6xl">
+      <h1 class="page-heading max-w-3xl">
         {{ title }}
       </h1>
       <p class="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">

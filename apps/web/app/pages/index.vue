@@ -8,13 +8,19 @@ import { publicUrl } from '../utils/public-content'
 const api = useApi()
 const runtimeConfig = useRuntimeConfig()
 
-const [{ data: recipeCollection }, { data: categoryCollection }] = await Promise.all([
+const [
+  { data: popularCollection, pending: recipesPending, error: recipesError },
+  { data: newestCollection },
+  { data: categoryCollection, pending: categoriesPending }
+] = await Promise.all([
   useAsyncData('home:featured-recipes', () => api.recipes.list({ sort: 'popular' })),
+  useAsyncData('home:newest-recipes', () => api.recipes.list({ sort: 'newest' })),
   useAsyncData('home:categories', () => api.categories.list())
 ])
 
-const featuredRecipes = computed(() => collectionItems(recipeCollection.value).slice(0, 3))
-const featuredCategories = computed(() => collectionItems(categoryCollection.value).slice(0, 3))
+const featuredRecipes = computed(() => collectionItems(popularCollection.value).slice(0, 4))
+const newestRecipes = computed(() => collectionItems(newestCollection.value).slice(0, 4))
+const featuredCategories = computed(() => collectionItems(categoryCollection.value).slice(0, 4))
 
 useSeoMeta({
   title: "What's In My Bar",
@@ -33,95 +39,75 @@ useHead({
 </script>
 
 <template>
-  <main class="page-shell">
-    <section class="grid items-start gap-7 py-8 md:grid-cols-[minmax(0,0.9fr)_minmax(320px,420px)] md:py-12 lg:gap-14" aria-labelledby="home-title">
-      <div>
-        <p class="eyebrow">
-          Cocktail community
-        </p>
-        <h1 id="home-title" class="page-title">
-          What's In My Bar
-        </h1>
-        <p class="page-copy">
-          Discover community-tested cocktail recipes, browse by ingredient, and keep a public profile for your own bar notebook.
+  <main>
+    <section class="border-b" aria-labelledby="home-title">
+      <div class="container-page py-14 sm:py-20">
+        <p class="mb-3 text-sm font-medium text-muted-foreground">Cocktail recipes from real home bars</p>
+        <h1 id="home-title" class="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">Find a recipe worth making.</h1>
+        <p class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+          Discover clear, community-shared recipes, browse by category or ingredient, and keep the ones you want to make again.
         </p>
         <div class="mt-7 flex flex-wrap gap-3">
-          <UiButton as-child>
-            <NuxtLink to="/recipes">
-              Explore recipes
-            </NuxtLink>
-          </UiButton>
-          <UiButton as-child variant="outline">
-            <NuxtLink to="/categories">
-              Browse categories
-            </NuxtLink>
-          </UiButton>
-        </div>
-      </div>
-
-      <div class="auth-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">
-            Start mixing
-          </h2>
-          <p class="panel-copy">
-            Create an account or log back in to manage your bar profile.
-          </p>
-        </div>
-
-        <div class="form-stack">
-          <UiButton as-child class="w-full">
-            <NuxtLink to="/register">
-              Create an account
-            </NuxtLink>
-          </UiButton>
-          <UiButton as-child class="w-full" variant="outline">
-            <NuxtLink to="/login">
-              Log in
-            </NuxtLink>
-          </UiButton>
+          <UiButton as-child><NuxtLink to="/recipes">Explore recipes</NuxtLink></UiButton>
+          <UiButton as-child variant="outline"><NuxtLink to="/categories">Browse categories</NuxtLink></UiButton>
         </div>
       </div>
     </section>
 
-    <section v-if="featuredRecipes.length > 0" class="mt-8" aria-labelledby="featured-recipes-title">
-      <div class="mb-5 flex items-end justify-between gap-4">
+    <div class="container-page space-y-16 py-12 sm:py-16">
+      <section aria-labelledby="featured-recipes-title">
+        <div class="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 id="featured-recipes-title" class="section-heading">Popular recipes</h2>
+            <p class="section-description">Recipes most often saved by the community.</p>
+          </div>
+          <NuxtLink class="text-sm font-medium underline-offset-4 hover:underline" to="/recipes?sort=popular">View all</NuxtLink>
+        </div>
+        <div v-if="recipesPending" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading popular recipes">
+          <div v-for="index in 4" :key="index" class="space-y-3"><div class="aspect-[4/3] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /></div>
+        </div>
+        <div v-else-if="featuredRecipes.length" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+          <RecipeCard v-for="recipe in featuredRecipes" :key="recipe.slug" :recipe="recipe" />
+        </div>
+        <p v-else-if="recipesError" class="rounded-md border p-5 text-sm text-muted-foreground">Popular recipes could not be loaded. Try the complete recipe index.</p>
+        <p v-else class="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">No published recipes are available yet.</p>
+      </section>
+
+      <section v-if="newestRecipes.length" aria-labelledby="newest-recipes-title">
+        <div class="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 id="newest-recipes-title" class="section-heading">Recently added</h2>
+            <p class="section-description">The latest recipes available to you.</p>
+          </div>
+          <NuxtLink class="text-sm font-medium underline-offset-4 hover:underline" to="/recipes?sort=newest">View all</NuxtLink>
+        </div>
+        <div class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+          <RecipeCard v-for="recipe in newestRecipes" :key="recipe.slug" :recipe="recipe" />
+        </div>
+      </section>
+
+      <section aria-labelledby="featured-categories-title">
+        <div class="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 id="featured-categories-title" class="section-heading">Browse categories</h2>
+            <p class="section-description">Start with a style, occasion, or classic family.</p>
+          </div>
+          <NuxtLink class="text-sm font-medium underline-offset-4 hover:underline" to="/categories">All categories</NuxtLink>
+        </div>
+        <div v-if="categoriesPending" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div v-for="index in 4" :key="index" class="h-48 animate-pulse rounded-md bg-muted" /></div>
+        <div v-else-if="featuredCategories.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <CategoryCard v-for="category in featuredCategories" :key="category.slug" :category="category" />
+        </div>
+        <p v-else class="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">Categories will appear here when they are available.</p>
+      </section>
+
+      <section class="flex flex-col gap-5 border-t pt-10 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="share-recipe-title">
         <div>
-          <p class="eyebrow">
-            Popular recipes
-          </p>
-          <h2 id="featured-recipes-title" class="section-title">
-            Saved by the community
-          </h2>
+          <h2 id="share-recipe-title" class="section-heading">Have a recipe to share?</h2>
+          <p class="section-description">Create a draft, refine the details, then publish when it is ready.</p>
         </div>
-        <NuxtLink class="font-black text-primary hover:underline" to="/recipes?sort=popular">
-          View all
-        </NuxtLink>
-      </div>
-
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <RecipeCard v-for="recipe in featuredRecipes" :key="recipe.slug" :recipe="recipe" />
-      </div>
-    </section>
-
-    <section v-if="featuredCategories.length > 0" class="mt-10" aria-labelledby="featured-categories-title">
-      <div class="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <p class="eyebrow">
-            Shelves
-          </p>
-          <h2 id="featured-categories-title" class="section-title">
-            Browse by mood
-          </h2>
-        </div>
-        <NuxtLink class="font-black text-primary hover:underline" to="/categories">
-          View all
-        </NuxtLink>
-      </div>
-
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <CategoryCard v-for="category in featuredCategories" :key="category.slug" :category="category" />
-      </div>
-    </section>
+        <UiButton as-child variant="outline"><NuxtLink to="/recipes/new">Create a recipe</NuxtLink></UiButton>
+      </section>
+    </div>
   </main>
 </template>

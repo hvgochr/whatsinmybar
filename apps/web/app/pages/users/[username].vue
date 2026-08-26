@@ -56,27 +56,25 @@ function errorStatus(error: unknown): number {
 </script>
 
 <template>
-  <main class="page-shell">
-    <section v-if="profile" class="grid gap-7 py-8 md:grid-cols-[220px_minmax(0,1fr)] md:items-center md:py-12">
-      <div class="avatar-preview size-36 text-5xl">
-        <img v-if="avatarSrc" :alt="`${profile.username} avatar`" :src="avatarSrc">
-        <span v-else>{{ profile.username.slice(0, 1).toUpperCase() }}</span>
+  <main class="page-main">
+    <section v-if="profile" class="grid gap-6 border-b pb-10 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center">
+      <div class="grid size-28 place-items-center overflow-hidden rounded-full border bg-muted text-3xl font-semibold">
+        <img v-if="avatarSrc" class="h-full w-full object-cover" :alt="`${profile.username}'s avatar`" :src="avatarSrc">
+        <span v-else aria-hidden="true">{{ profile.username.slice(0, 1).toUpperCase() }}</span>
       </div>
 
       <div>
-        <p class="eyebrow">
-          Public profile
-        </p>
-        <h1 class="m-0 text-4xl font-black leading-tight text-foreground md:text-6xl">
+        <p class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Public profile</p>
+        <h1 class="page-heading">
           {{ profile.username }}
         </h1>
-        <p class="mt-4 max-w-2xl text-lg text-muted-foreground">
+        <p class="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
           {{ profile.bio || 'This bartender has not written a bio yet.' }}
         </p>
-        <p class="mt-4 text-sm font-bold text-muted-foreground">
+        <p class="mt-3 text-sm text-muted-foreground">
           Member since {{ formatPublicDate(profile.createdAt) }}
         </p>
-        <div class="mt-5 max-w-sm">
+        <div class="mt-4 max-w-sm">
           <ReportAction
             :login-redirect="`/users/${profile.username}`"
             :target-id="profile.id"
@@ -93,12 +91,12 @@ function errorStatus(error: unknown): number {
       title="Profile"
     />
 
-    <h2 class="section-title">
+    <h2 class="section-heading mt-10">
       Published recipes
     </h2>
 
-    <div v-if="pending" class="loading-panel">
-      Loading profile recipes...
+    <div v-if="pending" class="mt-5 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading profile recipes">
+      <div v-for="index in 4" :key="index" class="space-y-3"><div class="aspect-[4/3] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /></div>
     </div>
 
     <EmptyState
@@ -117,7 +115,7 @@ function errorStatus(error: unknown): number {
       title="No public recipes yet"
     />
 
-    <section v-else class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Profile recipes">
+    <section v-else class="mt-5 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Profile recipes">
       <RecipeCard v-for="recipe in recipes" :key="recipe.slug" :recipe="recipe" />
     </section>
   </main>

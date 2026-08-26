@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ApiRequestError } from '../../services/api-client'
+import { FavouriteIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
 import UiButton from '../ui/button/Button.vue'
 
 const props = defineProps<{
+  compact?: boolean
   count: number
   favorited: boolean
   recipeSlug: string
@@ -55,10 +58,27 @@ async function toggleFavorite() {
 </script>
 
 <template>
-  <div class="rounded-lg border border-border bg-card p-4 text-card-foreground">
+  <div v-if="compact">
+    <UiButton
+      v-if="auth.isAuthenticated.value"
+      type="button"
+      size="icon-sm"
+      :variant="favorited ? 'default' : 'outline'"
+      :disabled="pending"
+      :aria-label="favorited ? `Remove ${recipeSlug} from favorites` : `Add ${recipeSlug} to favorites`"
+      @click="toggleFavorite"
+    >
+      <HugeiconsIcon :icon="FavouriteIcon" :size="17" :stroke-width="1.75" aria-hidden="true" />
+    </UiButton>
+    <UiButton v-else as-child size="icon-sm" variant="outline" aria-label="Log in to save recipe">
+      <NuxtLink :to="loginTo"><HugeiconsIcon :icon="FavouriteIcon" :size="17" :stroke-width="1.75" aria-hidden="true" /></NuxtLink>
+    </UiButton>
+    <span class="sr-only">{{ count }} saves</span>
+  </div>
+  <div v-else class="rounded-md border bg-card p-4 text-card-foreground">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p class="text-sm font-black text-foreground">
+        <p class="text-sm font-medium text-foreground">
           {{ count }} saved
         </p>
         <p class="mt-1 text-sm text-muted-foreground">

@@ -20,9 +20,9 @@ const src = computed(() => imageUrl(props.recipe.imagePath, runtimeConfig.public
       :loading="eager ? 'eager' : 'lazy'"
       :src="src"
     >
-    <div v-else class="grid h-full place-items-center bg-[radial-gradient(circle_at_30%_20%,hsl(var(--secondary)),transparent_32%),linear-gradient(135deg,hsl(var(--muted)),hsl(var(--accent)/0.42))] p-6 text-center">
-      <p class="m-0 text-sm font-black uppercase tracking-normal text-accent-foreground/80">
-        {{ recipe.containsAlcohol ? 'Cocktail recipe' : 'Zero-proof recipe' }}
+    <div v-else class="grid h-full place-items-center bg-muted p-6 text-center">
+      <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {{ recipe.containsAlcohol ? 'Recipe photo unavailable' : 'Zero-proof recipe photo unavailable' }}
       </p>
     </div>
   </div>

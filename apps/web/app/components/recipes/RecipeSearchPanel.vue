@@ -16,34 +16,34 @@ const emit = defineEmits<{
   submit: [event: Event]
 }>()
 
-const selectClass = 'min-h-12 rounded-lg border border-input bg-background px-3.5 py-3 text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+const selectClass = 'h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 </script>
 
 <template>
-  <section class="mb-8 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm md:p-5" aria-labelledby="recipe-search-title">
-    <div class="mb-5 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+  <section class="mb-8 rounded-md border bg-card p-4 text-card-foreground md:p-5" aria-labelledby="recipe-search-title">
+    <div class="mb-5 flex items-start justify-between gap-4">
       <div>
-        <h2 id="recipe-search-title" class="section-title">
-          Search the bar
+        <h2 id="recipe-search-title" class="text-base font-semibold">
+          Search and filter
         </h2>
-        <p class="section-copy">
-          Combine text search with category, ingredient, alcohol, author, and date filters.
+        <p class="mt-1 text-sm text-muted-foreground">
+          Refine the recipes returned by the API.
         </p>
       </div>
-      <NuxtLink class="font-black text-primary hover:underline" to="/recipes">
+      <NuxtLink class="text-sm font-medium underline-offset-4 hover:underline" to="/recipes">
         Reset filters
       </NuxtLink>
     </div>
 
     <form class="grid gap-4" @submit.prevent="emit('submit', $event)">
-      <div class="grid gap-3 lg:grid-cols-[minmax(240px,1.4fr)_repeat(4,minmax(150px,0.75fr))_auto]">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.4fr)_repeat(4,minmax(140px,0.75fr))_auto]">
         <label class="grid gap-2">
-          <span class="text-sm font-black">Search</span>
+          <span class="field-label">Search</span>
           <UiInput :default-value="state.q" name="q" type="search" />
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm font-black">Category</span>
+          <span class="field-label">Category</span>
           <select :class="selectClass" name="category" :value="state.category">
             <option value="">
               Any category
@@ -55,7 +55,7 @@ const selectClass = 'min-h-12 rounded-lg border border-input bg-background px-3.
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm font-black">Ingredient</span>
+          <span class="field-label">Ingredient</span>
           <select :class="selectClass" name="ingredient" :value="state.ingredient">
             <option value="">
               Any ingredient
@@ -67,7 +67,7 @@ const selectClass = 'min-h-12 rounded-lg border border-input bg-background px-3.
         </label>
 
         <label class="grid gap-2">
-          <span class="text-sm font-black">Alcohol</span>
+          <span class="field-label">Alcohol</span>
           <select :class="selectClass" name="alcohol" :value="state.alcohol">
             <option value="">
               Any serve
@@ -81,8 +81,8 @@ const selectClass = 'min-h-12 rounded-lg border border-input bg-background px-3.
           </select>
         </label>
 
-        <label class="grid gap-2">
-          <span class="text-sm font-black">Sort</span>
+        <label class="grid gap-2 sm:col-span-2 lg:col-span-1">
+          <span class="field-label">Sort</span>
           <select :class="selectClass" name="sort" :value="state.sort">
             <option value="newest">
               Newest first
@@ -103,25 +103,25 @@ const selectClass = 'min-h-12 rounded-lg border border-input bg-background px-3.
         </div>
       </div>
 
-      <details class="rounded-lg border border-border bg-background p-3">
-        <summary class="cursor-pointer text-sm font-black text-foreground">
+      <details class="rounded-md border bg-background p-3">
+        <summary class="cursor-pointer text-sm font-medium text-foreground">
           Advanced filters
         </summary>
         <div class="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <label class="grid gap-2">
-            <span class="text-sm font-black">Author username</span>
+            <span class="field-label">Author username</span>
             <UiInput :default-value="state.author" name="author" type="search" />
           </label>
           <label class="grid gap-2">
-            <span class="text-sm font-black">Minimum saves</span>
+            <span class="field-label">Minimum saves</span>
             <UiInput :default-value="state.minFavorites" min="1" name="minFavorites" type="number" />
           </label>
           <label class="grid gap-2">
-            <span class="text-sm font-black">Published after</span>
+            <span class="field-label">Published after</span>
             <UiInput :default-value="state.publishedAfter" name="publishedAfter" type="date" />
           </label>
           <label class="grid gap-2">
-            <span class="text-sm font-black">Published before</span>
+            <span class="field-label">Published before</span>
             <UiInput :default-value="state.publishedBefore" name="publishedBefore" type="date" />
           </label>
         </div>
@@ -132,7 +132,7 @@ const selectClass = 'min-h-12 rounded-lg border border-input bg-background px-3.
       <span
         v-for="filter in activeFilters"
         :key="`${filter.label}:${filter.value}`"
-        class="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-black text-muted-foreground"
+        class="rounded-sm border bg-background px-2 py-1 text-xs text-muted-foreground"
       >
         {{ filter.label }}: <span class="text-foreground">{{ filter.value }}</span>
       </span>

@@ -27,15 +27,15 @@ useHead({
 </script>
 
 <template>
-  <main class="page-shell">
+  <main class="page-main">
     <PublicPageHeader
-      description="Explore recipes through focused shelves for classic builds, seasonal ideas, and alcohol-free serves."
-      eyebrow="Categories"
-      title="Browse by occasion and style"
+      description="Browse published recipes by style, occasion, or established cocktail family."
+      eyebrow="Explore"
+      title="Categories"
     />
 
-    <div v-if="pending" class="loading-panel">
-      Loading categories...
+    <div v-if="pending" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading categories">
+      <div v-for="index in 8" :key="index" class="h-48 animate-pulse rounded-md bg-muted" />
     </div>
 
     <EmptyState
@@ -50,7 +50,7 @@ useHead({
       title="No categories yet"
     />
 
-    <section v-else class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Recipe categories">
+    <section v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Recipe categories">
       <CategoryCard v-for="category in categories" :key="category.slug" :category="category" />
     </section>
   </main>

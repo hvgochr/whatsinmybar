@@ -43,7 +43,7 @@ async function submitRegister() {
       email: form.email,
       password: form.password
     })
-    await navigateTo('/account')
+    await navigateTo('/settings')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     fieldErrors.value = formErrors.fields
@@ -55,31 +55,14 @@ async function submitRegister() {
 </script>
 
 <template>
-  <main class="page-shell">
-    <section class="auth-layout" aria-labelledby="register-title">
-      <div class="auth-intro">
-        <p class="eyebrow">
-          Join the community
-        </p>
-        <h1 id="register-title" class="page-title">
-          Create your cocktail profile
-        </h1>
-        <p class="page-copy">
-          Your birth date is required so alcohol content stays properly restricted.
-        </p>
+  <main class="page-main grid place-items-center">
+    <section class="w-full max-w-lg" aria-labelledby="register-title">
+      <div class="mb-7 text-center">
+        <h1 id="register-title" class="text-3xl font-semibold tracking-tight">Create an account</h1>
+        <p class="mt-2 text-sm text-muted-foreground">Your birth date is required so the API can enforce alcohol visibility.</p>
       </div>
-
-      <div class="auth-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">
-            New account
-          </h2>
-          <p class="panel-copy">
-            Choose a public username and a secure password.
-          </p>
-        </div>
-
-        <form class="form-stack" novalidate @submit.prevent="submitRegister">
+      <div class="rounded-md border bg-card p-6 sm:p-7">
+        <form class="grid gap-5" novalidate @submit.prevent="submitRegister">
           <CommonFormAlert v-if="formError" :message="formError" tone="error" />
 
           <CommonFormField id="register-email" v-slot="field" label="Email" :error="fieldErrors.email">
@@ -156,9 +139,9 @@ async function submitRegister() {
           </UiButton>
         </form>
 
-        <p class="form-footer">
+        <p class="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?
-          <NuxtLink class="muted-link" to="/login">
+          <NuxtLink class="font-medium text-foreground underline-offset-4 hover:underline" to="/login">
             Log in
           </NuxtLink>
         </p>

@@ -94,18 +94,18 @@ function socialErrorMessage(error: unknown, fallback: string): string {
 </script>
 
 <template>
-  <section class="content-panel p-5 md:p-6">
+  <section>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 class="section-title">
-          Community notes
+        <h2 class="section-heading">
+          Comments
         </h2>
-        <p class="section-copy">
-          Ask questions, add adjustments, and reply to other bartenders.
+        <p class="section-description">
+          Share a useful note or reply to another member.
         </p>
       </div>
-      <p class="rounded-full border border-border bg-background px-3 py-1.5 text-sm font-black text-muted-foreground">
-        {{ comments.length }} note{{ comments.length === 1 ? '' : 's' }}
+      <p class="text-sm text-muted-foreground">
+        {{ comments.length }} comment{{ comments.length === 1 ? '' : 's' }}
       </p>
     </div>
 
@@ -114,8 +114,9 @@ function socialErrorMessage(error: unknown, fallback: string): string {
       <FormAlert v-if="successMessage" :message="successMessage" tone="success" />
     </div>
 
-    <form v-if="auth.isAuthenticated.value" class="mt-5 grid gap-3 rounded-lg border border-border bg-background p-4" @submit.prevent="submitRootComment">
-      <UiTextarea v-model="message" rows="4" placeholder="Add a public note" />
+    <form v-if="auth.isAuthenticated.value" class="mt-5 grid gap-3 rounded-md border bg-background p-4" @submit.prevent="submitRootComment">
+      <label class="field-label" for="new-comment">Add a comment</label>
+      <UiTextarea id="new-comment" v-model="message" rows="4" maxlength="2000" placeholder="Write a public comment" />
       <div class="flex justify-end">
         <UiButton type="submit" :disabled="pending || !message.trim()">
           {{ pending ? 'Posting...' : 'Post comment' }}
@@ -123,9 +124,9 @@ function socialErrorMessage(error: unknown, fallback: string): string {
       </div>
     </form>
 
-    <div v-else class="mt-5 rounded-lg border border-border bg-background p-4">
+    <div v-else class="mt-5 rounded-md border bg-background p-4">
       <p class="text-muted-foreground">
-        Log in to comment, reply, save recipes, and report content.
+        Log in to comment or reply.
       </p>
       <UiButton as-child class="mt-3" variant="outline">
         <NuxtLink :to="`/login?redirect=/recipes/${recipeSlug}`">

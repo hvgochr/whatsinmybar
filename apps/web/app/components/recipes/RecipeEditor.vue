@@ -5,6 +5,7 @@ import RecipeImage from './RecipeImage.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiInput from '../ui/input/Input.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import type { Category, Ingredient, RecipeResource, RecipeWorkflow } from '../../types/api'
 import { toFormErrors } from '../../utils/api-errors'
 import {
@@ -38,6 +39,7 @@ const formError = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const selectedImage = ref<File | null>(null)
 const pendingAction = ref<'archive' | 'delete' | 'publish' | 'remove-image' | 'save' | null>(null)
+const deleteDialogOpen = ref(false)
 
 const isEdit = computed(() => props.mode === 'edit' || currentRecipe.value !== null)
 const statusLabel = computed(() => currentRecipe.value?.status ?? 'draft')
@@ -139,7 +141,7 @@ async function archiveRecipe() {
 }
 
 async function deleteRecipe() {
-  if (!currentRecipe.value || pendingAction.value || !window.confirm('Delete this recipe? This will remove it from public pages.')) {
+  if (!currentRecipe.value || pendingAction.value) {
     return
   }
 
@@ -148,7 +150,8 @@ async function deleteRecipe() {
 
   try {
     await api.recipes.delete(currentRecipe.value.slug)
-    await router.push('/account')
+    deleteDialogOpen.value = false
+    await router.push('/my-recipes')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     formError.value = formErrors.message
@@ -319,20 +322,41 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
     <FormAlert v-if="formError" :message="formError" tone="error" />
     <FormAlert v-if="successMessage" :message="successMessage" tone="success" />
 
-    <section class="content-panel settings-section" aria-labelledby="recipe-basics-title">
-      <div class="panel-header">
-        <p class="eyebrow">
+    <div class="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+      <aside class="sticky top-16 z-20 -mx-4 overflow-x-auto border-y bg-background px-4 py-3 lg:top-20 lg:mx-0 lg:rounded-md lg:border lg:p-3">
+        <nav class="flex min-w-max gap-1 lg:grid lg:min-w-0" aria-label="Recipe form sections">
+          <a
+            v-for="item in [
+            { id: 'recipe-basics', label: 'Basic information' },
+            { id: 'recipe-image-section', label: 'Image' },
+            { id: 'recipe-categories', label: 'Categories' },
+            { id: 'recipe-ingredients', label: 'Ingredients' },
+            { id: 'recipe-steps', label: 'Instructions' },
+            { id: 'recipe-publication', label: 'Publication' }
+            ]"
+            :key="item.id"
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+            :href="`#${item.id}`"
+          >{{ item.label }}</a>
+        </nav>
+      </aside>
+
+      <div class="grid gap-6">
+
+    <section id="recipe-basics" class="scroll-mt-36 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="recipe-basics-title">
+      <div class="mb-5">
+        <p class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {{ isEdit ? `Status: ${statusLabel}` : 'Draft first' }}
         </p>
-        <h2 id="recipe-basics-title" class="panel-title">
-          Recipe details
+        <h2 id="recipe-basics-title" class="section-heading">
+          Basic information
         </h2>
-        <p class="panel-copy">
-          Write the public title, summary, serving format, and alcohol visibility.
+        <p class="section-description">
+          Set the public title, summary, difficulty, preparation time, and yield.
         </p>
       </div>
 
-      <div class="form-stack">
+      <div class="grid gap-5">
         <FormField id="recipe-title" v-slot="field" label="Title" :error="fieldErrors.title">
           <UiInput
             id="recipe-title"
@@ -358,7 +382,7 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
 
         <div class="grid gap-4 md:grid-cols-3">
           <FormField id="recipe-difficulty" label="Difficulty">
-            <select id="recipe-difficulty" v-model="form.difficulty" class="min-h-12 w-full rounded-lg border border-input bg-background px-3.5 py-3 text-foreground" name="difficulty">
+            <select id="recipe-difficulty" v-model="form.difficulty" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground" name="difficulty">
               <option value="easy">
                 Easy
               </option>
@@ -399,29 +423,29 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       </div>
     </section>
 
-    <section class="content-panel settings-section" aria-labelledby="recipe-image-title">
-      <div class="panel-header">
-        <h2 id="recipe-image-title" class="panel-title">
+    <section id="recipe-image-section" class="scroll-mt-36 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="recipe-image-title">
+      <div class="mb-5">
+        <h2 id="recipe-image-title" class="section-heading">
           Main image
         </h2>
-        <p class="panel-copy">
+        <p class="section-description">
           Upload one recipe image for cards, detail pages, and OpenGraph previews.
         </p>
       </div>
 
       <div class="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
-        <div v-if="currentRecipe" class="overflow-hidden rounded-lg border border-border bg-muted">
+        <div v-if="currentRecipe" class="overflow-hidden rounded-md border bg-muted">
           <RecipeImage :recipe="currentRecipe" />
         </div>
-        <div v-else class="grid aspect-[4/3] place-items-center rounded-lg border border-dashed border-border bg-muted text-center text-sm font-bold text-muted-foreground">
+        <div v-else class="grid aspect-[4/3] place-items-center rounded-md border border-dashed bg-muted text-center text-sm text-muted-foreground">
           Image preview after save
         </div>
 
         <div class="grid gap-3">
           <FormField id="recipe-image" label="Image file" optional>
-            <input id="recipe-image" accept="image/*" class="file-input" name="image" type="file" @change="onImageChange">
+            <input id="recipe-image" accept="image/*" class="min-h-11 w-full rounded-md border border-dashed bg-background p-2 text-sm text-muted-foreground" name="image" type="file" @change="onImageChange">
           </FormField>
-          <p v-if="selectedImage" class="text-sm font-bold text-muted-foreground">
+          <p v-if="selectedImage" class="text-sm text-muted-foreground">
             Selected: {{ selectedImage.name }}
           </p>
           <UiButton v-if="isEdit && hasRecipeImage" type="button" variant="outline" :disabled="Boolean(pendingAction)" @click="removeImage">
@@ -431,12 +455,12 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       </div>
     </section>
 
-    <section class="content-panel settings-section" aria-labelledby="recipe-categories-title">
-      <div class="panel-header">
-        <h2 id="recipe-categories-title" class="panel-title">
+    <section id="recipe-categories" class="scroll-mt-36 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="recipe-categories-title">
+      <div class="mb-5">
+        <h2 id="recipe-categories-title" class="section-heading">
           Categories
         </h2>
-        <p class="panel-copy">
+        <p class="section-description">
           Attach the recipe to the public shelves where it belongs.
         </p>
       </div>
@@ -445,7 +469,7 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
         <label
           v-for="category in categories"
           :key="category.slug"
-          class="flex min-h-12 items-center gap-3 rounded-lg border border-border bg-background px-3.5 py-3 font-bold"
+          class="flex min-h-11 items-center gap-3 rounded-md border bg-background px-3 py-2 text-sm font-medium"
         >
           <input
             :checked="categoryChecked(form, category)"
@@ -462,12 +486,12 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       </p>
     </section>
 
-    <section class="content-panel settings-section" aria-labelledby="recipe-ingredients-title">
-      <div class="panel-header">
-        <h2 id="recipe-ingredients-title" class="panel-title">
+    <section id="recipe-ingredients" class="scroll-mt-36 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="recipe-ingredients-title">
+      <div class="mb-5">
+        <h2 id="recipe-ingredients-title" class="section-heading">
           Measured ingredients
         </h2>
-        <p class="panel-copy">
+        <p class="section-description">
           Keep ingredients ordered and dosed so the method stays easy to scan.
         </p>
       </div>
@@ -478,9 +502,9 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
         <div
           v-for="(recipeIngredient, index) in form.ingredients"
           :key="`ingredient-${index}`"
-          class="grid gap-3 rounded-lg border border-border bg-background p-3 lg:grid-cols-[minmax(170px,1fr)_120px_130px_minmax(160px,1fr)_auto]"
+          class="grid gap-3 rounded-md border bg-background p-3 xl:grid-cols-[minmax(170px,1fr)_100px_120px_minmax(150px,1fr)_auto]"
         >
-          <select v-model="recipeIngredient.ingredientSlug" class="min-h-12 rounded-lg border border-input bg-background px-3.5 py-3 text-foreground" :aria-label="`Ingredient ${index + 1}`">
+          <select v-model="recipeIngredient.ingredientSlug" class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" :aria-label="`Ingredient ${index + 1}`">
             <option value="">
               Choose ingredient
             </option>
@@ -489,7 +513,7 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
             </option>
           </select>
           <UiInput v-model="recipeIngredient.quantity" :aria-label="`Quantity ${index + 1}`" min="0" step="0.01" type="number" />
-          <select v-model="recipeIngredient.unit" class="min-h-12 rounded-lg border border-input bg-background px-3.5 py-3 text-foreground" :aria-label="`Unit ${index + 1}`">
+          <select v-model="recipeIngredient.unit" class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" :aria-label="`Unit ${index + 1}`">
             <option v-for="unit in ingredientUnitOptions" :key="unit.value" :value="unit.value">
               {{ unit.label }}
             </option>
@@ -514,12 +538,12 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       </UiButton>
     </section>
 
-    <section class="content-panel settings-section" aria-labelledby="recipe-steps-title">
-      <div class="panel-header">
-        <h2 id="recipe-steps-title" class="panel-title">
+    <section id="recipe-steps" class="scroll-mt-36 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="recipe-steps-title">
+      <div class="mb-5">
+        <h2 id="recipe-steps-title" class="section-heading">
           Preparation steps
         </h2>
-        <p class="panel-copy">
+        <p class="section-description">
           Add each instruction in the order readers should follow.
         </p>
       </div>
@@ -530,10 +554,10 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
         <div
           v-for="(step, index) in form.steps"
           :key="`step-${index}`"
-          class="grid gap-3 rounded-lg border border-border bg-background p-3 md:grid-cols-[3rem_minmax(0,1fr)_auto]"
+          class="grid gap-3 rounded-md border bg-background p-3 md:grid-cols-[2rem_minmax(0,1fr)_auto]"
         >
-          <span class="grid size-10 place-items-center rounded-full bg-primary text-sm font-black text-primary-foreground">
-            {{ index + 1 }}
+          <span class="pt-2 text-sm font-semibold text-muted-foreground">
+            {{ index + 1 }}.
           </span>
           <UiTextarea v-model="step.instruction" :aria-label="`Step ${index + 1}`" class="min-h-24" rows="3" />
           <div class="flex flex-wrap items-start gap-2">
@@ -555,7 +579,10 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       </UiButton>
     </section>
 
-    <section class="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
+    <section id="recipe-publication" class="scroll-mt-36 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="recipe-publication-title">
+      <h2 id="recipe-publication-title" class="section-heading">Publication and final review</h2>
+      <p class="section-description">Saving keeps the recipe private as a draft. Publishing happens only after all recipe content and any selected image have saved successfully.</p>
+      <div class="mt-5 flex flex-wrap items-center gap-3">
       <UiButton type="submit" :disabled="Boolean(pendingAction)">
         {{ pendingAction === 'save' ? 'Saving...' : isEdit ? 'Save changes' : 'Save draft' }}
       </UiButton>
@@ -565,7 +592,7 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       <UiButton v-if="canArchive" type="button" variant="outline" :disabled="Boolean(pendingAction)" @click="archiveRecipe">
         {{ pendingAction === 'archive' ? 'Archiving...' : 'Archive recipe' }}
       </UiButton>
-      <UiButton v-if="isEdit" type="button" variant="destructive" :disabled="Boolean(pendingAction)" @click="deleteRecipe">
+      <UiButton v-if="isEdit" type="button" variant="destructive" :disabled="Boolean(pendingAction)" @click="deleteDialogOpen = true">
         {{ pendingAction === 'delete' ? 'Deleting...' : 'Delete recipe' }}
       </UiButton>
       <UiButton v-if="currentRecipe" as-child type="button" variant="ghost">
@@ -573,6 +600,22 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
           View public page
         </NuxtLink>
       </UiButton>
+      </div>
     </section>
+
+    <Dialog v-model:open="deleteDialogOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Delete this recipe?</DialogTitle>
+          <DialogDescription>This removes the recipe from public and personal listings. This action cannot be undone from the frontend.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <UiButton type="button" variant="outline" :disabled="pendingAction === 'delete'" @click="deleteDialogOpen = false">Cancel</UiButton>
+          <UiButton type="button" variant="destructive" :disabled="pendingAction === 'delete'" @click="deleteRecipe">{{ pendingAction === 'delete' ? 'Deleting…' : 'Delete recipe' }}</UiButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+      </div>
+    </div>
   </form>
 </template>

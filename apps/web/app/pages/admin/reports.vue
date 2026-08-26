@@ -15,6 +15,8 @@ import {
   adminStatusLabel
 } from '../../utils/admin'
 
+definePageMeta({ layout: 'admin' })
+
 await useRequireAdmin()
 
 const api = useApi()
@@ -72,33 +74,33 @@ function stringValue(value: FormDataEntryValue | null): string {
     title="Reports and moderation"
   >
     <section class="mb-6 grid gap-4 sm:grid-cols-3">
-      <article class="rounded-lg border border-border bg-card p-4">
-        <p class="text-sm font-bold text-muted-foreground">
+      <article class="rounded-md border bg-card p-4">
+        <p class="text-sm font-medium text-muted-foreground">
           Total reports
         </p>
-        <p class="mt-2 text-3xl font-black">
+        <p class="mt-2 text-3xl font-semibold tracking-tight">
           {{ pagination.totalItems }}
         </p>
       </article>
-      <article class="rounded-lg border border-border bg-card p-4">
-        <p class="text-sm font-bold text-muted-foreground">
+      <article class="rounded-md border bg-card p-4">
+        <p class="text-sm font-medium text-muted-foreground">
           Open on this page
         </p>
-        <p class="mt-2 text-3xl font-black">
+        <p class="mt-2 text-3xl font-semibold tracking-tight">
           {{ openReports.length }}
         </p>
       </article>
-      <article class="rounded-lg border border-border bg-card p-4">
-        <p class="text-sm font-bold text-muted-foreground">
+      <article class="rounded-md border bg-card p-4">
+        <p class="text-sm font-medium text-muted-foreground">
           Reviewed on this page
         </p>
-        <p class="mt-2 text-3xl font-black">
+        <p class="mt-2 text-3xl font-semibold tracking-tight">
           {{ reports.length - openReports.length }}
         </p>
       </article>
     </section>
 
-    <div v-if="pending" class="loading-panel">
+    <div v-if="pending" class="grid min-h-48 place-items-center rounded-md border bg-card text-sm text-muted-foreground">
       Loading reports...
     </div>
 
@@ -111,11 +113,11 @@ function stringValue(value: FormDataEntryValue | null): string {
     />
 
     <section v-else class="grid gap-4" aria-label="Moderation reports">
-      <form v-for="report in reports" :key="report.id" class="content-panel p-4" @submit.prevent="updateReport(report, $event)">
+      <form v-for="report in reports" :key="report.id" class="rounded-md border bg-card p-4" @submit.prevent="updateReport(report, $event)">
         <div class="grid gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(150px,0.35fr)_minmax(180px,0.45fr)_auto]">
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <p class="font-black text-foreground">
+              <p class="font-medium text-foreground">
                 {{ report.targetType }} #{{ report.targetId }}
               </p>
               <AdminBadge :tone="report.status === 'open' ? 'warning' : report.status === 'resolved' ? 'success' : 'muted'">
@@ -125,18 +127,18 @@ function stringValue(value: FormDataEntryValue | null): string {
             <p class="mt-2 text-sm text-muted-foreground">
               {{ adminReportReasonLabel(report.reason) }} by {{ report.reporterUsername }}
             </p>
-            <p v-if="report.message" class="mt-3 rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">
+            <p v-if="report.message" class="mt-3 rounded-md border bg-background p-3 text-sm text-muted-foreground">
               {{ report.message }}
             </p>
-            <p class="mt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            <p class="mt-2 text-xs text-muted-foreground">
               Submitted {{ new Date(report.createdAt).toLocaleDateString('en') }}
               <span v-if="report.reviewedByUsername"> · reviewed by {{ report.reviewedByUsername }}</span>
             </p>
           </div>
 
           <label class="grid gap-2">
-            <span class="text-xs font-black uppercase tracking-wide text-muted-foreground">Report status</span>
-            <select name="status" class="min-h-11 rounded-lg border border-input bg-background px-3 py-2 text-foreground" :disabled="rowPending[report.id]" :value="report.status">
+            <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Report status</span>
+            <select name="status" class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" :disabled="rowPending[report.id]" :value="report.status">
               <option v-for="option in adminReportStatusOptions" :key="option.value" :value="option.value">
                 {{ option.label }}
               </option>
@@ -144,8 +146,8 @@ function stringValue(value: FormDataEntryValue | null): string {
           </label>
 
           <label class="grid gap-2">
-            <span class="text-xs font-black uppercase tracking-wide text-muted-foreground">Apply moderation</span>
-            <select name="moderationStatus" class="min-h-11 rounded-lg border border-input bg-background px-3 py-2 text-foreground" :disabled="rowPending[report.id]">
+            <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Apply moderation</span>
+            <select name="moderationStatus" class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" :disabled="rowPending[report.id]">
               <option value="">
                 No content change
               </option>

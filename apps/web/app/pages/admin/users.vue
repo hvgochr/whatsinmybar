@@ -8,6 +8,8 @@ import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { AdminUser } from '../../types/api'
 
+definePageMeta({ layout: 'admin' })
+
 await useRequireAdmin()
 
 const api = useApi()
@@ -62,7 +64,7 @@ function setDeleted(user: AdminUser, event: Event) {
     description="Review account state and grant or remove administrator access."
     title="Users"
   >
-    <div v-if="pending" class="loading-panel">
+    <div v-if="pending" class="grid min-h-48 place-items-center rounded-md border bg-card text-sm text-muted-foreground">
       Loading users...
     </div>
 
@@ -74,10 +76,10 @@ function setDeleted(user: AdminUser, event: Event) {
       title="Users could not be loaded"
     />
 
-    <div v-else class="content-panel overflow-hidden">
+    <div v-else class="overflow-hidden rounded-md border bg-card">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-border text-sm">
-          <thead class="bg-muted/50 text-left text-xs font-black uppercase tracking-wide text-muted-foreground">
+          <thead class="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
             <tr>
               <th class="px-4 py-3">
                 User
@@ -99,7 +101,7 @@ function setDeleted(user: AdminUser, event: Event) {
           <tbody class="divide-y divide-border">
             <tr v-for="user in users" :key="user.id" class="align-top">
               <td class="px-4 py-4">
-                <p class="font-black text-foreground">
+                <p class="font-medium text-foreground">
                   {{ user.username }}
                 </p>
                 <p class="mt-1 text-muted-foreground">
@@ -107,7 +109,7 @@ function setDeleted(user: AdminUser, event: Event) {
                 </p>
               </td>
               <td class="px-4 py-4">
-                <label class="flex min-h-11 items-center gap-2 font-bold">
+                <label class="flex min-h-10 items-center gap-2 font-medium">
                   <input
                     class="size-4 accent-primary"
                     type="checkbox"
@@ -125,7 +127,7 @@ function setDeleted(user: AdminUser, event: Event) {
               </td>
               <td class="px-4 py-4">
                 <select
-                  class="min-h-11 rounded-lg border border-input bg-background px-3 py-2 text-foreground"
+                  class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
                   :disabled="rowPending[user.id]"
                   :value="user.deleted ? 'deleted' : 'active'"
                   @change="setDeleted(user, $event)"
@@ -144,7 +146,7 @@ function setDeleted(user: AdminUser, event: Event) {
               <td class="px-4 py-4">
                 <FormAlert v-if="rowError[user.id]" :message="rowError[user.id] ?? ''" tone="error" />
                 <FormAlert v-else-if="rowMessage[user.id]" :message="rowMessage[user.id] ?? ''" tone="success" />
-                <span v-else-if="rowPending[user.id]" class="text-sm font-bold text-muted-foreground">Saving...</span>
+                <span v-else-if="rowPending[user.id]" class="text-sm text-muted-foreground">Saving...</span>
               </td>
             </tr>
           </tbody>

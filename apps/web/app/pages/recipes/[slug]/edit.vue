@@ -2,19 +2,37 @@
 import EmptyState from '../../../components/common/EmptyState.vue'
 import PublicPageHeader from '../../../components/common/PublicPageHeader.vue'
 import RecipeEditor from '../../../components/recipes/RecipeEditor.vue'
-import type { Category, Ingredient, RecipeResource, User } from '../../../types/api'
+import type { Category, Ingredient, RecipeResource } from '../../../types/api'
 import { collectionItems } from '../../../utils/api-collections'
 
 const api = useApi()
 const auth = useAuth()
 const route = useRoute()
 const slug = computed(() => String(route.params.slug))
+const viewer = auth.currentUser.value ?? await auth.restoreSession()
 
-const categories = ref<Category[]>([])
-const ingredients = ref<Ingredient[]>([])
-const recipe = ref<RecipeResource | null>(null)
-const loading = ref(true)
-const loadError = ref<string | null>(null)
+if (!viewer) await navigateTo(`/login?redirect=${encodeURIComponent(`/recipes/${slug.value}/edit`)}`, { replace: true })
+
+const [recipeResource, categoriesResource, ingredientsResource] = await Promise.all([
+  useAsyncData(`recipe-editor:${slug.value}`, () => api.recipes.get(slug.value)),
+  useAsyncData('recipe-editor:categories', () => api.categories.list()),
+  useAsyncData('recipe-editor:ingredients', () => api.ingredients.list())
+])
+const recipe = computed<RecipeResource | null>(() => recipeResource.data.value ?? null)
+const categories = computed<Category[]>(() => collectionItems(categoriesResource.data.value))
+const ingredients = computed<Ingredient[]>(() => collectionItems(ingredientsResource.data.value))
+const loading = computed(() => recipeResource.pending.value || categoriesResource.pending.value || ingredientsResource.pending.value)
+const loadError = computed(() => {
+  if (recipeResource.error.value || categoriesResource.error.value || ingredientsResource.error.value) {
+    return 'Recipe editor could not be loaded.'
+  }
+
+  if (recipe.value && viewer && !canManageRecipe(recipe.value, viewer)) {
+    return 'You do not have permission to edit this recipe.'
+  }
+
+  return null
+})
 
 useSeoMeta({
   title: 'Edit recipe | What\'s In My Bar',
@@ -22,43 +40,13 @@ useSeoMeta({
   robots: 'noindex, nofollow'
 })
 
-onMounted(async () => {
-  try {
-    const user = await auth.restoreSession()
-
-    if (!user) {
-      await navigateTo('/login', { replace: true })
-      return
-    }
-
-    const [recipeResource, categoryCollection, ingredientCollection] = await Promise.all([
-      api.recipes.get(slug.value),
-      api.categories.list(),
-      api.ingredients.list()
-    ])
-
-    if (!canManageRecipe(recipeResource, user)) {
-      loadError.value = 'You do not have permission to edit this recipe.'
-      return
-    }
-
-    recipe.value = recipeResource
-    categories.value = collectionItems(categoryCollection)
-    ingredients.value = collectionItems(ingredientCollection)
-  } catch {
-    loadError.value = 'Recipe editor could not be loaded.'
-  } finally {
-    loading.value = false
-  }
-})
-
-function canManageRecipe(recipeResource: RecipeResource, user: User): boolean {
+function canManageRecipe(recipeResource: RecipeResource, user: { username: string, roles: readonly string[] }): boolean {
   return recipeResource.authorUsername === user.username || user.roles.includes('ROLE_ADMIN')
 }
 </script>
 
 <template>
-  <main class="page-shell">
+  <main class="page-main">
     <PublicPageHeader
       action-label="View recipe"
       :action-to="recipe ? `/recipes/${recipe.slug}` : '/recipes'"
@@ -67,8 +55,8 @@ function canManageRecipe(recipeResource: RecipeResource, user: User): boolean {
       :title="recipe ? `Edit ${recipe.title}` : 'Edit recipe'"
     />
 
-    <section v-if="loading" class="content-panel loading-panel" aria-live="polite">
-      Loading recipe editor...
+    <section v-if="loading" class="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]" aria-live="polite">
+      <div class="h-72 animate-pulse rounded-md bg-muted" /><div class="space-y-4"><div v-for="index in 4" :key="index" class="h-56 animate-pulse rounded-md bg-muted" /></div>
     </section>
 
     <EmptyState

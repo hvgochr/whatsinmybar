@@ -10,6 +10,8 @@ import { usePaginatedAdminList } from '../../composables/usePaginatedAdminList'
 import { ApiRequestError } from '../../services/api-client'
 import type { Ingredient } from '../../types/api'
 
+definePageMeta({ layout: 'admin' })
+
 await useRequireAdmin()
 
 const api = useApi()
@@ -90,22 +92,22 @@ function stringValue(value: FormDataEntryValue | null): string {
     description="Maintain ingredient naming and alcohol classification for recipe safety filters."
     title="Ingredients"
   >
-    <section class="content-panel p-5">
-      <h2 class="section-title">
+    <section class="rounded-md border bg-card p-5">
+      <h2 class="text-lg font-semibold">
         New ingredient
       </h2>
       <form class="mt-5 grid gap-4 lg:grid-cols-[minmax(180px,0.4fr)_minmax(160px,0.3fr)_minmax(160px,0.3fr)_auto]" @submit.prevent="createIngredient">
         <FormAlert v-if="createError" class="lg:col-span-4" :message="createError" tone="error" />
         <FormAlert v-if="createSuccess" class="lg:col-span-4" :message="createSuccess" tone="success" />
         <label class="grid gap-2">
-          <span class="text-sm font-black">Name</span>
+          <span class="field-label">Name</span>
           <UiInput v-model="createForm.name" required />
         </label>
         <label class="grid gap-2">
-          <span class="text-sm font-black">Slug <span class="font-semibold text-muted-foreground">optional</span></span>
+          <span class="field-label">Slug <span class="font-normal text-muted-foreground">optional</span></span>
           <UiInput v-model="createForm.slug" />
         </label>
-        <label class="flex min-h-12 items-end gap-2 font-bold">
+        <label class="flex min-h-11 items-center gap-2 self-end text-sm font-medium">
           <input v-model="createForm.containsAlcohol" class="mb-4 size-4 accent-primary" type="checkbox">
           Contains alcohol
         </label>
@@ -117,7 +119,7 @@ function stringValue(value: FormDataEntryValue | null): string {
       </form>
     </section>
 
-    <div v-if="pending" class="loading-panel mt-6">
+    <div v-if="pending" class="mt-6 grid min-h-48 place-items-center rounded-md border bg-card text-sm text-muted-foreground">
       Loading ingredients...
     </div>
 
@@ -130,16 +132,16 @@ function stringValue(value: FormDataEntryValue | null): string {
     />
 
     <section v-else class="mt-6 grid gap-4" aria-label="Ingredient list">
-      <form v-for="ingredient in ingredients" :key="ingredient.slug" class="content-panel grid gap-4 p-4 lg:grid-cols-[minmax(180px,0.35fr)_minmax(160px,0.25fr)_minmax(160px,0.25fr)_auto]" @submit.prevent="updateIngredient(ingredient, $event)">
+      <form v-for="ingredient in ingredients" :key="ingredient.slug" class="grid gap-4 rounded-md border bg-card p-4 lg:grid-cols-[minmax(180px,0.35fr)_minmax(160px,0.25fr)_minmax(160px,0.25fr)_auto]" @submit.prevent="updateIngredient(ingredient, $event)">
         <label class="grid gap-2">
-          <span class="text-xs font-black uppercase tracking-wide text-muted-foreground">Name</span>
+          <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
           <UiInput name="name" :default-value="ingredient.name" required />
         </label>
         <label class="grid gap-2">
-          <span class="text-xs font-black uppercase tracking-wide text-muted-foreground">Slug</span>
+          <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Slug</span>
           <UiInput name="slug" :default-value="ingredient.slug" />
         </label>
-        <label class="flex min-h-12 items-center gap-2 font-bold">
+        <label class="flex min-h-10 items-center gap-2 text-sm font-medium">
           <input class="size-4 accent-primary" name="containsAlcohol" type="checkbox" :checked="ingredient.containsAlcohol">
           Contains alcohol
         </label>

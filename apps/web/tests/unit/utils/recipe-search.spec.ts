@@ -4,7 +4,6 @@ import { paginationState } from '../../../app/utils/pagination'
 import {
   activeRecipeFilters,
   cleanRecipeSearchQuery,
-  recipeSearchQueryFromForm,
   recipeSearchStateFromQuery
 } from '../../../app/utils/recipe-search'
 
@@ -51,27 +50,15 @@ describe('recipe search helpers', () => {
     })
   })
 
-  it('builds query values from form data and resets page implicitly', () => {
-    const form = new FormData()
-    form.set('q', ' lime ')
-    form.set('category', 'zero-proof')
-    form.set('sort', 'newest')
-
-    expect(recipeSearchQueryFromForm(form)).toEqual({
-      category: 'zero-proof',
-      q: 'lime'
-    })
-  })
-
   it('summarizes active filters', () => {
     expect(activeRecipeFilters(recipeSearchStateFromQuery({
       alcohol: 'with',
       author: 'jane_doe',
       minFavorites: '2'
     }))).toEqual([
-      { label: 'Alcohol', value: 'With alcohol' },
-      { label: 'Author', value: 'jane_doe' },
-      { label: 'Minimum saves', value: '2' }
+      { key: 'alcohol', label: 'Alcohol', value: 'With alcohol' },
+      { key: 'author', label: 'Author', value: 'jane_doe' },
+      { key: 'minFavorites', label: 'Minimum saves', value: '2' }
     ])
   })
 

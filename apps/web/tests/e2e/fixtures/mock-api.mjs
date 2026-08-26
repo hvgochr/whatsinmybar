@@ -145,6 +145,14 @@ createServer((request, response) => {
     })
   }
 
+  if (url.pathname === '/api/categories/classics') {
+    return json(response, 200, classics)
+  }
+
+  if (url.pathname === '/api/reports' && request.method === 'POST') {
+    return json(response, 201, report)
+  }
+
   if (url.pathname === '/api/admin/users') {
     return authorized ? paginated(response, [adminUser]) : apiError(response, 403, 'Forbidden.')
   }
@@ -173,6 +181,12 @@ createServer((request, response) => {
   if (url.pathname === '/api/recipes/negroni/favorite' && request.method === 'DELETE') {
     return authorized
       ? json(response, 200, { recipeSlug: 'negroni', favoriteCount: 3, favorited: false, changed: true })
+      : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/recipes/negroni/favorite' && request.method === 'POST') {
+    return authorized
+      ? json(response, 200, { recipeSlug: 'negroni', favoriteCount: 5, favorited: true, changed: true })
       : apiError(response, 401, 'Unauthorized.')
   }
 

@@ -62,9 +62,9 @@ middleware and backend authorization.
 | --- | --- |
 | Discovery | `/`, `/recipes`, `/recipes/:slug`, `/categories`, `/categories/:slug` |
 | Authentication | `/login`, `/register`, `/logout` |
-| Profiles and personal content | `/users/:username`, `/settings`, `/my-recipes`, `/favorites` |
+| Profiles and personal content | `/users/:username`, `/settings`; `/my-recipes` and `/favorites` redirect to the owner profile sections |
 | Recipe authoring | `/recipes/new`, `/recipes/:slug/edit` |
-| Administration | `/admin`, `/admin/users`, `/admin/recipes`, `/admin/ingredients`, `/admin/categories`, `/admin/comments`, `/admin/reports` |
+| Administration | `/admin`, `/admin/users`, `/admin/recipes`, `/admin/ingredients`, `/admin/ingredients/new`, `/admin/ingredients/:slug/edit`, `/admin/categories`, `/admin/categories/new`, `/admin/categories/:slug/edit`, `/admin/comments`, `/admin/reports` |
 
 Public recipe pages are server rendered. The API remains the authorization and
 alcohol-visibility boundary; navigation guards and hidden controls are only user

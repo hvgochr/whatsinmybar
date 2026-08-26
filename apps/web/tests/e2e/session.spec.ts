@@ -22,7 +22,7 @@ test.describe('session bootstrap', () => {
     await expect(page.getByText('Authorized note')).toBeVisible()
   })
 
-  test('renders private recipe and favorites pages after session restoration', async ({ context, page }) => {
+  test('renders private recipe and favorites sections on the owner profile', async ({ context, page }) => {
     await context.addCookies([{
       name: 'refresh_token',
       value: 'valid-session',
@@ -32,16 +32,20 @@ test.describe('session bootstrap', () => {
       sameSite: 'Strict'
     }])
 
-    const response = await page.goto('/my-recipes')
+    const response = await page.goto('/users/jane_doe#my-recipes')
 
     expect(response?.ok()).toBe(true)
-    await expect(page.getByRole('heading', { name: 'My recipes' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'My recipes', exact: true })).toBeVisible()
     await expect(page.getByText('Unfinished Collins')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Publish' })).toBeVisible()
 
     await page.goto('/favorites')
-    await expect(page.getByRole('heading', { name: 'My favorites' })).toBeVisible()
-    await expect(page.getByText('Adult-only Negroni')).toBeVisible()
+    await expect(page).toHaveURL(/\/users\/jane_doe#favorites$/)
+    await expect(page.getByRole('heading', { name: 'My favorites', exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'My favorites' }).getByRole('link', { name: 'View Adult-only Negroni' })).toBeVisible()
+
+    await page.goto('/my-recipes')
+    await expect(page).toHaveURL(/\/users\/jane_doe#my-recipes$/)
 
     await page.goto('/recipes/new')
     await expect(page.getByRole('heading', { name: 'Create a recipe' })).toBeVisible()

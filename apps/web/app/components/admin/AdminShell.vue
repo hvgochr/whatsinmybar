@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import UiButton from '../ui/button/Button.vue'
+
 defineProps<{
+  actionLabel?: string
+  actionTo?: string
   current: 'dashboard' | 'users' | 'recipes' | 'categories' | 'ingredients' | 'comments' | 'reports'
   description: string
   title: string
@@ -9,7 +13,7 @@ defineProps<{
 
 <template>
   <div class="mx-auto max-w-[96rem]">
-    <header class="mb-6 grid gap-2">
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Administration / {{ current }}</p>
         <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -19,6 +23,7 @@ defineProps<{
           {{ description }}
         </p>
       </div>
+      <UiButton v-if="actionLabel && actionTo" as-child><NuxtLink :to="actionTo">{{ actionLabel }}</NuxtLink></UiButton>
     </header>
 
     <slot />

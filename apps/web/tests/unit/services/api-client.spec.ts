@@ -231,27 +231,8 @@ describe('api client', () => {
     }))
   })
 
-  it('manages recipe workflow subresources', async () => {
+  it('removes a recipe image through its dedicated endpoint', async () => {
     const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
-      if (path === '/recipe_steps') {
-        expect(options).toEqual(expect.objectContaining({
-          body: {
-            instruction: 'Stir with ice.',
-            position: 1,
-            recipe: '/api/recipes/negroni'
-          },
-          method: 'POST'
-        }))
-
-        return { id: 10, instruction: 'Stir with ice.', position: 1 }
-      }
-
-      if (path === '/recipe_ingredients/12') {
-        expect(options).toEqual(expect.objectContaining({ method: 'DELETE' }))
-
-        return undefined
-      }
-
       if (path === '/recipes/negroni/image') {
         expect(options).toEqual(expect.objectContaining({ method: 'DELETE' }))
 
@@ -264,12 +245,6 @@ describe('api client', () => {
       accessToken: 'access-token'
     })
 
-    await expect(api.recipeSteps.create({
-      instruction: 'Stir with ice.',
-      position: 1,
-      recipe: '/api/recipes/negroni'
-    })).resolves.toEqual({ id: 10, instruction: 'Stir with ice.', position: 1 })
-    await expect(api.recipeIngredients.delete(12)).resolves.toBeUndefined()
     await expect(api.recipes.removeImage('negroni')).resolves.toEqual({ imagePath: null, recipeSlug: 'negroni' })
   })
 

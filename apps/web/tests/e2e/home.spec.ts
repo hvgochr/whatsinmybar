@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
 
 const publicPages = [
-  { path: '/', heading: "What's In My Bar" },
-  { path: '/recipes', heading: 'Find your next cocktail' },
-  { path: '/categories', heading: 'Browse by occasion and style' },
-  { path: '/login', heading: 'Log in to your bar' },
-  { path: '/register', heading: 'Create your cocktail profile' }
+  { path: '/', heading: 'Find a recipe worth making.' },
+  { path: '/recipes', heading: 'Recipes' },
+  { path: '/recipes/citrus-spritz', heading: 'Citrus Spritz' },
+  { path: '/categories', heading: 'Categories' },
+  { path: '/users/jane_doe', heading: 'jane_doe' },
+  { path: '/login', heading: 'Log in' },
+  { path: '/register', heading: 'Create an account' }
 ] as const
 
 for (const publicPage of publicPages) {

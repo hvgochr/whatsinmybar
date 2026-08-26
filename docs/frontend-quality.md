@@ -50,3 +50,28 @@ Vitest
 Nuxt build
 Playwright Chromium smoke tests
 ```
+
+## Frontend route map
+
+The Nuxt application uses two visual shells. Public discovery, authentication,
+profiles and personal content use the default layout. Administration uses a
+separate responsive sidebar layout and remains protected by both frontend route
+middleware and backend authorization.
+
+| Area | Routes |
+| --- | --- |
+| Discovery | `/`, `/recipes`, `/recipes/:slug`, `/categories`, `/categories/:slug` |
+| Authentication | `/login`, `/register`, `/logout` |
+| Profiles and personal content | `/users/:username`, `/settings`, `/my-recipes`, `/favorites` |
+| Recipe authoring | `/recipes/new`, `/recipes/:slug/edit` |
+| Administration | `/admin`, `/admin/users`, `/admin/recipes`, `/admin/ingredients`, `/admin/categories`, `/admin/comments`, `/admin/reports` |
+
+Public recipe pages are server rendered. The API remains the authorization and
+alcohol-visibility boundary; navigation guards and hidden controls are only user
+experience affordances. Because the API does not expose a standalone global
+comment collection, `/admin/comments` truthfully presents comments referenced by
+the moderation-report feed instead of inventing an incomplete comment index.
+
+The application design system uses shadcn-nuxt primitives, Hugeicons and
+monochrome zinc-compatible semantic tokens. Theme preference supports light,
+dark and system modes without changing the color of recipe photography.

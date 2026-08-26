@@ -1,27 +1,30 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import App from '../../app/app.vue'
+import Wordmark from '../../app/components/brand/Wordmark.vue'
 
 describe('App', () => {
-  it('renders the application shell navigation', () => {
+  it('renders the current page through the selected layout', () => {
     const wrapper = mount(App, {
       global: {
         stubs: {
-          NuxtLink: {
-            props: ['to'],
-            template: '<a><slot /></a>'
-          },
-          NuxtPage: true,
-          NuxtRouteAnnouncer: true,
-          UiButton: {
-            template: '<span><slot /></span>'
-          }
+          NuxtLayout: { template: '<div data-testid="layout"><slot /></div>' },
+          NuxtPage: { template: '<main data-testid="page" />' },
+          NuxtRouteAnnouncer: { template: '<div data-testid="announcer" />' }
         }
       }
     })
 
-    expect(wrapper.get('.wordmark').text()).toBe("What's In My Bar")
-    expect(wrapper.text()).toContain('Log in')
-    expect(wrapper.text()).toContain('Join')
+    expect(wrapper.get('[data-testid="layout"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="page"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="announcer"]').exists()).toBe(true)
+  })
+
+  it('renders the exact reusable SVG wordmark', () => {
+    const wrapper = mount(Wordmark)
+
+    expect(wrapper.get('svg').attributes('aria-label')).toBe('WhatsInMyBar')
+    expect(wrapper.get('text').text()).toBe('WhatsInMyBar')
+    expect(wrapper.get('text').attributes('fill')).toBe('currentColor')
   })
 })

@@ -13,8 +13,8 @@ describe('pagination', () => {
 
   it('supports independent named pagination query parameters', () => {
     expect(pageFromQuery({ ownedPage: '2', savedPage: '4' }, 'savedPage')).toBe(4)
-    expect(pageLocation('/account/library', { ownedPage: '2', savedPage: '4' }, 3, 'ownedPage')).toEqual({
-      path: '/account/library',
+    expect(pageLocation('/recipes', { ownedPage: '2', savedPage: '4' }, 3, 'ownedPage')).toEqual({
+      path: '/recipes',
       query: { ownedPage: '3', savedPage: '4' }
     })
   })

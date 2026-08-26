@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RecipeResource } from '../../../app/types/api'
 import {
-  buildIngredientPayloads,
   buildRecipePayload,
-  buildStepPayloads,
   createEmptyRecipeForm,
   recipeToForm,
   toggleCategory
@@ -29,29 +27,6 @@ describe('recipe form helpers', () => {
       steps: [],
       title: 'Negroni'
     })
-  })
-
-  it('builds ordered step and ingredient payloads', () => {
-    const form = createEmptyRecipeForm()
-    form.steps = [
-      { instruction: ' Stir with ice. ' },
-      { instruction: '' },
-      { instruction: ' Strain. ' }
-    ]
-    form.ingredients = [
-      { ingredientSlug: 'gin', note: 'dry', quantity: '45', unit: 'ml' },
-      { ingredientSlug: '', note: '', quantity: '', unit: 'ml' },
-      { ingredientSlug: 'campari', note: '', quantity: '30', unit: 'ml' }
-    ]
-
-    expect(buildStepPayloads(form, 'negroni')).toEqual([
-      { instruction: 'Stir with ice.', position: 1, recipe: '/api/recipes/negroni' },
-      { instruction: 'Strain.', position: 2, recipe: '/api/recipes/negroni' }
-    ])
-    expect(buildIngredientPayloads(form, 'negroni')).toEqual([
-      { ingredient: '/api/ingredients/gin', note: 'dry', position: 1, quantity: '45', recipe: '/api/recipes/negroni', unit: 'ml' },
-      { ingredient: '/api/ingredients/campari', note: null, position: 2, quantity: '30', recipe: '/api/recipes/negroni', unit: 'ml' }
-    ])
   })
 
   it('maps a recipe resource into editable form state', () => {

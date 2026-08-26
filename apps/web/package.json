@@ -16,6 +16,9 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@hugeicons/core-free-icons": "^4.3.0",
+    "@hugeicons/vue": "^1.0.8",
+    "@vueuse/core": "^14.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "nuxt": "^4.4.8",

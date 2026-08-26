@@ -4,16 +4,16 @@ import type { HTMLAttributes } from 'vue'
 import { cn } from '../../../lib/utils'
 
 const alertVariants = cva(
-  'rounded-lg border px-3.5 py-3 text-sm font-bold',
+  'relative w-full rounded-md border px-4 py-3 text-sm',
   {
     defaultVariants: {
       variant: 'default'
     },
     variants: {
       variant: {
-        default: 'border-border bg-muted text-foreground',
-        destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
-        success: 'border-success/30 bg-success/12 text-success'
+        default: 'bg-background text-foreground',
+        destructive: 'border-foreground bg-muted text-foreground',
+        success: 'border-border bg-muted text-foreground'
       }
     }
   }

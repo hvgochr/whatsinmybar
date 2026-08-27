@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { FavouriteIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { ApiRequestError } from '../../services/api-client'
+import { toFormErrors } from '../../utils/api-errors'
 
 const props = withDefaults(defineProps<{
   contrast?: boolean
@@ -20,10 +20,10 @@ const emit = defineEmits<{
 
 const api = useApi()
 const auth = useAuth()
+const notifications = useNotifications()
 const count = ref(props.count)
 const favorited = ref(props.favorited)
 const pending = ref(false)
-const errorMessage = ref<string | null>(null)
 const label = computed(() => favorited.value ? `Remove ${props.recipeSlug} from favorites` : `Add ${props.recipeSlug} to favorites`)
 
 watch(() => props.count, nextCount => { count.value = nextCount })
@@ -38,8 +38,6 @@ async function toggleFavorite() {
   }
 
   pending.value = true
-  errorMessage.value = null
-
   try {
     const state = favorited.value
       ? await api.favorites.remove(props.recipeSlug)
@@ -48,8 +46,12 @@ async function toggleFavorite() {
     count.value = state.favoriteCount
     favorited.value = state.favorited
     emit('updated', { count: state.favoriteCount, favorited: state.favorited })
+    notifications.success(
+      `favorite:${props.recipeSlug}`,
+      state.favorited ? 'Added to favorites.' : 'Removed from favorites.'
+    )
   } catch (error: unknown) {
-    errorMessage.value = error instanceof ApiRequestError ? error.message : 'Favorite could not be updated.'
+    notifications.error(`favorite:${props.recipeSlug}`, toFormErrors(error).message ?? 'Favorite could not be updated.')
   } finally {
     pending.value = false
   }
@@ -78,8 +80,5 @@ async function toggleFavorite() {
       <span class="tabular-nums">{{ count }}</span>
       <span class="sr-only">{{ pending ? 'Updating favorite' : '' }}</span>
     </button>
-    <p v-if="errorMessage" role="alert" class="absolute top-full right-0 z-30 mt-1 w-52 rounded-sm border bg-background p-2 text-xs text-foreground">
-      {{ errorMessage }}
-    </p>
   </div>
 </template>

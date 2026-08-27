@@ -112,6 +112,10 @@ createServer((request, response) => {
   const url = new URL(request.url ?? '/', 'http://127.0.0.1:3001')
   const authorized = request.headers.authorization === 'Bearer adult-access-token'
 
+  if (request.method === 'OPTIONS') {
+    return cors(response, 204)
+  }
+
   if (url.pathname === '/health') {
     return json(response, 200, { ok: true })
   }
@@ -133,6 +137,14 @@ createServer((request, response) => {
 
   if (url.pathname === '/api/me') {
     return authorized ? json(response, 200, adultUser) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/me/avatar' && request.method === 'POST') {
+    return authorized ? json(response, 200, { ...adultUser, avatarPath: '/uploads/avatars/jane.png' }) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/me/password' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, { changed: true }) : apiError(response, 401, 'Unauthorized.')
   }
 
   if (url.pathname === '/api/users/jane_doe') {
@@ -157,8 +169,16 @@ createServer((request, response) => {
     return authorized ? paginated(response, [adminUser]) : apiError(response, 403, 'Forbidden.')
   }
 
+  if (url.pathname === '/api/admin/users/1' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, adminUser) : apiError(response, 403, 'Forbidden.')
+  }
+
   if (url.pathname === '/api/admin/recipes') {
     return authorized ? paginated(response, [adminRecipe]) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/recipes/negroni' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, adminRecipe) : apiError(response, 403, 'Forbidden.')
   }
 
   if (url.pathname === '/api/admin/categories' || url.pathname === '/api/admin/ingredients') {
@@ -168,6 +188,10 @@ createServer((request, response) => {
 
   if (url.pathname === '/api/admin/reports') {
     return authorized ? paginated(response, [report]) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/reports/1' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, { ...report, status: 'resolved' }) : apiError(response, 403, 'Forbidden.')
   }
 
   if (url.pathname === '/api/me/recipes') {
@@ -188,6 +212,29 @@ createServer((request, response) => {
     return authorized
       ? json(response, 200, { recipeSlug: 'negroni', favoriteCount: 5, favorited: true, changed: true })
       : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/recipes/negroni/comments' && request.method === 'POST') {
+    return authorized ? json(response, 201, {
+      id: 2,
+      recipeSlug: 'negroni',
+      authorUsername: 'jane_doe',
+      parentId: null,
+      message: 'New comment',
+      moderationStatus: 'visible',
+      replyCount: 0,
+      deleted: false,
+      createdAt: '2026-07-25T10:00:00+00:00',
+      updatedAt: '2026-07-25T10:00:00+00:00'
+    }) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/comments/1' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, { ...commentPayload(), message: 'Updated comment' }) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/comments/1' && request.method === 'DELETE') {
+    return authorized ? json(response, 200, { ...commentPayload(), deleted: true, message: null, moderationStatus: 'removed' }) : apiError(response, 401, 'Unauthorized.')
   }
 
   if (url.pathname === '/api/recipes/negroni/comments') {
@@ -228,9 +275,40 @@ createServer((request, response) => {
   return apiError(response, 404, `Unhandled mock endpoint: ${url.pathname}`)
 }).listen(3001, '127.0.0.1')
 
+function commentPayload() {
+  return {
+    id: 1,
+    recipeSlug: 'negroni',
+    authorUsername: 'jane_doe',
+    parentId: null,
+    message: 'Authorized note',
+    moderationStatus: 'visible',
+    replyCount: 0,
+    deleted: false,
+    createdAt: '2026-07-25T10:00:00+00:00',
+    updatedAt: '2026-07-25T10:00:00+00:00'
+  }
+}
+
 function json(response, status, body) {
-  response.writeHead(status, { 'Content-Type': 'application/json' })
+  response.writeHead(status, {
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-CSRF-Protection',
+    'Access-Control-Allow-Methods': 'DELETE, GET, PATCH, POST, PUT',
+    'Access-Control-Allow-Origin': 'http://127.0.0.1:3000',
+    'Content-Type': 'application/json'
+  })
   response.end(JSON.stringify(body))
+}
+
+function cors(response, status) {
+  response.writeHead(status, {
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-CSRF-Protection',
+    'Access-Control-Allow-Methods': 'DELETE, GET, PATCH, POST, PUT',
+    'Access-Control-Allow-Origin': 'http://127.0.0.1:3000'
+  })
+  response.end()
 }
 
 function apiError(response, status, message) {

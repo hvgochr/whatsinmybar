@@ -39,13 +39,12 @@ test.describe('session bootstrap', () => {
     await expect(page.getByText('Unfinished Collins')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Publish' })).toBeVisible()
 
-    await page.goto('/favorites')
-    await expect(page).toHaveURL(/\/users\/jane_doe#favorites$/)
+    await page.goto('/users/jane_doe#favorites')
     await expect(page.getByRole('heading', { name: 'My favorites', exact: true })).toBeVisible()
     await expect(page.getByRole('region', { name: 'My favorites' }).getByRole('link', { name: 'View Adult-only Negroni' })).toBeVisible()
 
-    await page.goto('/my-recipes')
-    await expect(page).toHaveURL(/\/users\/jane_doe#my-recipes$/)
+    await page.goto('/users/jane_doe#my-recipes')
+    await expect(page.getByRole('heading', { name: 'My recipes', exact: true })).toBeVisible()
 
     await page.goto('/recipes/new')
     await expect(page.getByRole('heading', { name: 'Create a recipe' })).toBeVisible()

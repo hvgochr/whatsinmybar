@@ -16,8 +16,8 @@ const props = withDefaults(defineProps<{
 })
 
 const auth = useAuth()
+const notifications = useNotifications()
 const open = ref(false)
-const successMessage = ref<string | null>(null)
 const canReport = computed(() => auth.isAuthenticated.value && Boolean(props.targetId))
 const loginTo = computed(() => `/login?redirect=${encodeURIComponent(props.loginRedirect)}`)
 const targetLabel = computed(() => props.targetType === 'user' ? 'profile' : props.targetType)
@@ -34,6 +34,11 @@ watch(open, async value => {
 
 function requestOpen() {
   window.setTimeout(() => { open.value = true }, 0)
+}
+
+function submitted() {
+  open.value = false
+  notifications.success(`report:${props.targetType}:${props.targetId}`, 'Report submitted.')
 }
 </script>
 
@@ -53,7 +58,7 @@ function requestOpen() {
           :target-id="targetId"
           :target-type="targetType"
           @cancel="open = false"
-          @submitted="() => { open = false; successMessage = 'Report submitted.' }"
+          @submitted="submitted"
         />
       </DialogContent>
     </Dialog>
@@ -65,7 +70,5 @@ function requestOpen() {
     <UiButton v-else as-child size="icon" variant="ghost" :aria-label="`Log in to report this ${targetLabel}`" :title="`Log in to report this ${targetLabel}`">
       <NuxtLink :to="loginTo"><HugeiconsIcon :icon="Flag03Icon" :size="18" :stroke-width="1.75" aria-hidden="true" /></NuxtLink>
     </UiButton>
-
-    <span v-if="successMessage" role="status" class="text-xs text-muted-foreground">{{ successMessage }}</span>
   </div>
 </template>

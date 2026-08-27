@@ -13,6 +13,7 @@ import { formatPublicDate, imageUrl, publicDescription, publicUrl } from '../../
 
 const api = useApi()
 const auth = useAuth()
+const notifications = useNotifications()
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const username = computed(() => String(route.params.username))
@@ -82,6 +83,7 @@ async function updateWorkflow(recipe: RecipeResource, action: 'archive' | 'publi
   try {
     Object.assign(recipe, action === 'publish' ? await api.recipes.publish(recipe.slug) : await api.recipes.archive(recipe.slug))
     await Promise.all([refreshOwned(), refreshPublic()])
+    notifications.success(`profile-recipe:${recipe.slug}`, action === 'publish' ? 'Recipe published.' : 'Recipe archived.')
   } catch (caught: unknown) {
     actionError.value[recipe.slug] = caught instanceof ApiRequestError ? caught.message : 'The recipe status could not be updated.'
   } finally {

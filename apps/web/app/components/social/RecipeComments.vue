@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ApiRequestError } from '../../services/api-client'
 import type { Comment } from '../../types/api'
 import { buildCommentTree } from '../../utils/social'
+import { toFormErrors } from '../../utils/api-errors'
 import FormAlert from '../common/FormAlert.vue'
 import DestructiveConfirm from '../common/DestructiveConfirm.vue'
 import CommentTreeItem from './CommentTreeItem.vue'
@@ -15,12 +15,12 @@ const props = defineProps<{
 
 const api = useApi()
 const auth = useAuth()
+const notifications = useNotifications()
 const comments = ref<Comment[]>([...props.comments])
 const message = ref('')
 const pending = ref(false)
 const pendingActionId = ref<number | null>(null)
 const formError = ref<string | null>(null)
-const successMessage = ref<string | null>(null)
 const deleteTarget = ref<Comment | null>(null)
 const deleteDialogOpen = ref(false)
 const deleteError = ref<string | null>(null)
@@ -35,13 +35,15 @@ async function createComment(payload: { message: string, parentId?: number | nul
   pending.value = true
   pendingActionId.value = payload.parentId ?? null
   formError.value = null
-  successMessage.value = null
 
   try {
     const createdComment = await api.comments.create(props.recipeSlug, payload)
     comments.value = [...comments.value, createdComment]
     message.value = ''
-    successMessage.value = payload.parentId ? 'Reply posted.' : 'Comment posted.'
+    notifications.success(
+      payload.parentId ? `comment-reply:${payload.parentId}` : `comment-create:${props.recipeSlug}`,
+      payload.parentId ? 'Reply posted.' : 'Comment posted.'
+    )
   } catch (error: unknown) {
     formError.value = socialErrorMessage(error, 'Comment could not be posted.')
   } finally {
@@ -53,12 +55,11 @@ async function createComment(payload: { message: string, parentId?: number | nul
 async function updateComment(payload: { comment: Comment, message: string }) {
   pendingActionId.value = payload.comment.id
   formError.value = null
-  successMessage.value = null
 
   try {
     const updatedComment = await api.comments.update(payload.comment.id, { message: payload.message })
     comments.value = comments.value.map(comment => comment.id === updatedComment.id ? updatedComment : comment)
-    successMessage.value = 'Comment updated.'
+    notifications.success(`comment-update:${payload.comment.id}`, 'Comment updated.')
   } catch (error: unknown) {
     formError.value = socialErrorMessage(error, 'Comment could not be updated.')
   } finally {
@@ -70,12 +71,11 @@ async function deleteComment(comment: Comment) {
   pendingActionId.value = comment.id
   formError.value = null
   deleteError.value = null
-  successMessage.value = null
 
   try {
     const deletedComment = await api.comments.delete(comment.id)
     comments.value = comments.value.map(currentComment => currentComment.id === deletedComment.id ? deletedComment : currentComment)
-    successMessage.value = 'Comment deleted.'
+    notifications.success(`comment-delete:${comment.id}`, 'Comment deleted.')
     deleteDialogOpen.value = false
     deleteTarget.value = null
   } catch (error: unknown) {
@@ -102,7 +102,7 @@ function submitRootComment() {
 }
 
 function socialErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiRequestError ? error.message : fallback
+  return toFormErrors(error).message ?? fallback
 }
 </script>
 
@@ -124,7 +124,6 @@ function socialErrorMessage(error: unknown, fallback: string): string {
 
     <div class="mt-5 grid gap-3">
       <FormAlert v-if="formError" :message="formError" tone="error" />
-      <FormAlert v-if="successMessage" :message="successMessage" tone="success" />
     </div>
 
     <form v-if="auth.isAuthenticated.value" class="mt-5 grid gap-3 rounded-md border bg-background p-4" @submit.prevent="submitRootComment">

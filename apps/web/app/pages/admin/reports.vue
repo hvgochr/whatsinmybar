@@ -20,6 +20,7 @@ definePageMeta({ layout: 'admin' })
 await useRequireAdmin()
 
 const api = useApi()
+const notifications = useNotifications()
 const { error, items: reports, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<Report>(
   'admin:reports',
   '/admin/reports',
@@ -27,7 +28,6 @@ const { error, items: reports, nextTo, pagination, pending, previousTo } = await
 )
 const rowPending = ref<Record<number, boolean>>({})
 const rowError = ref<Record<number, string>>({})
-const rowMessage = ref<Record<number, string>>({})
 
 const userModerationOptions = computed(() => adminModerationStatusOptions.filter(option => option.value === 'visible' || option.value === 'removed'))
 const openReports = computed(() => reports.value.filter(report => report.status === 'open'))
@@ -41,7 +41,6 @@ async function updateReport(report: Report, event: Event) {
   const form = new FormData(event.currentTarget as HTMLFormElement)
   rowPending.value[report.id] = true
   rowError.value[report.id] = ''
-  rowMessage.value[report.id] = ''
 
   try {
     const moderationStatus = stringValue(form.get('moderationStatus'))
@@ -50,7 +49,7 @@ async function updateReport(report: Report, event: Event) {
       status: stringValue(form.get('status')) as ReportStatus
     })
     reports.value = reports.value.map(currentReport => currentReport.id === updatedReport.id ? updatedReport : currentReport)
-    rowMessage.value[report.id] = 'Report updated.'
+    notifications.success(`admin-report:${report.id}`, 'Report updated.')
   } catch (error: unknown) {
     rowError.value[report.id] = error instanceof ApiRequestError ? error.message : 'Report could not be updated.'
   } finally {
@@ -166,7 +165,6 @@ function stringValue(value: FormDataEntryValue | null): string {
 
         <div class="mt-3">
           <FormAlert v-if="rowError[report.id]" :message="rowError[report.id] ?? ''" tone="error" />
-          <FormAlert v-else-if="rowMessage[report.id]" :message="rowMessage[report.id] ?? ''" tone="success" />
         </div>
       </form>
 

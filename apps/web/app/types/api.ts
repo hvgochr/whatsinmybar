@@ -256,6 +256,7 @@ export interface Comment {
   id: ApiId
   recipeSlug: string
   authorUsername: string
+  authorAvatarPath?: string | null
   parentId: ApiId | null
   message: string | null
   moderationStatus: ModerationStatus

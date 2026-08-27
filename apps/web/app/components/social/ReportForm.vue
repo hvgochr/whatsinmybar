@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ApiRequestError } from '../../services/api-client'
 import type { ApiId, Report, ReportReason, ReportTargetType } from '../../types/api'
 import { reportReasonOptions } from '../../utils/social'
+import { toFormErrors } from '../../utils/api-errors'
 import FormAlert from '../common/FormAlert.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
@@ -40,9 +40,7 @@ async function submitReport() {
     reason.value = 'spam'
     emit('submitted', report)
   } catch (error: unknown) {
-    errorMessage.value = error instanceof ApiRequestError
-      ? error.message
-      : 'Report could not be submitted.'
+    errorMessage.value = toFormErrors(error).message ?? 'Report could not be submitted.'
   } finally {
     pending.value = false
   }

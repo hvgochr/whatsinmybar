@@ -8,6 +8,7 @@ import { toFormErrors } from '../utils/api-errors'
 
 const api = useApi()
 const auth = useAuth()
+const notifications = useNotifications()
 const runtimeConfig = useRuntimeConfig()
 
 const loading = ref(true)
@@ -20,14 +21,13 @@ const profileForm = reactive({
 })
 const profileFieldErrors = ref<Record<string, string>>({})
 const profileError = ref<string | null>(null)
-const profileSuccess = ref<string | null>(null)
 const profilePending = ref(false)
 
 const avatarFieldErrors = ref<Record<string, string>>({})
 const avatarError = ref<string | null>(null)
-const avatarSuccess = ref<string | null>(null)
 const avatarPending = ref(false)
 const avatarFile = ref<File | null>(null)
+const avatarInput = ref<HTMLInputElement | null>(null)
 
 const passwordForm = reactive({
   currentPassword: '',
@@ -35,7 +35,6 @@ const passwordForm = reactive({
 })
 const passwordFieldErrors = ref<Record<string, string>>({})
 const passwordError = ref<string | null>(null)
-const passwordSuccess = ref<string | null>(null)
 const passwordPending = ref(false)
 
 const user = computed(() => auth.currentUser.value)
@@ -81,7 +80,6 @@ async function submitProfile() {
   profilePending.value = true
   profileFieldErrors.value = {}
   profileError.value = null
-  profileSuccess.value = null
 
   try {
     const updatedUser = await api.account.update({
@@ -90,7 +88,7 @@ async function submitProfile() {
       username: profileForm.username
     })
     auth.setCurrentUser(updatedUser)
-    profileSuccess.value = 'Your profile has been updated.'
+    notifications.success('profile-updated', 'Profile updated.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     profileFieldErrors.value = formErrors.fields
@@ -109,13 +107,13 @@ async function submitAvatar() {
   avatarPending.value = true
   avatarFieldErrors.value = {}
   avatarError.value = null
-  avatarSuccess.value = null
 
   try {
     const updatedUser = await api.account.avatar(avatarFile.value)
     auth.setCurrentUser(updatedUser)
     avatarFile.value = null
-    avatarSuccess.value = 'Your avatar has been updated.'
+    if (avatarInput.value) avatarInput.value.value = ''
+    notifications.success('avatar-updated', 'Avatar updated.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     avatarFieldErrors.value = formErrors.fields
@@ -133,7 +131,6 @@ async function submitPassword() {
   passwordPending.value = true
   passwordFieldErrors.value = {}
   passwordError.value = null
-  passwordSuccess.value = null
 
   try {
     await api.account.changePassword({
@@ -142,7 +139,7 @@ async function submitPassword() {
     })
     passwordForm.currentPassword = ''
     passwordForm.newPassword = ''
-    passwordSuccess.value = 'Your password has been updated.'
+    notifications.success('password-updated', 'Password updated.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     passwordFieldErrors.value = formErrors.fields
@@ -156,7 +153,6 @@ function onAvatarChange(event: Event) {
   const input = event.target as HTMLInputElement
   avatarFile.value = input.files?.[0] ?? null
   avatarFieldErrors.value = {}
-  avatarSuccess.value = null
 }
 </script>
 
@@ -214,7 +210,7 @@ function onAvatarChange(event: Event) {
         <section id="appearance" class="scroll-mt-24 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="appearance-settings-title">
           <h2 id="appearance-settings-title" class="section-heading">Appearance</h2>
           <p class="section-description mb-5">Choose a light or dark interface, or follow your device setting.</p>
-          <ThemeControl inline />
+          <ThemeControl inline notify />
         </section>
 
         <section class="rounded-md border bg-card p-5 sm:p-6" aria-labelledby="profile-settings-title">
@@ -227,7 +223,6 @@ function onAvatarChange(event: Event) {
 
           <form class="grid gap-5" novalidate @submit.prevent="submitProfile">
             <CommonFormAlert v-if="profileError" :message="profileError" tone="error" />
-            <CommonFormAlert v-if="profileSuccess" :message="profileSuccess" tone="success" />
 
             <CommonFormField id="account-username" v-slot="field" label="Public username" :error="profileFieldErrors.username">
               <UiInput
@@ -280,11 +275,11 @@ function onAvatarChange(event: Event) {
 
           <form class="grid gap-5" novalidate @submit.prevent="submitAvatar">
             <CommonFormAlert v-if="avatarError" :message="avatarError" tone="error" />
-            <CommonFormAlert v-if="avatarSuccess" :message="avatarSuccess" tone="success" />
 
             <CommonFormField id="account-avatar" v-slot="field" label="Avatar image" :error="avatarFieldErrors.avatar">
               <input
                 id="account-avatar"
+                ref="avatarInput"
                 v-bind="field"
                 accept="image/*"
                 class="min-h-11 w-full rounded-md border border-dashed bg-background p-2 text-sm text-muted-foreground"
@@ -312,7 +307,6 @@ function onAvatarChange(event: Event) {
 
           <form class="grid gap-5" novalidate @submit.prevent="submitPassword">
             <CommonFormAlert v-if="passwordError" :message="passwordError" tone="error" />
-            <CommonFormAlert v-if="passwordSuccess" :message="passwordSuccess" tone="success" />
 
             <CommonFormField
               id="account-current-password"

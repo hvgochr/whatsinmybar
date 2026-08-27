@@ -16,11 +16,11 @@ definePageMeta({ layout: 'admin' })
 await useRequireAdmin()
 
 const api = useApi()
+const notifications = useNotifications()
 const { error, items: users, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<AdminUser>('admin:users', '/admin/users', api.admin.users.list)
 const search = ref('')
 const stateFilter = ref<'active' | 'all' | 'deleted'>('all')
 const rowPending = ref<Record<number, boolean>>({})
-const rowMessage = ref<Record<number, string>>({})
 const rowError = ref<Record<number, string>>({})
 const deleteOpen = ref<Record<number, boolean>>({})
 const filteredUsers = computed(() => {
@@ -36,12 +36,11 @@ useSeoMeta({ title: 'Admin users | What\'s In My Bar', description: 'Manage user
 
 async function updateUser(user: AdminUser, payload: Partial<AdminUser>) {
   rowPending.value[user.id] = true
-  rowMessage.value[user.id] = ''
   rowError.value[user.id] = ''
   try {
     const updatedUser = await api.admin.users.update(user.id, payload)
     users.value = users.value.map(current => current.id === user.id ? { ...current, ...updatedUser } : current)
-    rowMessage.value[user.id] = 'User updated.'
+    notifications.success(`admin-user:${user.id}`, payload.deleted === true ? 'User deleted.' : payload.deleted === false ? 'User restored.' : 'User updated.')
     if (payload.deleted) deleteOpen.value[user.id] = false
   } catch (caught: unknown) {
     rowError.value[user.id] = caught instanceof ApiRequestError ? caught.message : 'User could not be updated.'
@@ -83,7 +82,6 @@ function setAdminRole(user: AdminUser, event: Event) {
               </DestructiveConfirm>
             </div>
             <FormAlert v-if="rowError[user.id] && !deleteOpen[user.id]" class="mt-2" :message="rowError[user.id] ?? ''" tone="error" />
-            <FormAlert v-else-if="rowMessage[user.id]" class="mt-2" :message="rowMessage[user.id] ?? ''" tone="success" />
           </td>
         </tr>
       </tbody>

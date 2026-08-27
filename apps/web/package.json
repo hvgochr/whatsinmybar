@@ -25,7 +25,8 @@
     "reka-ui": "^2.10.1",
     "tailwind-merge": "^3.6.0",
     "vue": "^3.5.39",
-    "vue-router": "^5.1.0"
+    "vue-router": "^5.1.0",
+    "vue-sonner": "^2.0.9"
   },
   "packageManager": "pnpm@11.11.0+sha512.4463f65fd80ed80d69bc1d4bf163ee94f605c7380fc318bb5b2ebe15f8cd12d49c51a4d59e951b401e764d3b6ca751cbf51bc50ed7001a6bcb4935e684c34882",
   "devDependencies": {

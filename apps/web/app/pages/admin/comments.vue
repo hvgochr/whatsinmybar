@@ -15,12 +15,12 @@ import { adminModerationStatusOptions, adminReportStatusOptions, adminStatusLabe
 definePageMeta({ layout: 'admin' })
 await useRequireAdmin()
 const api = useApi()
+const notifications = useNotifications()
 const { error, items: reports, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<Report>('admin:comments', '/admin/comments', api.admin.reports.list)
 const search = ref('')
 const statusFilter = ref<'all' | ReportStatus>('all')
 const rowPending = ref<Record<number, boolean>>({})
 const rowError = ref<Record<number, string>>({})
-const rowMessage = ref<Record<number, string>>({})
 const commentReports = computed(() => { const q = search.value.trim().toLowerCase(); return reports.value.filter(report => report.targetType === 'comment' && (statusFilter.value === 'all' || report.status === statusFilter.value) && (!q || `${report.targetId} ${report.reporterUsername} ${report.message ?? ''}`.toLowerCase().includes(q))) })
 
 useSeoMeta({ title: 'Admin comments | WhatsInMyBar', description: 'Moderate comments surfaced through community reports.' })
@@ -29,12 +29,11 @@ async function updateReport(report: Report, event: Event) {
   const form = new FormData(event.currentTarget as HTMLFormElement)
   rowPending.value[report.id] = true
   rowError.value[report.id] = ''
-  rowMessage.value[report.id] = ''
   try {
     const moderationStatus = String(form.get('moderationStatus') ?? '')
     const updated = await api.admin.reports.update(report.id, { moderationStatus: moderationStatus ? moderationStatus as ModerationStatus : undefined, status: String(form.get('status')) as ReportStatus })
     reports.value = reports.value.map(item => item.id === updated.id ? updated : item)
-    rowMessage.value[report.id] = 'Comment report updated.'
+    notifications.success(`admin-comment-report:${report.id}`, 'Comment report updated.')
   } catch (caught: unknown) {
     rowError.value[report.id] = caught instanceof ApiRequestError ? caught.message : 'The comment report could not be updated.'
   } finally {
@@ -61,7 +60,7 @@ async function updateReport(report: Report, event: Event) {
               <label class="grid gap-2"><span class="sr-only">Moderation action</span><select name="moderationStatus" class="control min-w-44"><option value="">No content change</option><option v-for="option in adminModerationStatusOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
               <UiButton type="submit" size="sm" :disabled="rowPending[report.id]">{{ rowPending[report.id] ? 'Saving...' : 'Save' }}</UiButton>
             </form>
-            <FormAlert v-if="rowError[report.id]" class="mt-2" :message="rowError[report.id] ?? ''" tone="error" /><FormAlert v-else-if="rowMessage[report.id]" class="mt-2" :message="rowMessage[report.id] ?? ''" tone="success" />
+            <FormAlert v-if="rowError[report.id]" class="mt-2" :message="rowError[report.id] ?? ''" tone="error" />
           </td>
         </tr>
       </tbody>

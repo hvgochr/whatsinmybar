@@ -62,7 +62,7 @@ middleware and backend authorization.
 | --- | --- |
 | Discovery | `/`, `/recipes`, `/recipes/:slug`, `/categories`, `/categories/:slug` |
 | Authentication | `/login`, `/register`, `/logout` |
-| Profiles and personal content | `/users/:username`, `/settings`; `/my-recipes` and `/favorites` redirect to the owner profile sections |
+| Profiles and personal content | `/users/:username`, `/settings`; owner-only recipes and favorites live within the authenticated user's profile |
 | Recipe authoring | `/recipes/new`, `/recipes/:slug/edit` |
 | Administration | `/admin`, `/admin/users`, `/admin/recipes`, `/admin/ingredients`, `/admin/ingredients/new`, `/admin/ingredients/:slug/edit`, `/admin/categories`, `/admin/categories/new`, `/admin/categories/:slug/edit`, `/admin/comments`, `/admin/reports` |
 

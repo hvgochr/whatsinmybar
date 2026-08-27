@@ -12,12 +12,15 @@ import {
 import UiButton from '../ui/button/Button.vue'
 
 const theme = useTheme()
+const notifications = useNotifications()
 const icon = computed(() => theme.resolvedTheme.value === 'dark' ? Moon02Icon : Sun03Icon)
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   inline?: boolean
+  notify?: boolean
 }>(), {
-  inline: false
+  inline: false,
+  notify: false
 })
 
 const choices = [
@@ -25,6 +28,11 @@ const choices = [
   { icon: Moon02Icon, label: 'Dark', value: 'dark' },
   { icon: ComputerIcon, label: 'System', value: 'system' }
 ] as const
+
+function selectTheme(value: 'light' | 'dark' | 'system') {
+  theme.setTheme(value)
+  if (props.notify) notifications.success('appearance-updated', 'Appearance updated.')
+}
 </script>
 
 <template>
@@ -38,7 +46,7 @@ const choices = [
         size="sm"
         :variant="theme.preference.value === choice.value ? 'default' : 'outline'"
         :aria-pressed="theme.preference.value === choice.value"
-        @click="theme.setTheme(choice.value)"
+        @click="selectTheme(choice.value)"
       >
         <HugeiconsIcon :icon="choice.icon" :size="16" :stroke-width="1.75" aria-hidden="true" />
         {{ choice.label }}
@@ -54,7 +62,7 @@ const choices = [
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" class="w-44">
       <DropdownMenuLabel>Theme</DropdownMenuLabel>
-      <DropdownMenuRadioGroup :model-value="theme.preference.value" @update:model-value="theme.setTheme($event as 'light' | 'dark' | 'system')">
+      <DropdownMenuRadioGroup :model-value="theme.preference.value" @update:model-value="selectTheme($event as 'light' | 'dark' | 'system')">
         <DropdownMenuRadioItem value="light"><HugeiconsIcon :icon="Sun03Icon" :size="16" :stroke-width="1.75" /> Light</DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="dark"><HugeiconsIcon :icon="Moon02Icon" :size="16" :stroke-width="1.75" /> Dark</DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="system"><HugeiconsIcon :icon="ComputerIcon" :size="16" :stroke-width="1.75" /> System</DropdownMenuRadioItem>

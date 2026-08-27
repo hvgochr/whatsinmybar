@@ -10,7 +10,8 @@ describe('App', () => {
         stubs: {
           NuxtLayout: { template: '<div data-testid="layout"><slot /></div>' },
           NuxtPage: { template: '<main data-testid="page" />' },
-          NuxtRouteAnnouncer: { template: '<div data-testid="announcer" />' }
+          NuxtRouteAnnouncer: { template: '<div data-testid="announcer" />' },
+          UiSonner: { template: '<div data-testid="toaster" />' }
         }
       }
     })
@@ -18,6 +19,7 @@ describe('App', () => {
     expect(wrapper.get('[data-testid="layout"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="page"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="announcer"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="toaster"]').exists()).toBe(true)
   })
 
   it('renders the exact reusable SVG wordmark', () => {

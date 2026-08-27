@@ -18,8 +18,11 @@ test('desktop header balances search and authenticated recipe actions', async ({
   await expect(page.getByRole('search').getByPlaceholder('Search recipes')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Create recipe', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Open profile menu for jane_doe' }).click()
-  await expect(page.getByRole('menuitem', { name: 'Appearance' })).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: 'My recipes' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Administration' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Log out' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: /My recipes|My favorites|Appearance/ })).toHaveCount(0)
 })
 
 test('anonymous header uses system appearance and keeps theme access in mobile navigation', async ({ page }) => {
@@ -32,6 +35,36 @@ test('anonymous header uses system appearance and keeps theme access in mobile n
   await expect(page.getByRole('dialog').getByRole('searchbox', { name: 'Search recipes' })).toBeVisible()
 })
 
+test('theme choices remain available in settings and provide feedback', async ({ context, page }) => {
+  await useAdultSession(context)
+  await page.goto('/settings#appearance')
+  await page.getByRole('group', { name: 'Appearance' }).getByRole('button', { name: 'Dark' }).click()
+  await expect(page.getByText('Appearance updated.')).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Appearance' }).getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('account mutations provide concise completion feedback', async ({ context, page }) => {
+  await useAdultSession(context)
+  await page.goto('/settings')
+
+  await page.getByLabel('Bio').fill('Updated profile biography.')
+  await page.getByRole('button', { name: 'Save profile' }).click()
+  await expect(page.getByText('Profile updated.')).toBeVisible()
+
+  await page.getByLabel('Avatar image').setInputFiles({
+    name: 'avatar.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+  })
+  await page.getByRole('button', { name: 'Upload avatar' }).click()
+  await expect(page.getByText('Avatar updated.')).toBeVisible()
+
+  await page.getByLabel('Current password').fill('very-secure-password')
+  await page.getByLabel('New password').fill('another-secure-password')
+  await page.getByRole('button', { name: 'Update password' }).click()
+  await expect(page.getByText('Password updated.')).toBeVisible()
+})
+
 test('recipe cards expose unboxed favorite state and collection counts', async ({ context, page }) => {
   await useAdultSession(context)
   await page.goto('/')
@@ -39,15 +72,23 @@ test('recipe cards expose unboxed favorite state and collection counts', async (
   const favorite = page.getByRole('button', { name: 'Remove negroni from favorites' }).first()
   await expect(favorite).toHaveAttribute('aria-pressed', 'true')
   await expect(favorite).toContainText('4')
+  await page.waitForLoadState('networkidle')
+  await favorite.click()
+  await expect(page.getByText('Removed from favorites.')).toBeVisible()
 })
 
 test('recipe filters separate primary and advanced controls and remove active filters', async ({ page }) => {
   await page.goto('/recipes?ingredient=gin')
-  await expect(page.getByLabel('Category')).toBeVisible()
-  await expect(page.locator('details').getByText('Advanced filters', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Sort order')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Filter recipes' })).toHaveCount(0)
+  await page.locator('details').getByText('Advanced filters', { exact: true }).click()
+  await expect(page.locator('details').getByLabel('Category')).toBeVisible()
+  await expect(page.locator('details').getByLabel('Ingredient')).toBeVisible()
+  await expect(page.locator('details').getByLabel('Alcohol preference')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Remove Ingredient filter' })).toBeVisible()
   await page.getByRole('link', { name: 'Remove Ingredient filter' }).click()
   await expect(page).toHaveURL(/\/recipes$/)
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0)
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/recipes')
@@ -93,16 +134,44 @@ test('recipe detail follows the cooking sequence and uses report dialog', async 
   await expect(page.getByText('Report submitted.')).toBeVisible()
 })
 
-test('profile collections remain private and legacy collection routes redirect', async ({ context, page }) => {
+test('profile collections remain private and obsolete collection routes do not exist', async ({ context, page }) => {
   await page.goto('/users/jane_doe')
   await expect(page.getByRole('heading', { name: 'Published recipes' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'My recipes', exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'My favorites', exact: true })).toHaveCount(0)
 
   await useAdultSession(context)
-  await page.goto('/favorites')
-  await expect(page).toHaveURL(/\/users\/jane_doe#favorites$/)
+  await page.goto('/users/jane_doe#favorites')
+  await page.reload()
   await expect(page.getByRole('heading', { name: 'My favorites', exact: true })).toBeVisible()
+
+  for (const path of ['/favorites', '/my-recipes']) {
+    const response = await page.goto(path)
+    expect(response?.status()).toBe(404)
+  }
+})
+
+test('category collections reuse contextual filters without a category selector', async ({ page }) => {
+  await page.goto('/categories/classics?ingredient=gin&alcohol=with')
+  await expect(page.getByLabel('Sort order')).toBeVisible()
+  await page.locator('details').getByText('Advanced filters', { exact: true }).click()
+  await expect(page.locator('details').getByLabel('Category')).toHaveCount(0)
+  await expect(page.locator('details').getByLabel('Ingredient')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Remove Ingredient filter' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Remove Alcohol filter' })).toBeVisible()
+})
+
+test('comments show author identity and keep actions together', async ({ context, page }) => {
+  await useAdultSession(context)
+  await page.goto('/recipes/negroni')
+  const profileLink = page.getByRole('link', { name: "View jane_doe's profile" })
+  await expect(profileLink).toBeVisible()
+  await expect(profileLink).toContainText('J')
+  const actions = page.getByLabel('Comment actions')
+  await expect(actions.getByRole('button', { name: 'Reply' })).toBeVisible()
+  await expect(actions.getByRole('button', { name: 'Edit' })).toBeVisible()
+  await expect(actions.getByRole('button', { name: 'Delete' })).toBeVisible()
+  await expect(actions.getByRole('button', { name: 'Report this comment' })).toBeVisible()
 })
 
 test('admin resources use tables and taxonomy forms use dedicated pages', async ({ context, page }) => {
@@ -124,6 +193,10 @@ test('admin resources use tables and taxonomy forms use dedicated pages', async 
     await expect(page.getByRole('heading', { name: formRoute.heading, level: 1 })).toBeVisible()
     await expect(page.getByRole('button', { name: /category|ingredient/i })).toBeVisible()
   }
+
+  await page.goto('/admin/recipes')
+  await page.getByRole('table').getByRole('combobox').first().selectOption('draft')
+  await expect(page.getByText('Recipe updated.')).toBeVisible()
 })
 
 test('destructive recipe actions require an alert dialog', async ({ context, page }) => {

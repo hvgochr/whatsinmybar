@@ -11,22 +11,16 @@ describe('recipe search helpers', () => {
   it('normalizes route query into recipe search state', () => {
     expect(recipeSearchStateFromQuery({
       alcohol: 'without',
-      author: 'jane_doe',
       category: 'classics',
       ingredient: 'lime',
-      minFavorites: '3',
       page: '2',
       q: 'sour',
       sort: 'popular'
     })).toEqual({
       alcohol: 'without',
-      author: 'jane_doe',
       category: 'classics',
       ingredient: 'lime',
-      minFavorites: 3,
       page: 2,
-      publishedAfter: undefined,
-      publishedBefore: undefined,
       q: 'sour',
       sort: 'popular'
     })
@@ -53,12 +47,10 @@ describe('recipe search helpers', () => {
   it('summarizes active filters', () => {
     expect(activeRecipeFilters(recipeSearchStateFromQuery({
       alcohol: 'with',
-      author: 'jane_doe',
-      minFavorites: '2'
+      ingredient: 'gin'
     }))).toEqual([
-      { key: 'alcohol', label: 'Alcohol', value: 'With alcohol' },
-      { key: 'author', label: 'Author', value: 'jane_doe' },
-      { key: 'minFavorites', label: 'Minimum saves', value: '2' }
+      { key: 'ingredient', label: 'Ingredient', value: 'gin' },
+      { key: 'alcohol', label: 'Alcohol', value: 'With alcohol' }
     ])
   })
 

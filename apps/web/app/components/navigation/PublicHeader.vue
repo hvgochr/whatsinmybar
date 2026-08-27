@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import {
   Add01Icon,
-  BookOpen01Icon,
   DashboardSquare01Icon,
-  FavouriteIcon,
   Logout01Icon,
   Menu01Icon,
-  PaintBrush01Icon,
   Search01Icon,
   Settings01Icon,
   UserCircleIcon
@@ -44,12 +41,8 @@ async function search() {
 }
 
 const profileLinks = computed(() => [
-  { icon: UserCircleIcon, label: 'View profile', to: profilePath.value },
-  { icon: Settings01Icon, label: 'Settings', to: '/settings' },
-  { icon: BookOpen01Icon, label: 'My recipes', to: `${profilePath.value}#my-recipes` },
-  { icon: Add01Icon, label: 'Create recipe', to: '/recipes/new' },
-  { icon: FavouriteIcon, label: 'My favorites', to: `${profilePath.value}#favorites` },
-  { icon: PaintBrush01Icon, label: 'Appearance', to: '/settings#appearance' }
+  { icon: UserCircleIcon, label: 'Profile', to: profilePath.value },
+  { icon: Settings01Icon, label: 'Settings', to: '/settings' }
 ])
 </script>
 
@@ -86,7 +79,7 @@ const profileLinks = computed(() => [
                 <template v-if="auth.isAuthenticated.value">
                   <div class="my-2 border-t" />
                   <SheetClose as-child><NuxtLink class="flex min-h-11 items-center gap-2 rounded-md px-3 py-3 text-sm font-medium hover:bg-accent" to="/recipes/new"><HugeiconsIcon :icon="Add01Icon" :size="18" :stroke-width="1.75" aria-hidden="true" />Create recipe</NuxtLink></SheetClose>
-                  <SheetClose v-for="item in profileLinks.filter(item => item.label !== 'Create recipe' && item.label !== 'Appearance')" :key="item.label" as-child>
+                  <SheetClose v-for="item in profileLinks" :key="item.label" as-child>
                     <NuxtLink class="flex min-h-11 items-center gap-2 rounded-md px-3 py-3 text-sm font-medium hover:bg-accent" :to="item.to"><HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="1.75" aria-hidden="true" />{{ item.label }}</NuxtLink>
                   </SheetClose>
                   <SheetClose v-if="isAdmin" as-child><NuxtLink class="flex min-h-11 items-center gap-2 rounded-md px-3 py-3 text-sm font-medium hover:bg-accent" to="/admin"><HugeiconsIcon :icon="DashboardSquare01Icon" :size="18" :stroke-width="1.75" aria-hidden="true" />Administration</NuxtLink></SheetClose>

@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import EmptyState from '../../components/common/EmptyState.vue'
+import PaginationNav from '../../components/common/PaginationNav.vue'
 import PublicPageHeader from '../../components/common/PublicPageHeader.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
-import { collectionItems } from '../../utils/api-collections'
+import RecipeSearchPanel from '../../components/recipes/RecipeSearchPanel.vue'
+import { collectionItems, collectionLastPage, collectionTotal } from '../../utils/api-collections'
+import { paginationState } from '../../utils/pagination'
 import { publicDescription, publicUrl } from '../../utils/public-content'
+import { activeRecipeFilters, cleanRecipeSearchQuery, recipeSearchStateFromQuery } from '../../utils/recipe-search'
+import type { RecipeSearchState } from '../../utils/recipe-search'
 
 const api = useApi()
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const slug = computed(() => String(route.params.slug))
+const searchState = computed(() => ({ ...recipeSearchStateFromQuery(route.query), category: slug.value }))
 
 const { data: category, error: categoryError } = await useAsyncData(`category:${slug.value}`, () => api.categories.get(slug.value))
 
@@ -19,12 +25,28 @@ if (categoryError.value) {
   })
 }
 
-const { data: recipesCollection, pending, error } = await useAsyncData(`category:${slug.value}:recipes`, () => api.recipes.list({
-  category: slug.value,
-  sort: 'popular'
-}))
+const [{ data: recipesCollection, pending, error }, { data: ingredientsCollection }] = await Promise.all([
+  useAsyncData(`category:${slug.value}:recipes:${route.fullPath}`, () => api.recipes.list({
+    ...searchState.value,
+    category: slug.value
+  }), { watch: [() => route.fullPath] }),
+  useAsyncData('recipes:filters:ingredients', () => api.ingredients.list())
+])
 
 const recipes = computed(() => collectionItems(recipesCollection.value))
+const ingredients = computed(() => collectionItems(ingredientsCollection.value))
+const totalRecipes = computed(() => collectionTotal(recipesCollection.value))
+const activeFilters = computed(() => activeRecipeFilters(searchState.value)
+  .filter(filter => filter.key !== 'category')
+  .map(filter => ({ ...filter, to: filterRemovalTo(filter.key), value: filter.key === 'ingredient' ? ingredients.value.find(item => item.slug === filter.value)?.name ?? filter.value : filter.value })))
+const pagination = computed(() => paginationState({
+  currentPage: searchState.value.page,
+  itemsOnPage: recipes.value.length,
+  totalPages: collectionLastPage(recipesCollection.value),
+  totalItems: totalRecipes.value
+}))
+const previousPageTo = computed(() => categoryPageTo(pagination.value.previousPage))
+const nextPageTo = computed(() => categoryPageTo(pagination.value.nextPage))
 const description = computed(() => publicDescription(category.value?.description, 'Cocktail recipes grouped by style and occasion.'))
 const canonicalUrl = computed(() => publicUrl(runtimeConfig.public.siteUrl, `/categories/${slug.value}`))
 
@@ -50,6 +72,27 @@ function errorStatus(error: unknown): number {
 
   return status === 404 ? 404 : 500
 }
+
+function applyFilters(state: RecipeSearchState) {
+  return navigateTo({
+    path: `/categories/${slug.value}`,
+    query: categoryQuery(state)
+  })
+}
+
+function filterRemovalTo(key: string) {
+  const query = Object.fromEntries(Object.entries(categoryQuery(searchState.value)).filter(([queryKey]) => queryKey !== key && queryKey !== 'page'))
+  return { path: `/categories/${slug.value}`, query }
+}
+
+function categoryPageTo(page: number) {
+  return { path: `/categories/${slug.value}`, query: categoryQuery({ ...searchState.value, page }) }
+}
+
+function categoryQuery(state: RecipeSearchState) {
+  const { category: _category, ...query } = cleanRecipeSearchQuery(state)
+  return query
+}
 </script>
 
 <template>
@@ -61,6 +104,18 @@ function errorStatus(error: unknown): number {
       :description="description"
       eyebrow="Category"
       :title="category.name"
+    />
+
+    <RecipeSearchPanel
+      :active-filters="activeFilters"
+      :categories="[]"
+      :clear-to="`/categories/${slug}`"
+      :fixed-category="slug"
+      :ingredients="ingredients"
+      :pending="pending"
+      :result-count="totalRecipes"
+      :state="searchState"
+      @apply="applyFilters"
     />
 
     <div v-if="pending" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading category recipes">
@@ -86,5 +141,13 @@ function errorStatus(error: unknown): number {
     <section v-else class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Category recipes">
       <RecipeCard v-for="recipe in recipes" :key="recipe.slug" :recipe="recipe" />
     </section>
+
+    <PaginationNav
+      v-if="!pending && !error"
+      aria-label="Category recipe pagination"
+      :next-to="nextPageTo"
+      :pagination="pagination"
+      :previous-to="previousPageTo"
+    />
   </main>
 </template>

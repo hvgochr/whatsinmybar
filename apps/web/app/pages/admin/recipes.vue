@@ -17,11 +17,11 @@ definePageMeta({ layout: 'admin' })
 await useRequireAdmin()
 
 const api = useApi()
+const notifications = useNotifications()
 const { error, items: recipes, nextTo, pagination, pending, previousTo } = await usePaginatedAdminList<AdminRecipe>('admin:recipes', '/admin/recipes', api.admin.recipes.list)
 const search = ref('')
 const statusFilter = ref<'all' | RecipeStatus>('all')
 const rowPending = ref<Record<string, boolean>>({})
-const rowMessage = ref<Record<string, string>>({})
 const rowError = ref<Record<string, string>>({})
 const deleteOpen = ref<Record<string, boolean>>({})
 const filteredRecipes = computed(() => {
@@ -33,12 +33,11 @@ useSeoMeta({ title: 'Admin recipes | What\'s In My Bar', description: 'Manage re
 
 async function updateRecipe(recipe: AdminRecipe, payload: Partial<AdminRecipe>) {
   rowPending.value[recipe.slug] = true
-  rowMessage.value[recipe.slug] = ''
   rowError.value[recipe.slug] = ''
   try {
     const updated = await api.admin.recipes.update(recipe.slug, payload)
     recipes.value = recipes.value.map(current => current.slug === recipe.slug ? { ...current, ...updated } : current)
-    rowMessage.value[recipe.slug] = 'Recipe updated.'
+    notifications.success(`admin-recipe:${recipe.slug}`, payload.deleted ? 'Recipe deleted.' : 'Recipe updated.')
     if (payload.deleted) deleteOpen.value[recipe.slug] = false
   } catch (caught: unknown) {
     rowError.value[recipe.slug] = caught instanceof ApiRequestError ? caught.message : 'Recipe could not be updated.'
@@ -66,7 +65,7 @@ async function updateRecipe(recipe: AdminRecipe, payload: Partial<AdminRecipe>) 
           <td class="whitespace-nowrap text-muted-foreground">{{ recipe.createdAt ? new Date(recipe.createdAt).toLocaleDateString('en') : 'Unknown' }}</td>
           <td>
             <div class="flex justify-end gap-2"><UiButton as-child size="sm" variant="outline"><NuxtLink :to="`/recipes/${recipe.slug}/edit`">Edit</NuxtLink></UiButton><DestructiveConfirm v-if="!recipe.deleted" v-model:open="deleteOpen[recipe.slug]" confirm-label="Delete recipe" :description="`“${recipe.title}” will be removed from public and personal collections.`" :error="rowError[recipe.slug]" :pending="rowPending[recipe.slug]" title="Delete this recipe?" @confirm="updateRecipe(recipe, { deleted: true })"><template #trigger><UiButton size="sm" variant="outline">Delete</UiButton></template></DestructiveConfirm></div>
-            <FormAlert v-if="rowError[recipe.slug] && !deleteOpen[recipe.slug]" class="mt-2" :message="rowError[recipe.slug] ?? ''" tone="error" /><FormAlert v-else-if="rowMessage[recipe.slug]" class="mt-2" :message="rowMessage[recipe.slug] ?? ''" tone="success" />
+            <FormAlert v-if="rowError[recipe.slug] && !deleteOpen[recipe.slug]" class="mt-2" :message="rowError[recipe.slug] ?? ''" tone="error" />
           </td>
         </tr>
       </tbody>

@@ -52,8 +52,8 @@ const nextPageTo = computed(() => recipePageTo(pagination.value.nextPage))
 
 useSeoMeta({
   title: 'Cocktail recipes | What\'s In My Bar',
-  description: 'Search community cocktail recipes by category, ingredient, alcohol preference, author, popularity, and publication date.',
-  ogDescription: 'Search community cocktail recipes by category, ingredient, alcohol preference, author, popularity, and publication date.',
+  description: 'Search community cocktail recipes by category, ingredient, alcohol preference, and popularity.',
+  ogDescription: 'Search community cocktail recipes by category, ingredient, alcohol preference, and popularity.',
   ogTitle: 'Cocktail recipes | What\'s In My Bar',
   ogType: 'website',
   ogUrl: new URL('/recipes', runtimeConfig.public.siteUrl).toString()
@@ -95,7 +95,7 @@ function recipePageTo(page: number) {
     <PublicPageHeader
       action-label="Share a recipe"
       action-to="/recipes/new"
-      description="Search published recipes by name, ingredient, category, author, alcohol preference, or popularity."
+      description="Search published recipes by name, ingredient, category, alcohol preference, or popularity."
       eyebrow="Explore"
       title="Recipes"
     />
@@ -103,20 +103,13 @@ function recipePageTo(page: number) {
     <RecipeSearchPanel
       :active-filters="activeFilters"
       :categories="categories"
+      clear-to="/recipes"
       :ingredients="ingredients"
       :pending="recipesPending"
+      :result-count="totalRecipes"
       :state="searchState"
       @apply="applyFilters"
     />
-
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-muted-foreground">
-        {{ totalRecipes }} recipe{{ totalRecipes === 1 ? '' : 's' }}
-      </p>
-      <p v-if="totalRecipes > 0" class="text-sm text-muted-foreground">
-        Page {{ pagination.currentPage }}<span v-if="pagination.totalPages"> of {{ pagination.totalPages }}</span>
-      </p>
-    </div>
 
     <div v-if="recipesPending" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading recipes">
       <div v-for="index in 8" :key="index" class="space-y-3"><div class="aspect-[4/5] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /><div class="h-4 w-1/2 animate-pulse rounded bg-muted" /></div>

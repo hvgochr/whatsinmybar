@@ -14,6 +14,12 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class RecipeImageUploadApiTest extends WebTestCase
 {
+    public function testPhpTransportLimitDoesNotUndercutRecipeImageValidation(): void
+    {
+        self::assertGreaterThanOrEqual(5 * 1024 * 1024, $this->iniBytes((string) ini_get('upload_max_filesize')));
+        self::assertGreaterThan(5 * 1024 * 1024, $this->iniBytes((string) ini_get('post_max_size')));
+    }
+
     public function testAuthorCanUploadAndRemoveRecipeImage(): void
     {
         $client = static::createClient();
@@ -155,6 +161,19 @@ final class RecipeImageUploadApiTest extends WebTestCase
         file_put_contents($filePath, 'not an image');
 
         return new UploadedFile($filePath, 'recipe.txt', 'text/plain', test: true);
+    }
+
+    private function iniBytes(string $value): int
+    {
+        $unit = strtolower(substr($value, -1));
+        $number = (int) $value;
+
+        return match ($unit) {
+            'g' => $number * 1024 * 1024 * 1024,
+            'm' => $number * 1024 * 1024,
+            'k' => $number * 1024,
+            default => $number,
+        };
     }
 
     /**

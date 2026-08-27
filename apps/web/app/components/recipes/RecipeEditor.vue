@@ -10,6 +10,7 @@ import UiInput from '../ui/input/Input.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import type { Category, Ingredient, RecipeResource, RecipeWorkflow } from '../../types/api'
+import { ApiRequestError } from '../../services/api-client'
 import { toFormErrors } from '../../utils/api-errors'
 import {
   buildRecipePayload,
@@ -35,13 +36,17 @@ const props = defineProps<{
 const router = useRouter()
 const api = useApi()
 const auth = useAuth()
+const notifications = useNotifications()
 
 const form = reactive<RecipeFormState>(createEmptyRecipeForm())
 const currentRecipe = ref<RecipeResource | null>(props.initialRecipe ?? null)
 const fieldErrors = ref<Record<string, string>>({})
 const formError = ref<string | null>(null)
-const successMessage = ref<string | null>(null)
 const selectedImage = ref<File | null>(null)
+const selectedImagePreview = ref<string | null>(null)
+const imageInput = ref<HTMLInputElement | null>(null)
+const imageUploadFailed = ref(false)
+const createdDuringSession = ref(false)
 const pendingAction = ref<'archive' | 'delete' | 'publish' | 'remove-image' | 'save' | null>(null)
 const deleteDialogOpen = ref(false)
 const removeImageDialogOpen = ref(false)
@@ -52,6 +57,9 @@ const statusLabel = computed(() => currentRecipe.value?.status ?? 'draft')
 const hasRecipeImage = computed(() => Boolean(currentRecipe.value?.imagePath))
 const canPublish = computed(() => currentRecipe.value?.status !== 'published')
 const canArchive = computed(() => isEdit.value && currentRecipe.value?.status !== 'archived')
+
+const recipeImageTypes = ['image/jpeg', 'image/png', 'image/webp']
+const recipeImageMaxSize = 5 * 1024 * 1024
 
 watch(
   () => props.initialRecipe,
@@ -85,6 +93,7 @@ async function saveRecipe(action: 'publish' | 'save' = 'save') {
       : await api.recipes.update(currentRecipe.value!.slug, buildRecipePayload(form))
 
     currentRecipe.value = savedRecipe
+    createdDuringSession.value ||= creating
     replaceForm(recipeToForm(savedRecipe))
 
     if (selectedImage.value) {
@@ -103,17 +112,16 @@ async function saveRecipe(action: 'publish' | 'save' = 'save') {
       return
     }
 
-    successMessage.value = action === 'publish'
-      ? 'Recipe changes have been saved and published.'
-      : 'Recipe changes have been saved.'
+    notifications.success(`recipe-save:${savedRecipe.slug}`, action === 'publish' ? 'Recipe published.' : 'Recipe saved.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     const detail = formErrors.message ?? Object.values(formErrors.fields)[0] ?? 'Something went wrong. Please try again.'
 
     if (phase === 'image' || phase === 'publish' || phase === 'navigation') {
-      fieldErrors.value = {}
+      fieldErrors.value = phase === 'image' ? { image: recipeImageErrorMessage(error) } : {}
+      imageUploadFailed.value = phase === 'image'
       formError.value = phase === 'image'
-        ? `Recipe content was saved, but the image upload failed. ${detail}`
+        ? 'Recipe saved, but the image could not be uploaded.'
         : phase === 'publish'
           ? `Recipe changes were saved, but publication failed. ${detail}`
           : `Recipe changes were saved, but the next page could not be opened. ${detail}`
@@ -137,7 +145,7 @@ async function archiveRecipe() {
   try {
     const workflow = await api.recipes.archive(currentRecipe.value.slug)
     applyWorkflow(workflow)
-    successMessage.value = 'Recipe has been archived.'
+    notifications.success(`recipe-archive:${currentRecipe.value.slug}`, 'Recipe archived.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     formError.value = formErrors.message
@@ -181,7 +189,7 @@ async function removeImage() {
       ...currentRecipe.value,
       imagePath: imageState.imagePath
     }
-    successMessage.value = 'Recipe image has been removed.'
+    notifications.success(`recipe-image-remove:${currentRecipe.value.slug}`, 'Recipe image removed.')
     removeImageDialogOpen.value = false
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
@@ -224,8 +232,30 @@ function moveIngredient(index: number, direction: -1 | 1) {
 
 function onImageChange(event: Event) {
   const input = event.target as HTMLInputElement
-  selectedImage.value = input.files?.[0] ?? null
-  successMessage.value = null
+  const file = input.files?.[0] ?? null
+  clearSelectedImage(false)
+  fieldErrors.value = { ...fieldErrors.value, image: '' }
+  imageUploadFailed.value = false
+
+  if (!file) return
+
+  const validationError = validateRecipeImage(file)
+  if (validationError) {
+    fieldErrors.value = { ...fieldErrors.value, image: validationError }
+    input.value = ''
+    return
+  }
+
+  selectedImage.value = file
+  selectedImagePreview.value = URL.createObjectURL(file)
+}
+
+function clearSelectedImage(resetInput = true) {
+  if (selectedImagePreview.value) URL.revokeObjectURL(selectedImagePreview.value)
+  selectedImagePreview.value = null
+  selectedImage.value = null
+  imageUploadFailed.value = false
+  if (resetInput && imageInput.value) imageInput.value.value = ''
 }
 
 function onCategoryChange(category: Category, event: Event) {
@@ -238,13 +268,34 @@ async function uploadSelectedImage(recipeSlug: string) {
   }
 
   const imageState = await api.recipes.image(recipeSlug, selectedImage.value)
-  selectedImage.value = null
+  clearSelectedImage()
 
   if (currentRecipe.value?.slug === imageState.recipeSlug) {
     currentRecipe.value = {
       ...currentRecipe.value,
       imagePath: imageState.imagePath
     }
+  }
+}
+
+async function retryImageUpload() {
+  if (!currentRecipe.value || !selectedImage.value || pendingAction.value) return
+
+  pendingAction.value = 'save'
+  formError.value = null
+  fieldErrors.value = { ...fieldErrors.value, image: '' }
+
+  try {
+    const slug = currentRecipe.value.slug
+    await uploadSelectedImage(slug)
+    notifications.success(`recipe-image:${slug}`, 'Recipe image uploaded.')
+    if (createdDuringSession.value) await router.replace(`/recipes/${slug}/edit`)
+  } catch (error: unknown) {
+    imageUploadFailed.value = true
+    fieldErrors.value = { ...fieldErrors.value, image: recipeImageErrorMessage(error) }
+    formError.value = 'Recipe saved, but the image could not be uploaded.'
+  } finally {
+    pendingAction.value = null
   }
 }
 
@@ -292,10 +343,26 @@ function validateForm(): Record<string, string> {
   return errors
 }
 
+function validateRecipeImage(file: File): string | null {
+  if (!recipeImageTypes.includes(file.type)) return 'Choose a JPEG, PNG, or WebP image.'
+  if (file.size <= 0 || file.size > recipeImageMaxSize) return 'Image must be 5 MB or smaller.'
+  return null
+}
+
+function recipeImageErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError) {
+    if (/size/i.test(error.message)) return 'Image must be 5 MB or smaller.'
+    if (/JPEG|PNG|WebP|image file is required/i.test(error.message)) return 'Choose a JPEG, PNG, or WebP image.'
+  }
+
+  return 'The image could not be uploaded. Try again.'
+}
+
+onBeforeUnmount(() => clearSelectedImage(false))
+
 function clearMessages() {
   fieldErrors.value = {}
   formError.value = null
-  successMessage.value = null
   destructiveError.value = null
 }
 
@@ -330,7 +397,6 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
 <template>
   <form class="grid gap-6" @submit.prevent="saveRecipe('save')">
     <FormAlert v-if="formError" :message="formError" tone="error" />
-    <FormAlert v-if="successMessage" :message="successMessage" tone="success" />
 
     <div class="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
       <aside class="sticky top-16 z-20 -mx-4 overflow-x-auto border-y bg-background px-4 py-3 lg:top-20 lg:mx-0 lg:rounded-md lg:border lg:p-3">
@@ -440,7 +506,10 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
       </div>
 
       <div class="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
-        <div v-if="currentRecipe" class="overflow-hidden rounded-md border bg-muted">
+        <div v-if="selectedImagePreview" class="aspect-[4/3] overflow-hidden rounded-md border bg-muted">
+          <img :src="selectedImagePreview" alt="Selected recipe image preview" class="size-full object-cover">
+        </div>
+        <div v-else-if="currentRecipe" class="overflow-hidden rounded-md border bg-muted">
           <RecipeImage :recipe="currentRecipe" />
         </div>
         <div v-else class="grid aspect-[4/3] place-items-center rounded-md border border-dashed bg-muted text-center text-sm text-muted-foreground">
@@ -448,12 +517,16 @@ function moveRow<T extends RecipeIngredientFormRow | RecipeStepFormRow>(rows: T[
         </div>
 
         <div class="grid gap-3">
-          <FormField id="recipe-image" label="Image file" optional>
-            <input id="recipe-image" accept="image/*" class="min-h-11 w-full rounded-md border border-dashed bg-background p-2 text-sm text-muted-foreground" name="image" type="file" @change="onImageChange">
+          <FormField id="recipe-image" label="Image file" optional :error="fieldErrors.image">
+            <input id="recipe-image" ref="imageInput" accept="image/jpeg,image/png,image/webp" class="min-h-11 w-full rounded-md border border-dashed bg-background p-2 text-sm text-muted-foreground" name="image" type="file" @change="onImageChange">
           </FormField>
           <p v-if="selectedImage" class="text-sm text-muted-foreground">
             Selected: {{ selectedImage.name }}
           </p>
+          <div v-if="selectedImage" class="flex flex-wrap gap-2">
+            <UiButton type="button" size="sm" variant="outline" :disabled="Boolean(pendingAction)" @click="clearSelectedImage()">Clear selection</UiButton>
+            <UiButton v-if="imageUploadFailed" type="button" size="sm" :disabled="Boolean(pendingAction)" @click="retryImageUpload">{{ pendingAction === 'save' ? 'Uploading...' : 'Retry image upload' }}</UiButton>
+          </div>
           <DestructiveConfirm
             v-if="isEdit && hasRecipeImage"
             v-model:open="removeImageDialogOpen"

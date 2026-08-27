@@ -161,6 +161,22 @@ describe('api client', () => {
     await api.comments.list('negroni')
   })
 
+  it('uploads recipe images as browser-owned multipart form data', async () => {
+    const file = new File(['image'], 'recipe.png', { type: 'image/png' })
+    const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
+      expect(path).toBe('/recipes/negroni/image')
+      expect(options?.method).toBe('POST')
+      expect(options?.body).toBeInstanceOf(FormData)
+      expect((options?.body as FormData).get('image')).toBe(file)
+      expect((options?.headers as Headers).has('Content-Type')).toBe(false)
+      return { imagePath: '/uploads/recipes/negroni.png', recipeSlug: 'negroni' }
+    })
+    const api = createTestClient(fetch, { accessToken: 'access-token' })
+
+    await api.recipes.image('negroni', file)
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
   it('maps alcohol recipe filters to boolean API query values', async () => {
     const fetch = vi.fn(async () => ({ member: [] }))
     const api = createTestClient(fetch, {

@@ -9,6 +9,7 @@ RUN install-php-extensions \
     zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY infra/docker/api/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 

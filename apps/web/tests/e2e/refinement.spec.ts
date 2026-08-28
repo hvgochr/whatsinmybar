@@ -28,6 +28,7 @@ test('desktop header balances search and authenticated recipe actions', async ({
 test('anonymous header uses system appearance and keeps theme access in mobile navigation', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
+  await page.waitForLoadState('networkidle')
   await page.getByRole('button', { name: 'Open navigation' }).click()
 
   await expect(page.getByRole('group', { name: 'Appearance' })).toBeVisible()
@@ -77,23 +78,33 @@ test('recipe cards expose unboxed favorite state and collection counts', async (
   await expect(page.getByText('Removed from favorites.')).toBeVisible()
 })
 
-test('recipe filters separate primary and advanced controls and remove active filters', async ({ page }) => {
-  await page.goto('/recipes?ingredient=gin')
-  await expect(page.getByLabel('Sort order')).toBeVisible()
+test('recipe filters remain visible, update the URL, and remove active filters', async ({ page }) => {
+  await page.goto('/recipes?ingredient=gin&page=2')
+  await expect(page.getByRole('combobox', { name: 'Sort order', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Category', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Ingredient', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Alcohol preference', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Filter recipes' })).toHaveCount(0)
-  await page.locator('details').getByText('Advanced filters', { exact: true }).click()
-  await expect(page.locator('details').getByLabel('Category')).toBeVisible()
-  await expect(page.locator('details').getByLabel('Ingredient')).toBeVisible()
-  await expect(page.locator('details').getByLabel('Alcohol preference')).toBeVisible()
+  await expect(page.getByText('Advanced filters', { exact: true })).toHaveCount(0)
+
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption('classics')
+  await expect(page).toHaveURL(/\/recipes\?category=classics&ingredient=gin$/)
   await expect(page.getByRole('link', { name: 'Remove Ingredient filter' })).toBeVisible()
   await page.getByRole('link', { name: 'Remove Ingredient filter' }).click()
+  await expect(page).toHaveURL(/\/recipes\?category=classics$/)
+  await expect(page.getByRole('link', { name: 'Clear filters' })).toBeVisible()
+  await page.getByRole('link', { name: 'Clear filters' }).click()
   await expect(page).toHaveURL(/\/recipes$/)
   await expect(page.locator('[data-sonner-toast]')).toHaveCount(0)
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/recipes')
-  await page.getByRole('button', { name: 'Advanced' }).click()
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Advanced filters' })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Category', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Ingredient', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Alcohol preference', exact: true })).toBeVisible()
+  await expect(page.getByText('Advanced filters', { exact: true })).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 })
 
 test('categories render bounded recipe shelves with mobile scroll discovery', async ({ page }) => {
@@ -152,13 +163,24 @@ test('profile collections remain private and obsolete collection routes do not e
 })
 
 test('category collections reuse contextual filters without a category selector', async ({ page }) => {
-  await page.goto('/categories/classics?ingredient=gin&alcohol=with')
-  await expect(page.getByLabel('Sort order')).toBeVisible()
-  await page.locator('details').getByText('Advanced filters', { exact: true }).click()
-  await expect(page.locator('details').getByLabel('Category')).toHaveCount(0)
-  await expect(page.locator('details').getByLabel('Ingredient')).toBeVisible()
+  await page.goto('/categories/classics?category=mocktails&ingredient=gin&alcohol=with&page=2')
+  await expect(page.getByRole('combobox', { name: 'Sort order', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Category', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Ingredient', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Alcohol preference', exact: true })).toBeVisible()
+  await expect(page.getByText('Advanced filters', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Remove Ingredient filter' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Remove Alcohol filter' })).toBeVisible()
+
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('combobox', { name: 'Ingredient', exact: true }).selectOption('')
+  await expect(page).toHaveURL(/\/categories\/classics\?alcohol=with$/)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.reload()
+  await expect(page.getByRole('combobox', { name: 'Ingredient', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Alcohol preference', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 })
 
 test('comments show author identity and keep actions together', async ({ context, page }) => {

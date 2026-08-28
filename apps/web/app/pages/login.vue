@@ -49,36 +49,19 @@ function safeRedirect(value: unknown): string {
 
   return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
     ? redirect
-    : '/account'
+    : '/settings'
 }
 </script>
 
 <template>
-  <main class="page-shell">
-    <section class="auth-layout" aria-labelledby="login-title">
-      <div class="auth-intro">
-        <p class="eyebrow">
-          Welcome back
-        </p>
-        <h1 id="login-title" class="page-title">
-          Log in to your bar
-        </h1>
-        <p class="page-copy">
-          Keep your saved recipes, profile details, and cocktail notes within reach.
-        </p>
+  <main class="page-main grid min-h-[calc(100vh-14rem)] place-items-center">
+    <section class="w-full max-w-md" aria-labelledby="login-title">
+      <div class="mb-7 text-center">
+        <h1 id="login-title" class="text-3xl font-semibold tracking-tight">Log in</h1>
+        <p class="mt-2 text-sm text-muted-foreground">Use the email address attached to your account.</p>
       </div>
-
-      <div class="auth-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">
-            Account access
-          </h2>
-          <p class="panel-copy">
-            Use the email address attached to your account.
-          </p>
-        </div>
-
-        <form class="form-stack" novalidate @submit.prevent="submitLogin">
+      <div class="rounded-md border bg-card p-6 sm:p-7">
+        <form class="grid gap-5" novalidate @submit.prevent="submitLogin">
           <CommonFormAlert v-if="formError" :message="formError" tone="error" />
 
           <CommonFormField id="login-email" v-slot="field" label="Email" :error="fieldErrors.email">
@@ -110,9 +93,9 @@ function safeRedirect(value: unknown): string {
           </UiButton>
         </form>
 
-        <p class="form-footer">
+        <p class="mt-6 text-center text-sm text-muted-foreground">
           New here?
-          <NuxtLink class="muted-link" to="/register">
+          <NuxtLink class="font-medium text-foreground underline-offset-4 hover:underline" to="/register">
             Create an account
           </NuxtLink>
         </p>

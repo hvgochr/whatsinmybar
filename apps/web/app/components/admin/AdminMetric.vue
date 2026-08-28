@@ -6,11 +6,11 @@ defineProps<{
 </script>
 
 <template>
-  <article class="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm">
-    <p class="text-sm font-bold text-muted-foreground">
+  <article class="rounded-md border bg-card p-5 text-card-foreground">
+    <p class="text-sm font-medium text-muted-foreground">
       {{ label }}
     </p>
-    <p class="mt-2 text-3xl font-black text-foreground">
+    <p class="mt-2 text-3xl font-semibold tracking-tight text-foreground">
       {{ value }}
     </p>
   </article>

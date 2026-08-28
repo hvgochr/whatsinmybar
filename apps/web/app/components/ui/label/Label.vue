@@ -11,7 +11,7 @@ const props = defineProps<LabelProps & {
 <template>
   <Label
     v-bind="props"
-    :class="cn('text-sm font-extrabold leading-none text-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70', props.class)"
+    :class="cn('text-sm font-medium leading-none text-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70', props.class)"
   >
     <slot />
   </Label>

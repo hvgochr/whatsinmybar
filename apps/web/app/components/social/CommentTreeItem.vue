@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { Delete02Icon, Edit02Icon, Message02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
 import type { Comment } from '../../types/api'
 import type { CommentTreeNode, SocialUser } from '../../utils/social'
 import { canManageComment } from '../../utils/social'
+import { imageUrl } from '../../utils/public-content'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
 import ReportAction from './ReportAction.vue'
@@ -18,7 +21,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  delete: [comment: Comment]
+  requestDelete: [comment: Comment]
   reply: [payload: { message: string, parentId: number }]
   update: [payload: { comment: Comment, message: string }]
 }>()
@@ -27,11 +30,19 @@ const editMode = ref(false)
 const replyMode = ref(false)
 const editMessage = ref(props.node.message ?? '')
 const replyMessage = ref('')
+const runtimeConfig = useRuntimeConfig()
 
 const depth = computed(() => props.depth ?? 0)
 const canManage = computed(() => canManageComment(props.node, props.currentUser))
 const isPending = computed(() => props.pendingActionId === props.node.id)
 const isRemoved = computed(() => props.node.deleted || !props.node.message)
+const authorPath = computed(() => isRemoved.value || !props.node.authorUsername ? null : `/users/${props.node.authorUsername}`)
+const authorAvatar = computed(() => imageUrl(
+  props.node.authorAvatarPath
+    ?? (props.currentUser?.username === props.node.authorUsername ? props.currentUser.avatarPath : null),
+  runtimeConfig.public.apiBaseUrl
+))
+const authorInitial = computed(() => props.node.authorUsername?.slice(0, 1).toUpperCase() || '?')
 
 watch(() => props.node.message, (message) => {
   editMessage.value = message ?? ''
@@ -62,27 +73,21 @@ function submitReply() {
 </script>
 
 <template>
-  <article class="grid gap-3 rounded-lg border border-border bg-background p-4" :class="depth > 0 ? 'border-l-4 border-l-primary/40' : ''">
-    <header class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <p class="m-0 font-black text-foreground">
+  <article class="grid gap-3 border-l pl-4" :class="depth > 0 ? 'ml-2' : ''">
+    <header class="flex items-start gap-3">
+      <NuxtLink v-if="authorPath" :to="authorPath" class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`View ${node.authorUsername}'s profile`">
+        <img v-if="authorAvatar" :src="authorAvatar" :alt="`${node.authorUsername}'s avatar`" class="size-full object-cover">
+        <span v-else aria-hidden="true">{{ authorInitial }}</span>
+      </NuxtLink>
+      <div v-else class="grid size-9 shrink-0 place-items-center rounded-full border bg-muted text-xs font-semibold" aria-hidden="true">{{ authorInitial }}</div>
+      <div class="min-w-0">
+        <NuxtLink v-if="authorPath" :to="authorPath" class="break-all font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring">
           {{ node.authorUsername }}
-        </p>
-        <p class="mt-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        </NuxtLink>
+        <p v-else class="break-all font-medium text-muted-foreground">{{ node.authorUsername || 'Unavailable member' }}</p>
+        <p class="mt-1 text-xs text-muted-foreground">
           {{ new Date(node.createdAt).toLocaleDateString('en') }}
         </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
-        <UiButton v-if="currentUser && !isRemoved" type="button" size="sm" variant="outline" @click="replyMode = !replyMode">
-          Reply
-        </UiButton>
-        <UiButton v-if="canManage && !isRemoved" type="button" size="sm" variant="outline" @click="editMode = !editMode">
-          Edit
-        </UiButton>
-        <UiButton v-if="canManage && !isRemoved" type="button" size="sm" variant="outline" :disabled="isPending" @click="emit('delete', node)">
-          {{ isPending ? 'Deleting...' : 'Delete' }}
-        </UiButton>
       </div>
     </header>
 
@@ -102,15 +107,20 @@ function submitReply() {
       {{ node.message || 'This comment is no longer visible.' }}
     </p>
 
-    <ReportAction
-      v-if="currentUser && !isRemoved"
-      compact
-      :login-redirect="`/recipes/${node.recipeSlug}`"
-      :target-id="node.id"
-      target-type="comment"
-    />
+    <div v-if="!isRemoved" class="flex min-h-10 flex-wrap items-center gap-1" aria-label="Comment actions">
+      <UiButton v-if="currentUser" type="button" size="sm" variant="ghost" @click="replyMode = !replyMode">
+        <HugeiconsIcon :icon="Message02Icon" :size="16" :stroke-width="1.75" aria-hidden="true" />Reply
+      </UiButton>
+      <UiButton v-if="canManage" type="button" size="sm" variant="ghost" @click="editMode = !editMode">
+        <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="1.75" aria-hidden="true" />Edit
+      </UiButton>
+      <UiButton v-if="canManage" type="button" size="sm" variant="ghost" class="text-foreground" :disabled="isPending" @click="emit('requestDelete', node)">
+        <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.75" aria-hidden="true" />{{ isPending ? 'Deleting...' : 'Delete' }}
+      </UiButton>
+      <ReportAction v-if="currentUser" :login-redirect="`/recipes/${node.recipeSlug}`" :target-id="node.id" target-type="comment" />
+    </div>
 
-    <form v-if="replyMode" class="grid gap-3 rounded-lg border border-border bg-card p-3" @submit.prevent="submitReply">
+    <form v-if="replyMode" class="grid gap-3 rounded-md border bg-card p-3" @submit.prevent="submitReply">
       <UiTextarea v-model="replyMessage" rows="3" placeholder="Write a reply" />
       <div class="flex flex-wrap gap-2">
         <UiButton type="submit" size="sm" :disabled="isPending || !replyMessage.trim()">
@@ -130,7 +140,7 @@ function submitReply() {
         :depth="depth + 1"
         :node="reply"
         :pending-action-id="pendingActionId"
-        @delete="emit('delete', $event)"
+        @request-delete="emit('requestDelete', $event)"
         @reply="emit('reply', $event)"
         @update="emit('update', $event)"
       />

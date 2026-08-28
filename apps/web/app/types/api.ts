@@ -156,33 +156,6 @@ export interface RecipeIngredient {
   note?: string | null
 }
 
-export interface RecipeIngredientPayload {
-  recipe?: string
-  ingredient: string
-  quantity: string | number
-  unit: IngredientUnit
-  position: number
-  note?: string | null
-}
-
-export interface RecipeStepPayload {
-  recipe?: string
-  position: number
-  instruction: string
-}
-
-export interface RecipePayload {
-  title: string
-  description?: string | null
-  difficulty?: string | null
-  preparationTimeMinutes?: number | null
-  servings?: number | null
-  status?: RecipeStatus
-  steps?: RecipeStepPayload[]
-  ingredients?: RecipeIngredientPayload[]
-  categories?: string[]
-}
-
 export interface RecipeAggregatePayload {
   title: string
   description: string
@@ -190,7 +163,7 @@ export interface RecipeAggregatePayload {
   preparationTimeMinutes: number
   servings: number
   categories: string[]
-  steps: Array<Pick<RecipeStepPayload, 'instruction'>>
+  steps: Array<{ instruction: string }>
   ingredients: Array<{
     ingredient: string
     quantity: string
@@ -283,6 +256,7 @@ export interface Comment {
   id: ApiId
   recipeSlug: string
   authorUsername: string
+  authorAvatarPath?: string | null
   parentId: ApiId | null
   message: string | null
   moderationStatus: ModerationStatus

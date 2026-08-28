@@ -52,6 +52,7 @@ jobs:
         with:
           php-version: "8.4"
           extensions: intl, pdo_pgsql, zip
+          ini-values: upload_max_filesize=5M, post_max_size=8M
           coverage: none
           tools: composer:v2
 

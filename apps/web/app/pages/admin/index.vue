@@ -4,8 +4,10 @@ import AdminMetric from '../../components/admin/AdminMetric.vue'
 import AdminShell from '../../components/admin/AdminShell.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
 import UiButton from '../../components/ui/button/Button.vue'
-import { adminDashboardStats, adminReportReasonLabel } from '../../utils/admin'
+import { adminReportReasonLabel } from '../../utils/admin'
 import { formatPublicDate } from '../../utils/public-content'
+
+definePageMeta({ layout: 'admin' })
 
 await useRequireAdmin()
 
@@ -25,20 +27,16 @@ const [
   useAsyncData('admin:dashboard:reports', () => api.admin.reports.list())
 ])
 
-const users = computed(() => usersData.value?.items ?? [])
 const recipes = computed(() => recipesData.value?.items ?? [])
-const categories = computed(() => categoriesData.value?.items ?? [])
-const ingredients = computed(() => ingredientsData.value?.items ?? [])
 const reports = computed(() => reportsData.value?.items ?? [])
 const loading = computed(() => usersPending.value || recipesPending.value || reportsPending.value)
 const failed = computed(() => Boolean(usersError.value || recipesError.value || reportsError.value))
-const stats = computed(() => adminDashboardStats({
-  categories: categories.value,
-  ingredients: ingredients.value,
-  recipes: recipes.value,
-  reports: reports.value,
-  users: users.value
-}))
+const stats = computed(() => [
+  { label: 'Users', value: usersData.value?.totalItems ?? 0 },
+  { label: 'Recipes', value: recipesData.value?.totalItems ?? 0 },
+  { label: 'Open reports on page', value: reports.value.filter(report => report.status === 'open').length },
+  { label: 'Taxonomy entries', value: (categoriesData.value?.totalItems ?? 0) + (ingredientsData.value?.totalItems ?? 0) }
+])
 const recentReports = computed(() => reports.value.slice(0, 5))
 const recentRecipes = computed(() => recipes.value.slice(0, 5))
 
@@ -54,7 +52,7 @@ useSeoMeta({
     description="Monitor current activity and jump into moderation, catalog, and account workflows."
     title="Dashboard"
   >
-    <div v-if="loading" class="loading-panel">
+    <div v-if="loading" class="grid min-h-48 place-items-center rounded-md border bg-card text-sm text-muted-foreground">
       Loading admin dashboard...
     </div>
 
@@ -71,14 +69,25 @@ useSeoMeta({
         <AdminMetric v-for="stat in stats" :key="stat.label" :label="stat.label" :value="stat.value" />
       </section>
 
+      <section class="rounded-md border bg-card p-5" aria-labelledby="admin-shortcuts-title">
+        <h2 id="admin-shortcuts-title" class="text-lg font-semibold">Management shortcuts</h2>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <UiButton as-child variant="outline" size="sm"><NuxtLink to="/admin/reports">Moderation queue</NuxtLink></UiButton>
+          <UiButton as-child variant="outline" size="sm"><NuxtLink to="/admin/comments">Reported comments</NuxtLink></UiButton>
+          <UiButton as-child variant="outline" size="sm"><NuxtLink to="/admin/users">Manage users</NuxtLink></UiButton>
+          <UiButton as-child variant="outline" size="sm"><NuxtLink to="/admin/recipes">Manage recipes</NuxtLink></UiButton>
+          <UiButton as-child variant="outline" size="sm"><NuxtLink to="/admin/ingredients">Edit ingredients</NuxtLink></UiButton>
+        </div>
+      </section>
+
       <section class="grid gap-6 lg:grid-cols-2">
-        <div class="content-panel p-5">
+        <div class="rounded-md border bg-card p-5">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="section-title">
+              <h2 class="text-lg font-semibold">
                 Recent reports
               </h2>
-              <p class="section-copy">
+              <p class="mt-1 text-sm text-muted-foreground">
                 Latest moderation queue items.
               </p>
             </div>
@@ -90,9 +99,9 @@ useSeoMeta({
           </div>
 
           <div v-if="recentReports.length > 0" class="mt-5 grid gap-3">
-            <article v-for="report in recentReports" :key="report.id" class="rounded-lg border border-border bg-background p-4">
+            <article v-for="report in recentReports" :key="report.id" class="rounded-md border bg-background p-4">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="font-black">
+                <p class="font-medium">
                   {{ report.targetType }} #{{ report.targetId }}
                 </p>
                 <AdminBadge :tone="report.status === 'open' ? 'warning' : 'muted'">
@@ -109,13 +118,13 @@ useSeoMeta({
           </p>
         </div>
 
-        <div class="content-panel p-5">
+        <div class="rounded-md border bg-card p-5">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="section-title">
+              <h2 class="text-lg font-semibold">
                 Recent recipes
               </h2>
-              <p class="section-copy">
+              <p class="mt-1 text-sm text-muted-foreground">
                 Latest recipe records across all statuses.
               </p>
             </div>
@@ -127,9 +136,9 @@ useSeoMeta({
           </div>
 
           <div v-if="recentRecipes.length > 0" class="mt-5 grid gap-3">
-            <article v-for="recipe in recentRecipes" :key="recipe.slug" class="rounded-lg border border-border bg-background p-4">
+            <article v-for="recipe in recentRecipes" :key="recipe.slug" class="rounded-md border bg-background p-4">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <NuxtLink class="font-black text-foreground hover:text-primary" :to="`/recipes/${recipe.slug}`">
+                <NuxtLink class="font-medium text-foreground underline-offset-4 hover:underline" :to="`/recipes/${recipe.slug}`">
                   {{ recipe.title }}
                 </NuxtLink>
                 <AdminBadge :tone="recipe.deleted ? 'danger' : recipe.status === 'published' ? 'success' : 'muted'">

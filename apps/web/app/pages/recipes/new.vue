@@ -7,11 +7,20 @@ import { collectionItems } from '../../utils/api-collections'
 
 const api = useApi()
 const auth = useAuth()
+const viewer = auth.currentUser.value ?? await auth.restoreSession()
 
-const categories = ref<Category[]>([])
-const ingredients = ref<Ingredient[]>([])
-const loading = ref(true)
-const loadError = ref<string | null>(null)
+if (!viewer) await navigateTo('/login?redirect=%2Frecipes%2Fnew', { replace: true })
+
+const [categoriesResource, ingredientsResource] = await Promise.all([
+  useAsyncData('recipe-editor:categories', () => api.categories.list()),
+  useAsyncData('recipe-editor:ingredients', () => api.ingredients.list())
+])
+const categories = computed<Category[]>(() => collectionItems(categoriesResource.data.value))
+const ingredients = computed<Ingredient[]>(() => collectionItems(ingredientsResource.data.value))
+const loading = computed(() => categoriesResource.pending.value || ingredientsResource.pending.value)
+const loadError = computed(() => categoriesResource.error.value || ingredientsResource.error.value
+  ? 'Recipe editor could not be loaded.'
+  : null)
 
 useSeoMeta({
   title: 'Create recipe | What\'s In My Bar',
@@ -19,40 +28,18 @@ useSeoMeta({
   robots: 'noindex, nofollow'
 })
 
-onMounted(async () => {
-  try {
-    const user = await auth.restoreSession()
-
-    if (!user) {
-      await navigateTo('/login', { replace: true })
-      return
-    }
-
-    const [categoryCollection, ingredientCollection] = await Promise.all([
-      api.categories.list(),
-      api.ingredients.list()
-    ])
-
-    categories.value = collectionItems(categoryCollection)
-    ingredients.value = collectionItems(ingredientCollection)
-  } catch {
-    loadError.value = 'Recipe editor could not be loaded.'
-  } finally {
-    loading.value = false
-  }
-})
 </script>
 
 <template>
-  <main class="page-shell">
+  <main class="page-main">
     <PublicPageHeader
       description="Start with a private draft, add measured ingredients and ordered steps, then publish when the recipe is ready."
       eyebrow="Recipe editor"
       title="Create a recipe"
     />
 
-    <section v-if="loading" class="content-panel loading-panel" aria-live="polite">
-      Loading recipe editor...
+    <section v-if="loading" class="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]" aria-live="polite">
+      <div class="h-72 animate-pulse rounded-md bg-muted" /><div class="space-y-4"><div v-for="index in 4" :key="index" class="h-56 animate-pulse rounded-md bg-muted" /></div>
     </section>
 
     <EmptyState

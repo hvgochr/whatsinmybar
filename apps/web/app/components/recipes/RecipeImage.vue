@@ -5,6 +5,7 @@ import { imageUrl } from '../../utils/public-content'
 const props = defineProps<{
   recipe: Pick<RecipeResource, 'imagePath' | 'title' | 'containsAlcohol'>
   eager?: boolean
+  variant?: 'card' | 'detail' | 'default'
 }>()
 
 const runtimeConfig = useRuntimeConfig()
@@ -12,7 +13,10 @@ const src = computed(() => imageUrl(props.recipe.imagePath, runtimeConfig.public
 </script>
 
 <template>
-  <div class="relative aspect-[4/3] overflow-hidden bg-muted">
+  <div
+    class="relative overflow-hidden bg-muted"
+    :class="variant === 'card' ? 'aspect-[4/5]' : variant === 'detail' ? 'aspect-[4/3] sm:aspect-[16/10]' : 'aspect-[4/3]'"
+  >
     <img
       v-if="src"
       :alt="recipe.title"
@@ -20,9 +24,9 @@ const src = computed(() => imageUrl(props.recipe.imagePath, runtimeConfig.public
       :loading="eager ? 'eager' : 'lazy'"
       :src="src"
     >
-    <div v-else class="grid h-full place-items-center bg-[radial-gradient(circle_at_30%_20%,hsl(var(--secondary)),transparent_32%),linear-gradient(135deg,hsl(var(--muted)),hsl(var(--accent)/0.42))] p-6 text-center">
-      <p class="m-0 text-sm font-black uppercase tracking-normal text-accent-foreground/80">
-        {{ recipe.containsAlcohol ? 'Cocktail recipe' : 'Zero-proof recipe' }}
+    <div v-else class="grid h-full place-items-center bg-muted p-6 text-center">
+      <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Photo unavailable
       </p>
     </div>
   </div>

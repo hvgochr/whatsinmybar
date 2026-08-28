@@ -3,10 +3,8 @@ import type {
   IngredientUnit,
   RecipeAggregatePayload,
   RecipeIngredient,
-  RecipeIngredientPayload,
   RecipeResource,
-  RecipeStep,
-  RecipeStepPayload
+  RecipeStep
 } from '../types/api'
 import { categorySlug, ingredientSlug } from './public-content'
 
@@ -116,40 +114,12 @@ export function buildRecipePayload(form: RecipeFormState): RecipeAggregatePayloa
   }
 }
 
-export function buildStepPayloads(form: RecipeFormState, recipeSlug: string): RecipeStepPayload[] {
-  return form.steps
-    .map(row => row.instruction.trim())
-    .filter(Boolean)
-    .map((instruction, index) => ({
-      instruction,
-      position: index + 1,
-      recipe: recipeIri(recipeSlug)
-    }))
-}
-
-export function buildIngredientPayloads(form: RecipeFormState, recipeSlug: string): RecipeIngredientPayload[] {
-  return form.ingredients
-    .filter(row => row.ingredientSlug && row.quantity !== '')
-    .map((row, index) => ({
-      ingredient: ingredientIri(row.ingredientSlug),
-      note: row.note.trim() || null,
-      position: index + 1,
-      quantity: row.quantity,
-      recipe: recipeIri(recipeSlug),
-      unit: row.unit
-    }))
-}
-
 export function categoryIri(slug: string): string {
   return `/api/categories/${slug}`
 }
 
 export function ingredientIri(slug: string): string {
   return `/api/ingredients/${slug}`
-}
-
-export function recipeIri(slug: string): string {
-  return `/api/recipes/${slug}`
 }
 
 export function categoryChecked(form: RecipeFormState, category: Category): boolean {

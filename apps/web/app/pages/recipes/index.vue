@@ -9,7 +9,6 @@ import { paginationState } from '../../utils/pagination'
 import {
   activeRecipeFilters,
   cleanRecipeSearchQuery,
-  recipeSearchQueryFromForm,
   recipeSearchStateFromQuery
 } from '../../utils/recipe-search'
 
@@ -31,14 +30,14 @@ const ingredients = computed(() => collectionItems(ingredientsCollection.value))
 const activeFilters = computed(() => {
   return activeRecipeFilters(searchState.value).map((filter) => {
     if (filter.label === 'Category') {
-      return { ...filter, value: categories.value.find(category => category.slug === filter.value)?.name ?? filter.value }
+      return { ...filter, to: filterRemovalTo(filter.key), value: categories.value.find(category => category.slug === filter.value)?.name ?? filter.value }
     }
 
     if (filter.label === 'Ingredient') {
-      return { ...filter, value: ingredients.value.find(ingredient => ingredient.slug === filter.value)?.name ?? filter.value }
+      return { ...filter, to: filterRemovalTo(filter.key), value: ingredients.value.find(ingredient => ingredient.slug === filter.value)?.name ?? filter.value }
     }
 
-    return filter
+    return { ...filter, to: filterRemovalTo(filter.key) }
   })
 })
 const totalRecipes = computed(() => collectionTotal(recipesCollection.value))
@@ -53,8 +52,8 @@ const nextPageTo = computed(() => recipePageTo(pagination.value.nextPage))
 
 useSeoMeta({
   title: 'Cocktail recipes | What\'s In My Bar',
-  description: 'Search community cocktail recipes by category, ingredient, alcohol preference, author, popularity, and publication date.',
-  ogDescription: 'Search community cocktail recipes by category, ingredient, alcohol preference, author, popularity, and publication date.',
+  description: 'Search community cocktail recipes by category, ingredient, alcohol preference, and popularity.',
+  ogDescription: 'Search community cocktail recipes by category, ingredient, alcohol preference, and popularity.',
   ogTitle: 'Cocktail recipes | What\'s In My Bar',
   ogType: 'website',
   ogUrl: new URL('/recipes', runtimeConfig.public.siteUrl).toString()
@@ -66,13 +65,18 @@ useHead({
   ]
 })
 
-function applyFilters(event: Event) {
-  const form = new FormData(event.currentTarget as HTMLFormElement)
-
+function applyFilters(state: typeof searchState.value) {
   return navigateTo({
     path: '/recipes',
-    query: recipeSearchQueryFromForm(form)
+    query: cleanRecipeSearchQuery(state)
   })
+}
+
+function filterRemovalTo(key: string) {
+  const query = Object.fromEntries(
+    Object.entries(cleanRecipeSearchQuery(searchState.value)).filter(([queryKey]) => queryKey !== key && queryKey !== 'page')
+  )
+  return { path: '/recipes', query }
 }
 
 function recipePageTo(page: number) {
@@ -87,35 +91,28 @@ function recipePageTo(page: number) {
 </script>
 
 <template>
-  <main class="page-shell">
+  <main class="page-main">
     <PublicPageHeader
       action-label="Share a recipe"
       action-to="/recipes/new"
-      description="Search the community shelf by flavor, ingredient, category, author, alcohol preference, and popularity."
-      eyebrow="Recipes"
-      title="Find your next cocktail"
+      description="Search published recipes by name, ingredient, category, alcohol preference, or popularity."
+      eyebrow="Explore"
+      title="Recipes"
     />
 
     <RecipeSearchPanel
       :active-filters="activeFilters"
       :categories="categories"
+      clear-to="/recipes"
       :ingredients="ingredients"
       :pending="recipesPending"
+      :result-count="totalRecipes"
       :state="searchState"
-      @submit="applyFilters"
+      @apply="applyFilters"
     />
 
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm font-bold text-muted-foreground">
-        {{ totalRecipes }} recipe{{ totalRecipes === 1 ? '' : 's' }}
-      </p>
-      <p v-if="totalRecipes > 0" class="text-sm font-bold text-muted-foreground">
-        Page {{ pagination.currentPage }}<span v-if="pagination.totalPages"> of {{ pagination.totalPages }}</span>
-      </p>
-    </div>
-
-    <div v-if="recipesPending" class="loading-panel">
-      Loading recipes...
+    <div v-if="recipesPending" class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading recipes">
+      <div v-for="index in 8" :key="index" class="space-y-3"><div class="aspect-[4/5] animate-pulse rounded-md bg-muted" /><div class="h-5 w-2/3 animate-pulse rounded bg-muted" /><div class="h-4 w-1/2 animate-pulse rounded bg-muted" /></div>
     </div>
 
     <EmptyState
@@ -134,7 +131,7 @@ function recipePageTo(page: number) {
       title="No recipes match these filters"
     />
 
-    <section v-else class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Recipe results">
+    <section v-else class="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Recipe results">
       <RecipeCard v-for="recipe in recipes" :key="recipe.slug" :recipe="recipe" />
     </section>
 

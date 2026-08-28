@@ -19,12 +19,8 @@ import type {
   PublicProfile,
   RecipeAggregatePayload,
   RecipeImageState,
-  RecipeIngredient,
-  RecipeIngredientPayload,
   RecipeResource,
   RecipeSearchParams,
-  RecipeStep,
-  RecipeStepPayload,
   RecipeWorkflow,
   RegisterPayload,
   Report,
@@ -141,16 +137,6 @@ export interface ApiClient {
     publish: (slug: string) => Promise<RecipeWorkflow>
     removeImage: (slug: string) => Promise<RecipeImageState>
     update: (slug: string, payload: RecipeAggregatePayload) => Promise<RecipeResource>
-  }
-  recipeIngredients: {
-    create: (payload: RecipeIngredientPayload) => Promise<RecipeIngredient>
-    delete: (id: number) => Promise<undefined>
-    update: (id: number, payload: Partial<RecipeIngredientPayload>) => Promise<RecipeIngredient>
-  }
-  recipeSteps: {
-    create: (payload: RecipeStepPayload) => Promise<RecipeStep>
-    delete: (id: number) => Promise<undefined>
-    update: (id: number, payload: Partial<RecipeStepPayload>) => Promise<RecipeStep>
   }
   reports: {
     create: (payload: ReportPayload) => Promise<Report>
@@ -300,16 +286,6 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       removeImage: (slug) => request<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, { method: 'DELETE' }),
       update: (slug, payload) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}/aggregate`, { body: payload, method: 'PUT' })
     },
-    recipeIngredients: {
-      create: (payload) => request<RecipeIngredient>('/recipe_ingredients', { body: payload, method: 'POST' }),
-      delete: (id) => request<undefined>(`/recipe_ingredients/${id}`, { method: 'DELETE' }),
-      update: (id, payload) => request<RecipeIngredient>(`/recipe_ingredients/${id}`, { body: payload, method: 'PATCH' })
-    },
-    recipeSteps: {
-      create: (payload) => request<RecipeStep>('/recipe_steps', { body: payload, method: 'POST' }),
-      delete: (id) => request<undefined>(`/recipe_steps/${id}`, { method: 'DELETE' }),
-      update: (id, payload) => request<RecipeStep>(`/recipe_steps/${id}`, { body: payload, method: 'PATCH' })
-    },
     reports: {
       create: (payload) => request<Report>('/reports', { body: payload, method: 'POST' })
     },
@@ -340,7 +316,7 @@ export function normalizeApiError(error: unknown): ApiRequestError {
   const apiError = payload?.error
   const status = apiError?.status ?? fetchError.statusCode ?? fetchError.status ?? fetchError.response?.status ?? 0
   const code = apiError?.code ?? codeFromStatus(status)
-  const message = apiError?.message ?? payload?.message ?? fetchError.statusMessage ?? fetchError.message ?? 'API request failed.'
+  const message = apiError?.message ?? payload?.message ?? fetchError.statusMessage ?? fetchError.message ?? 'Request failed.'
   const violations = apiError?.violations ?? payload?.errors ?? []
 
   return new ApiRequestError(message, status, code, payload, violations)

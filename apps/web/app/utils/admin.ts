@@ -1,4 +1,4 @@
-import type { AdminRecipe, AdminUser, Category, Ingredient, ModerationStatus, RecipeStatus, Report, ReportStatus } from '../types/api'
+import type { ModerationStatus, RecipeStatus, Report, ReportStatus } from '../types/api'
 import { reportReasonOptions } from './social'
 
 export const adminRecipeStatusOptions: Array<{ label: string, value: RecipeStatus }> = [
@@ -24,21 +24,6 @@ export const adminReportStatusOptions: Array<{ label: string, value: ReportStatu
 export const adminRoleOptions = [
   { label: 'Admin', value: 'ROLE_ADMIN' }
 ] as const
-
-export function adminDashboardStats(options: {
-  categories: Category[]
-  ingredients: Ingredient[]
-  recipes: AdminRecipe[]
-  reports: Report[]
-  users: AdminUser[]
-}) {
-  return [
-    { label: 'Users', value: options.users.length },
-    { label: 'Recipes', value: options.recipes.length },
-    { label: 'Open reports', value: options.reports.filter(report => report.status === 'open').length },
-    { label: 'Taxonomy', value: options.categories.length + options.ingredients.length }
-  ]
-}
 
 export function adminReportReasonLabel(value: Report['reason']): string {
   return reportReasonOptions.find(option => option.value === value)?.label ?? value

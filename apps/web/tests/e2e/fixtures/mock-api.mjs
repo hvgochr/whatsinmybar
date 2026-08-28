@@ -7,9 +7,23 @@ const adultUser = {
   birthDate: '1990-01-01',
   bio: null,
   avatarPath: null,
-  roles: ['ROLE_USER'],
+  roles: ['ROLE_USER', 'ROLE_ADMIN'],
   createdAt: '2026-07-25T10:00:00+00:00',
   updatedAt: '2026-07-25T10:00:00+00:00'
+}
+
+const classics = {
+  id: 1,
+  name: 'Classics',
+  slug: 'classics',
+  description: 'Established recipes worth knowing.'
+}
+
+const gin = {
+  id: 1,
+  name: 'Gin',
+  slug: 'gin',
+  containsAlcohol: true
 }
 
 const negroni = {
@@ -27,9 +41,16 @@ const negroni = {
   favoriteCount: 4,
   favorited: true,
   authorUsername: 'jane_doe',
-  categories: [],
-  recipeIngredients: [],
-  steps: [],
+  categories: [classics],
+  recipeIngredients: [{
+    id: 1,
+    ingredient: gin,
+    quantity: '30',
+    unit: 'ml',
+    position: 1,
+    note: null
+  }],
+  steps: [{ id: 1, position: 1, instruction: 'Stir with ice and strain into a chilled glass.' }],
   publishedAt: '2026-07-25T10:00:00+00:00'
 }
 
@@ -50,9 +71,50 @@ const draftRecipe = {
   status: 'draft'
 }
 
+const adminUser = {
+  ...adultUser,
+  deleted: false,
+  deletedAt: null
+}
+
+const adminRecipe = {
+  id: negroni.id,
+  title: negroni.title,
+  slug: negroni.slug,
+  authorUsername: negroni.authorUsername,
+  status: negroni.status,
+  moderationStatus: negroni.moderationStatus,
+  containsAlcohol: negroni.containsAlcohol,
+  containsAlcoholOverride: null,
+  favoriteCount: negroni.favoriteCount,
+  deleted: false,
+  deletedAt: null,
+  publishedAt: negroni.publishedAt,
+  createdAt: negroni.publishedAt,
+  updatedAt: negroni.publishedAt
+}
+
+const report = {
+  id: 1,
+  reporterUsername: 'jane_doe',
+  targetType: 'comment',
+  targetId: 1,
+  reason: 'spam',
+  message: 'Repeated promotional links.',
+  status: 'open',
+  reviewedByUsername: null,
+  reviewedAt: null,
+  createdAt: '2026-07-25T10:00:00+00:00',
+  updatedAt: '2026-07-25T10:00:00+00:00'
+}
+
 createServer((request, response) => {
   const url = new URL(request.url ?? '/', 'http://127.0.0.1:3001')
   const authorized = request.headers.authorization === 'Bearer adult-access-token'
+
+  if (request.method === 'OPTIONS') {
+    return cors(response, 204)
+  }
 
   if (url.pathname === '/health') {
     return json(response, 200, { ok: true })
@@ -77,6 +139,61 @@ createServer((request, response) => {
     return authorized ? json(response, 200, adultUser) : apiError(response, 401, 'Unauthorized.')
   }
 
+  if (url.pathname === '/api/me/avatar' && request.method === 'POST') {
+    return authorized ? json(response, 200, { ...adultUser, avatarPath: '/uploads/avatars/jane.png' }) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/me/password' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, { changed: true }) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/users/jane_doe') {
+    return json(response, 200, {
+      id: adultUser.id,
+      username: adultUser.username,
+      bio: 'Cocktail enthusiast focused on clear, practical recipes.',
+      avatarPath: null,
+      createdAt: adultUser.createdAt
+    })
+  }
+
+  if (url.pathname === '/api/categories/classics') {
+    return json(response, 200, classics)
+  }
+
+  if (url.pathname === '/api/reports' && request.method === 'POST') {
+    return json(response, 201, report)
+  }
+
+  if (url.pathname === '/api/admin/users') {
+    return authorized ? paginated(response, [adminUser]) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/users/1' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, adminUser) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/recipes') {
+    return authorized ? paginated(response, [adminRecipe]) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/recipes/negroni' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, adminRecipe) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/categories' || url.pathname === '/api/admin/ingredients') {
+    const items = url.pathname.endsWith('categories') ? [classics] : [gin]
+    return authorized ? paginated(response, items) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/reports') {
+    return authorized ? paginated(response, [report]) : apiError(response, 403, 'Forbidden.')
+  }
+
+  if (url.pathname === '/api/admin/reports/1' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, { ...report, status: 'resolved' }) : apiError(response, 403, 'Forbidden.')
+  }
+
   if (url.pathname === '/api/me/recipes') {
     return authorized ? paginated(response, [draftRecipe, negroni]) : apiError(response, 401, 'Unauthorized.')
   }
@@ -89,6 +206,35 @@ createServer((request, response) => {
     return authorized
       ? json(response, 200, { recipeSlug: 'negroni', favoriteCount: 3, favorited: false, changed: true })
       : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/recipes/negroni/favorite' && request.method === 'POST') {
+    return authorized
+      ? json(response, 200, { recipeSlug: 'negroni', favoriteCount: 5, favorited: true, changed: true })
+      : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/recipes/negroni/comments' && request.method === 'POST') {
+    return authorized ? json(response, 201, {
+      id: 2,
+      recipeSlug: 'negroni',
+      authorUsername: 'jane_doe',
+      parentId: null,
+      message: 'New comment',
+      moderationStatus: 'visible',
+      replyCount: 0,
+      deleted: false,
+      createdAt: '2026-07-25T10:00:00+00:00',
+      updatedAt: '2026-07-25T10:00:00+00:00'
+    }) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/comments/1' && request.method === 'PATCH') {
+    return authorized ? json(response, 200, { ...commentPayload(), message: 'Updated comment' }) : apiError(response, 401, 'Unauthorized.')
+  }
+
+  if (url.pathname === '/api/comments/1' && request.method === 'DELETE') {
+    return authorized ? json(response, 200, { ...commentPayload(), deleted: true, message: null, moderationStatus: 'removed' }) : apiError(response, 401, 'Unauthorized.')
   }
 
   if (url.pathname === '/api/recipes/negroni/comments') {
@@ -114,20 +260,55 @@ createServer((request, response) => {
     return authorized ? json(response, 200, negroni) : apiError(response, 404, 'Not found.')
   }
 
+  if (url.pathname === '/api/recipes/citrus-spritz') {
+    return json(response, 200, zeroProofRecipe)
+  }
+
   if (url.pathname === '/api/recipes') {
     return json(response, 200, authorized ? [negroni, zeroProofRecipe] : [zeroProofRecipe])
   }
 
   if (url.pathname === '/api/categories' || url.pathname === '/api/ingredients') {
-    return json(response, 200, [])
+    return json(response, 200, url.pathname.endsWith('categories') ? [classics] : [gin])
   }
 
   return apiError(response, 404, `Unhandled mock endpoint: ${url.pathname}`)
 }).listen(3001, '127.0.0.1')
 
+function commentPayload() {
+  return {
+    id: 1,
+    recipeSlug: 'negroni',
+    authorUsername: 'jane_doe',
+    parentId: null,
+    message: 'Authorized note',
+    moderationStatus: 'visible',
+    replyCount: 0,
+    deleted: false,
+    createdAt: '2026-07-25T10:00:00+00:00',
+    updatedAt: '2026-07-25T10:00:00+00:00'
+  }
+}
+
 function json(response, status, body) {
-  response.writeHead(status, { 'Content-Type': 'application/json' })
+  response.writeHead(status, {
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-CSRF-Protection',
+    'Access-Control-Allow-Methods': 'DELETE, GET, PATCH, POST, PUT',
+    'Access-Control-Allow-Origin': 'http://127.0.0.1:3000',
+    'Content-Type': 'application/json'
+  })
   response.end(JSON.stringify(body))
+}
+
+function cors(response, status) {
+  response.writeHead(status, {
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-CSRF-Protection',
+    'Access-Control-Allow-Methods': 'DELETE, GET, PATCH, POST, PUT',
+    'Access-Control-Allow-Origin': 'http://127.0.0.1:3000'
+  })
+  response.end()
 }
 
 function apiError(response, status, message) {

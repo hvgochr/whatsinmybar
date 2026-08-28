@@ -12,19 +12,17 @@ test.describe('session bootstrap', () => {
     }])
 
     const response = await page.goto('/')
-    const navigation = page.getByLabel('Main navigation')
-
     expect(response?.ok()).toBe(true)
-    await expect(navigation.getByRole('link', { name: 'Account', exact: true })).toBeVisible()
-    await expect(page.getByText('Adult-only Negroni')).toBeVisible()
-    await expect(navigation.getByRole('link', { name: 'Log in', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Open profile menu for jane_doe' })).toBeVisible()
+    await expect(page.getByText('Adult-only Negroni').first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Log in', exact: true })).toHaveCount(0)
     expect((await context.cookies()).find(cookie => cookie.name === 'refresh_token')?.value).toBe('rotated-session')
 
     await page.goto('/recipes/negroni')
     await expect(page.getByText('Authorized note')).toBeVisible()
   })
 
-  test('renders the private account library after session restoration', async ({ context, page }) => {
+  test('renders private recipe and favorites sections on the owner profile', async ({ context, page }) => {
     await context.addCookies([{
       name: 'refresh_token',
       value: 'valid-session',
@@ -34,14 +32,27 @@ test.describe('session bootstrap', () => {
       sameSite: 'Strict'
     }])
 
-    const response = await page.goto('/account/library')
+    const response = await page.goto('/users/jane_doe#my-recipes')
 
     expect(response?.ok()).toBe(true)
-    await expect(page.getByRole('heading', { name: 'Your recipe library' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'My recipes', exact: true })).toBeVisible()
     await expect(page.getByText('Unfinished Collins')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Publish' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Saved recipes' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Remove saved recipe' })).toBeVisible()
+
+    await page.goto('/users/jane_doe#favorites')
+    await expect(page.getByRole('heading', { name: 'My favorites', exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'My favorites' }).getByRole('link', { name: 'View Adult-only Negroni' })).toBeVisible()
+
+    await page.goto('/users/jane_doe#my-recipes')
+    await expect(page.getByRole('heading', { name: 'My recipes', exact: true })).toBeVisible()
+
+    await page.goto('/recipes/new')
+    await expect(page.getByRole('heading', { name: 'Create a recipe' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Basic information' })).toBeVisible()
+
+    await page.goto('/recipes/negroni/edit')
+    await expect(page.getByRole('heading', { name: 'Edit Adult-only Negroni' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Basic information' })).toBeVisible()
   })
 
   test('clears an invalid session and keeps public pages usable', async ({ context, page }) => {
@@ -55,21 +66,17 @@ test.describe('session bootstrap', () => {
     }])
 
     const response = await page.goto('/')
-    const navigation = page.getByLabel('Main navigation')
-
     expect(response?.ok()).toBe(true)
-    await expect(navigation.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
-    await expect(page.getByText('Citrus Spritz')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
+    await expect(page.getByText('Citrus Spritz').first()).toBeVisible()
     expect((await context.cookies()).find(cookie => cookie.name === 'refresh_token')).toBeUndefined()
   })
 
   test('renders public data when no session exists', async ({ page }) => {
     const response = await page.goto('/')
-    const navigation = page.getByLabel('Main navigation')
-
     expect(response?.ok()).toBe(true)
-    await expect(navigation.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
-    await expect(page.getByText('Citrus Spritz')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
+    await expect(page.getByText('Citrus Spritz').first()).toBeVisible()
     await expect(page.getByText('Adult-only Negroni')).toHaveCount(0)
   })
 })

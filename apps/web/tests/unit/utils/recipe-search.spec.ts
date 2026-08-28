@@ -4,7 +4,6 @@ import { paginationState } from '../../../app/utils/pagination'
 import {
   activeRecipeFilters,
   cleanRecipeSearchQuery,
-  recipeSearchQueryFromForm,
   recipeSearchStateFromQuery
 } from '../../../app/utils/recipe-search'
 
@@ -12,22 +11,16 @@ describe('recipe search helpers', () => {
   it('normalizes route query into recipe search state', () => {
     expect(recipeSearchStateFromQuery({
       alcohol: 'without',
-      author: 'jane_doe',
       category: 'classics',
       ingredient: 'lime',
-      minFavorites: '3',
       page: '2',
       q: 'sour',
       sort: 'popular'
     })).toEqual({
       alcohol: 'without',
-      author: 'jane_doe',
       category: 'classics',
       ingredient: 'lime',
-      minFavorites: 3,
       page: 2,
-      publishedAfter: undefined,
-      publishedBefore: undefined,
       q: 'sour',
       sort: 'popular'
     })
@@ -51,27 +44,13 @@ describe('recipe search helpers', () => {
     })
   })
 
-  it('builds query values from form data and resets page implicitly', () => {
-    const form = new FormData()
-    form.set('q', ' lime ')
-    form.set('category', 'zero-proof')
-    form.set('sort', 'newest')
-
-    expect(recipeSearchQueryFromForm(form)).toEqual({
-      category: 'zero-proof',
-      q: 'lime'
-    })
-  })
-
   it('summarizes active filters', () => {
     expect(activeRecipeFilters(recipeSearchStateFromQuery({
       alcohol: 'with',
-      author: 'jane_doe',
-      minFavorites: '2'
+      ingredient: 'gin'
     }))).toEqual([
-      { label: 'Alcohol', value: 'With alcohol' },
-      { label: 'Author', value: 'jane_doe' },
-      { label: 'Minimum saves', value: '2' }
+      { key: 'ingredient', label: 'Ingredient', value: 'gin' },
+      { key: 'alcohol', label: 'Alcohol', value: 'With alcohol' }
     ])
   })
 

@@ -161,6 +161,22 @@ describe('api client', () => {
     await api.comments.list('negroni')
   })
 
+  it('uploads recipe images as browser-owned multipart form data', async () => {
+    const file = new File(['image'], 'recipe.png', { type: 'image/png' })
+    const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
+      expect(path).toBe('/recipes/negroni/image')
+      expect(options?.method).toBe('POST')
+      expect(options?.body).toBeInstanceOf(FormData)
+      expect((options?.body as FormData).get('image')).toBe(file)
+      expect((options?.headers as Headers).has('Content-Type')).toBe(false)
+      return { imagePath: '/uploads/recipes/negroni.png', recipeSlug: 'negroni' }
+    })
+    const api = createTestClient(fetch, { accessToken: 'access-token' })
+
+    await api.recipes.image('negroni', file)
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
   it('maps alcohol recipe filters to boolean API query values', async () => {
     const fetch = vi.fn(async () => ({ member: [] }))
     const api = createTestClient(fetch, {
@@ -231,27 +247,8 @@ describe('api client', () => {
     }))
   })
 
-  it('manages recipe workflow subresources', async () => {
+  it('removes a recipe image through its dedicated endpoint', async () => {
     const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
-      if (path === '/recipe_steps') {
-        expect(options).toEqual(expect.objectContaining({
-          body: {
-            instruction: 'Stir with ice.',
-            position: 1,
-            recipe: '/api/recipes/negroni'
-          },
-          method: 'POST'
-        }))
-
-        return { id: 10, instruction: 'Stir with ice.', position: 1 }
-      }
-
-      if (path === '/recipe_ingredients/12') {
-        expect(options).toEqual(expect.objectContaining({ method: 'DELETE' }))
-
-        return undefined
-      }
-
       if (path === '/recipes/negroni/image') {
         expect(options).toEqual(expect.objectContaining({ method: 'DELETE' }))
 
@@ -264,12 +261,6 @@ describe('api client', () => {
       accessToken: 'access-token'
     })
 
-    await expect(api.recipeSteps.create({
-      instruction: 'Stir with ice.',
-      position: 1,
-      recipe: '/api/recipes/negroni'
-    })).resolves.toEqual({ id: 10, instruction: 'Stir with ice.', position: 1 })
-    await expect(api.recipeIngredients.delete(12)).resolves.toBeUndefined()
     await expect(api.recipes.removeImage('negroni')).resolves.toEqual({ imagePath: null, recipeSlug: 'negroni' })
   })
 

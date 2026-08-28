@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import UiButton from '../../components/ui/button/Button.vue'
-import UiInput from '../../components/ui/input/Input.vue'
-import UiTextarea from '../../components/ui/textarea/Textarea.vue'
-import { toFormErrors } from '../../utils/api-errors'
+import UiButton from '../components/ui/button/Button.vue'
+import UiInput from '../components/ui/input/Input.vue'
+import UiTextarea from '../components/ui/textarea/Textarea.vue'
+import ThemeControl from '../components/navigation/ThemeControl.vue'
+import { imageUrl } from '../utils/public-content'
+import { toFormErrors } from '../utils/api-errors'
 
 const api = useApi()
 const auth = useAuth()
+const notifications = useNotifications()
+const runtimeConfig = useRuntimeConfig()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -17,14 +21,13 @@ const profileForm = reactive({
 })
 const profileFieldErrors = ref<Record<string, string>>({})
 const profileError = ref<string | null>(null)
-const profileSuccess = ref<string | null>(null)
 const profilePending = ref(false)
 
 const avatarFieldErrors = ref<Record<string, string>>({})
 const avatarError = ref<string | null>(null)
-const avatarSuccess = ref<string | null>(null)
 const avatarPending = ref(false)
 const avatarFile = ref<File | null>(null)
+const avatarInput = ref<HTMLInputElement | null>(null)
 
 const passwordForm = reactive({
   currentPassword: '',
@@ -32,14 +35,14 @@ const passwordForm = reactive({
 })
 const passwordFieldErrors = ref<Record<string, string>>({})
 const passwordError = ref<string | null>(null)
-const passwordSuccess = ref<string | null>(null)
 const passwordPending = ref(false)
 
 const user = computed(() => auth.currentUser.value)
 const avatarInitial = computed(() => user.value?.username.slice(0, 1).toUpperCase() ?? '?')
+const avatarSrc = computed(() => imageUrl(user.value?.avatarPath, runtimeConfig.public.apiBaseUrl))
 
 useSeoMeta({
-  title: 'Account | What\'s In My Bar',
+  title: 'Settings | What\'s In My Bar',
   description: 'Manage your What\'s In My Bar profile and account security.'
 })
 
@@ -77,7 +80,6 @@ async function submitProfile() {
   profilePending.value = true
   profileFieldErrors.value = {}
   profileError.value = null
-  profileSuccess.value = null
 
   try {
     const updatedUser = await api.account.update({
@@ -86,7 +88,7 @@ async function submitProfile() {
       username: profileForm.username
     })
     auth.setCurrentUser(updatedUser)
-    profileSuccess.value = 'Your profile has been updated.'
+    notifications.success('profile-updated', 'Profile updated.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     profileFieldErrors.value = formErrors.fields
@@ -105,13 +107,13 @@ async function submitAvatar() {
   avatarPending.value = true
   avatarFieldErrors.value = {}
   avatarError.value = null
-  avatarSuccess.value = null
 
   try {
     const updatedUser = await api.account.avatar(avatarFile.value)
     auth.setCurrentUser(updatedUser)
     avatarFile.value = null
-    avatarSuccess.value = 'Your avatar has been updated.'
+    if (avatarInput.value) avatarInput.value.value = ''
+    notifications.success('avatar-updated', 'Avatar updated.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     avatarFieldErrors.value = formErrors.fields
@@ -129,7 +131,6 @@ async function submitPassword() {
   passwordPending.value = true
   passwordFieldErrors.value = {}
   passwordError.value = null
-  passwordSuccess.value = null
 
   try {
     await api.account.changePassword({
@@ -138,7 +139,7 @@ async function submitPassword() {
     })
     passwordForm.currentPassword = ''
     passwordForm.newPassword = ''
-    passwordSuccess.value = 'Your password has been updated.'
+    notifications.success('password-updated', 'Password updated.')
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     passwordFieldErrors.value = formErrors.fields
@@ -152,88 +153,76 @@ function onAvatarChange(event: Event) {
   const input = event.target as HTMLInputElement
   avatarFile.value = input.files?.[0] ?? null
   avatarFieldErrors.value = {}
-  avatarSuccess.value = null
 }
 </script>
 
 <template>
-  <main class="page-shell">
+  <main class="page-main">
     <section aria-labelledby="account-title">
-      <p class="eyebrow">
-        Account
-      </p>
-      <h1 id="account-title" class="page-title">
-        Your profile
+      <p class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Account</p>
+      <h1 id="account-title" class="page-heading">
+        Settings
       </h1>
-      <p class="page-copy">
+      <p class="page-lead">
         Keep your public profile and account security up to date.
       </p>
     </section>
 
-    <section v-if="loading" class="content-panel loading-panel" aria-live="polite">
-      Loading your account...
+    <section v-if="loading" class="mt-8 grid min-h-48 place-items-center rounded-md border text-sm text-muted-foreground" aria-live="polite">
+      Loading your settings...
     </section>
 
-    <section v-else-if="loadError" class="content-panel loading-panel" aria-live="polite">
+    <section v-else-if="loadError" class="mt-8 grid min-h-48 place-items-center rounded-md border text-sm text-muted-foreground" aria-live="polite">
       {{ loadError }}
     </section>
 
-    <section v-else-if="user" class="account-grid" aria-label="Account settings">
-      <aside class="content-panel profile-card" aria-label="Current profile">
-        <div class="avatar-preview" aria-hidden="true">
-          <img v-if="user.avatarPath" :alt="`${user.username} avatar`" :src="user.avatarPath">
+    <section v-else-if="user" class="mt-10 grid items-start gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]" aria-label="Account settings">
+      <aside class="rounded-md border bg-card p-5 lg:sticky lg:top-24" aria-label="Current profile">
+        <div class="grid size-20 place-items-center overflow-hidden rounded-full border bg-muted text-2xl font-semibold">
+          <img v-if="avatarSrc" class="h-full w-full object-cover" :alt="`${user.username}'s avatar`" :src="avatarSrc">
           <span v-else>{{ avatarInitial }}</span>
         </div>
 
-        <h2 class="profile-name">
+        <h2 class="mt-4 text-lg font-semibold">
           {{ user.username }}
         </h2>
-        <p class="profile-meta">
+        <p class="mt-1 text-sm text-muted-foreground">
           {{ user.email }}
         </p>
-        <p class="profile-meta">
+        <p class="mt-1 text-sm text-muted-foreground">
           Born {{ user.birthDate }}
         </p>
-        <p v-if="user.bio" class="profile-bio">
+        <p v-if="user.bio" class="mt-4 text-sm leading-6">
           {{ user.bio }}
         </p>
 
-        <div class="profile-actions">
-          <UiButton as-child class="w-full">
-            <NuxtLink to="/recipes/new">
-              Create recipe
-            </NuxtLink>
-          </UiButton>
-          <UiButton as-child class="w-full" variant="outline">
-            <NuxtLink to="/account/library">
-              Manage recipe library
-            </NuxtLink>
-          </UiButton>
+        <div class="mt-6 grid gap-2">
           <UiButton as-child class="w-full" variant="outline">
             <NuxtLink :to="`/users/${user.username}`">
               View public profile
             </NuxtLink>
           </UiButton>
-          <UiButton as-child class="w-full" variant="destructive">
-            <NuxtLink to="/logout">
-              Log out
-            </NuxtLink>
-          </UiButton>
+          <UiButton as-child class="w-full" variant="outline"><NuxtLink :to="`/users/${user.username}#my-recipes`">My recipes</NuxtLink></UiButton>
         </div>
       </aside>
 
-      <div class="account-sections">
-        <section class="content-panel settings-section" aria-labelledby="profile-settings-title">
-          <h2 id="profile-settings-title" class="section-title">
+      <div class="grid gap-6">
+        <section id="appearance" class="scroll-mt-24 rounded-md border bg-card p-5 sm:p-6" aria-labelledby="appearance-settings-title">
+          <h2 id="appearance-settings-title" class="section-heading">Appearance</h2>
+          <p class="section-description mb-5">Choose a light or dark interface, or follow your device setting.</p>
+          <ThemeControl inline notify />
+        </section>
+
+        <section class="rounded-md border bg-card p-5 sm:p-6" aria-labelledby="profile-settings-title">
+          <h2 id="profile-settings-title" class="section-heading">
             Profile details
           </h2>
-          <p class="section-copy">
+          <p class="section-description mb-5">
             Your username and bio appear on your public profile.
           </p>
 
-          <form class="form-stack" novalidate @submit.prevent="submitProfile">
+          <form class="grid gap-5" novalidate @submit.prevent="submitProfile">
             <CommonFormAlert v-if="profileError" :message="profileError" tone="error" />
-            <CommonFormAlert v-if="profileSuccess" :message="profileSuccess" tone="success" />
 
             <CommonFormField id="account-username" v-slot="field" label="Public username" :error="profileFieldErrors.username">
               <UiInput
@@ -268,7 +257,7 @@ function onAvatarChange(event: Event) {
               />
             </CommonFormField>
 
-            <div class="inline-actions">
+            <div class="flex flex-wrap gap-3">
               <UiButton :disabled="profilePending" type="submit">
                 {{ profilePending ? 'Saving...' : 'Save profile' }}
               </UiButton>
@@ -276,31 +265,31 @@ function onAvatarChange(event: Event) {
           </form>
         </section>
 
-        <section class="content-panel settings-section" aria-labelledby="avatar-settings-title">
-          <h2 id="avatar-settings-title" class="section-title">
+        <section class="rounded-md border bg-card p-5 sm:p-6" aria-labelledby="avatar-settings-title">
+          <h2 id="avatar-settings-title" class="section-heading">
             Avatar
           </h2>
-          <p class="section-copy">
+          <p class="section-description mb-5">
             Upload a square image for the cleanest crop.
           </p>
 
-          <form class="form-stack" novalidate @submit.prevent="submitAvatar">
+          <form class="grid gap-5" novalidate @submit.prevent="submitAvatar">
             <CommonFormAlert v-if="avatarError" :message="avatarError" tone="error" />
-            <CommonFormAlert v-if="avatarSuccess" :message="avatarSuccess" tone="success" />
 
             <CommonFormField id="account-avatar" v-slot="field" label="Avatar image" :error="avatarFieldErrors.avatar">
               <input
                 id="account-avatar"
+                ref="avatarInput"
                 v-bind="field"
                 accept="image/*"
-                class="file-input"
+                class="min-h-11 w-full rounded-md border border-dashed bg-background p-2 text-sm text-muted-foreground"
                 name="avatar"
                 type="file"
                 @change="onAvatarChange"
               >
             </CommonFormField>
 
-            <div class="inline-actions">
+            <div class="flex flex-wrap gap-3">
               <UiButton :disabled="avatarPending" type="submit">
                 {{ avatarPending ? 'Uploading...' : 'Upload avatar' }}
               </UiButton>
@@ -308,17 +297,16 @@ function onAvatarChange(event: Event) {
           </form>
         </section>
 
-        <section class="content-panel settings-section" aria-labelledby="password-settings-title">
-          <h2 id="password-settings-title" class="section-title">
+        <section class="rounded-md border bg-card p-5 sm:p-6" aria-labelledby="password-settings-title">
+          <h2 id="password-settings-title" class="section-heading">
             Password
           </h2>
-          <p class="section-copy">
+          <p class="section-description mb-5">
             Use at least 12 characters for your new password.
           </p>
 
-          <form class="form-stack" novalidate @submit.prevent="submitPassword">
+          <form class="grid gap-5" novalidate @submit.prevent="submitPassword">
             <CommonFormAlert v-if="passwordError" :message="passwordError" tone="error" />
-            <CommonFormAlert v-if="passwordSuccess" :message="passwordSuccess" tone="success" />
 
             <CommonFormField
               id="account-current-password"
@@ -354,7 +342,7 @@ function onAvatarChange(event: Event) {
               />
             </CommonFormField>
 
-            <div class="inline-actions">
+            <div class="flex flex-wrap gap-3">
               <UiButton :disabled="passwordPending" type="submit">
                 {{ passwordPending ? 'Updating...' : 'Update password' }}
               </UiButton>

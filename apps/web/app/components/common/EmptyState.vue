@@ -10,9 +10,9 @@ defineProps<{
 </script>
 
 <template>
-  <section class="grid min-h-64 place-items-center rounded-lg border border-dashed border-border bg-card px-5 py-12 text-center text-card-foreground">
+  <section class="grid min-h-56 place-items-center rounded-md border border-dashed bg-card px-5 py-12 text-center text-card-foreground">
     <div class="max-w-md">
-      <h2 class="m-0 text-2xl font-black">
+      <h2 class="text-xl font-semibold tracking-tight">
         {{ title }}
       </h2>
       <p class="mt-3 text-muted-foreground">

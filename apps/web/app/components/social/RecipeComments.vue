@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ApiRequestError } from '../../services/api-client'
 import type { Comment } from '../../types/api'
 import { buildCommentTree } from '../../utils/social'
+import { toFormErrors } from '../../utils/api-errors'
 import FormAlert from '../common/FormAlert.vue'
+import DestructiveConfirm from '../common/DestructiveConfirm.vue'
 import CommentTreeItem from './CommentTreeItem.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
@@ -14,12 +15,15 @@ const props = defineProps<{
 
 const api = useApi()
 const auth = useAuth()
+const notifications = useNotifications()
 const comments = ref<Comment[]>([...props.comments])
 const message = ref('')
 const pending = ref(false)
 const pendingActionId = ref<number | null>(null)
 const formError = ref<string | null>(null)
-const successMessage = ref<string | null>(null)
+const deleteTarget = ref<Comment | null>(null)
+const deleteDialogOpen = ref(false)
+const deleteError = ref<string | null>(null)
 
 const commentTree = computed(() => buildCommentTree(comments.value))
 
@@ -31,13 +35,15 @@ async function createComment(payload: { message: string, parentId?: number | nul
   pending.value = true
   pendingActionId.value = payload.parentId ?? null
   formError.value = null
-  successMessage.value = null
 
   try {
     const createdComment = await api.comments.create(props.recipeSlug, payload)
     comments.value = [...comments.value, createdComment]
     message.value = ''
-    successMessage.value = payload.parentId ? 'Reply posted.' : 'Comment posted.'
+    notifications.success(
+      payload.parentId ? `comment-reply:${payload.parentId}` : `comment-create:${props.recipeSlug}`,
+      payload.parentId ? 'Reply posted.' : 'Comment posted.'
+    )
   } catch (error: unknown) {
     formError.value = socialErrorMessage(error, 'Comment could not be posted.')
   } finally {
@@ -49,12 +55,11 @@ async function createComment(payload: { message: string, parentId?: number | nul
 async function updateComment(payload: { comment: Comment, message: string }) {
   pendingActionId.value = payload.comment.id
   formError.value = null
-  successMessage.value = null
 
   try {
     const updatedComment = await api.comments.update(payload.comment.id, { message: payload.message })
     comments.value = comments.value.map(comment => comment.id === updatedComment.id ? updatedComment : comment)
-    successMessage.value = 'Comment updated.'
+    notifications.success(`comment-update:${payload.comment.id}`, 'Comment updated.')
   } catch (error: unknown) {
     formError.value = socialErrorMessage(error, 'Comment could not be updated.')
   } finally {
@@ -65,17 +70,25 @@ async function updateComment(payload: { comment: Comment, message: string }) {
 async function deleteComment(comment: Comment) {
   pendingActionId.value = comment.id
   formError.value = null
-  successMessage.value = null
+  deleteError.value = null
 
   try {
     const deletedComment = await api.comments.delete(comment.id)
     comments.value = comments.value.map(currentComment => currentComment.id === deletedComment.id ? deletedComment : currentComment)
-    successMessage.value = 'Comment deleted.'
+    notifications.success(`comment-delete:${comment.id}`, 'Comment deleted.')
+    deleteDialogOpen.value = false
+    deleteTarget.value = null
   } catch (error: unknown) {
-    formError.value = socialErrorMessage(error, 'Comment could not be deleted.')
+    deleteError.value = socialErrorMessage(error, 'Comment could not be deleted.')
   } finally {
     pendingActionId.value = null
   }
+}
+
+function requestDelete(comment: Comment) {
+  deleteTarget.value = comment
+  deleteError.value = null
+  deleteDialogOpen.value = true
 }
 
 function submitRootComment() {
@@ -89,33 +102,33 @@ function submitRootComment() {
 }
 
 function socialErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiRequestError ? error.message : fallback
+  return toFormErrors(error).message ?? fallback
 }
 </script>
 
 <template>
-  <section class="content-panel p-5 md:p-6">
+  <section>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 class="section-title">
-          Community notes
+        <h2 class="section-heading">
+          Comments
         </h2>
-        <p class="section-copy">
-          Ask questions, add adjustments, and reply to other bartenders.
+        <p class="section-description">
+          Share a useful note or reply to another member.
         </p>
       </div>
-      <p class="rounded-full border border-border bg-background px-3 py-1.5 text-sm font-black text-muted-foreground">
-        {{ comments.length }} note{{ comments.length === 1 ? '' : 's' }}
+      <p class="text-sm text-muted-foreground">
+        {{ comments.length }} comment{{ comments.length === 1 ? '' : 's' }}
       </p>
     </div>
 
     <div class="mt-5 grid gap-3">
       <FormAlert v-if="formError" :message="formError" tone="error" />
-      <FormAlert v-if="successMessage" :message="successMessage" tone="success" />
     </div>
 
-    <form v-if="auth.isAuthenticated.value" class="mt-5 grid gap-3 rounded-lg border border-border bg-background p-4" @submit.prevent="submitRootComment">
-      <UiTextarea v-model="message" rows="4" placeholder="Add a public note" />
+    <form v-if="auth.isAuthenticated.value" class="mt-5 grid gap-3 rounded-md border bg-background p-4" @submit.prevent="submitRootComment">
+      <label class="field-label" for="new-comment">Add a comment</label>
+      <UiTextarea id="new-comment" v-model="message" rows="4" maxlength="2000" placeholder="Write a public comment" />
       <div class="flex justify-end">
         <UiButton type="submit" :disabled="pending || !message.trim()">
           {{ pending ? 'Posting...' : 'Post comment' }}
@@ -123,9 +136,9 @@ function socialErrorMessage(error: unknown, fallback: string): string {
       </div>
     </form>
 
-    <div v-else class="mt-5 rounded-lg border border-border bg-background p-4">
+    <div v-else class="mt-5 rounded-md border bg-background p-4">
       <p class="text-muted-foreground">
-        Log in to comment, reply, save recipes, and report content.
+        Log in to comment or reply.
       </p>
       <UiButton as-child class="mt-3" variant="outline">
         <NuxtLink :to="`/login?redirect=/recipes/${recipeSlug}`">
@@ -141,7 +154,7 @@ function socialErrorMessage(error: unknown, fallback: string): string {
         :current-user="auth.currentUser.value"
         :node="comment"
         :pending-action-id="pendingActionId"
-        @delete="deleteComment"
+        @request-delete="requestDelete"
         @reply="createComment"
         @update="updateComment"
       />
@@ -150,5 +163,15 @@ function socialErrorMessage(error: unknown, fallback: string): string {
     <p v-else class="mt-5 text-muted-foreground">
       No public comments yet.
     </p>
+
+    <DestructiveConfirm
+      v-model:open="deleteDialogOpen"
+      confirm-label="Delete comment"
+      :description="`The comment by ${deleteTarget?.authorUsername ?? 'this member'} will be permanently removed from the conversation.`"
+      :error="deleteError"
+      :pending="deleteTarget ? pendingActionId === deleteTarget.id : false"
+      title="Delete this comment?"
+      @confirm="deleteTarget && deleteComment(deleteTarget)"
+    />
   </section>
 </template>

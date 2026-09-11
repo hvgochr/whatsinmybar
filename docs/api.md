@@ -401,3 +401,54 @@ Validation errors include `violations`:
   }
 }
 ```
+
+## Recipe write invariants
+
+General recipe `POST` and `PATCH` accept only their declared writable fields.
+The `moderationStatus` field is now read-only on these operations. Read-only
+fields (including alcohol classification and `imagePath`) and unknown fields
+return `400`; previously read-only or unknown fields were silently ignored.
+Recipe moderation is available only through administrator operations:
+`PATCH /admin/recipes/{slug}` and report moderation. Comment moderation already
+requires `ROLE_ADMIN`, including on `PATCH /comments/{id}`.
+
+Publication is validated centrally for `POST /recipes` and
+`PATCH /recipes/{slug}` with `status: published`,
+`POST /recipes/{slug}/publish`, and
+`PATCH /admin/recipes/{slug}`. A publishable recipe has valid metadata, at least
+one non-blank step, at least one ingredient reference, positive positions unique
+within each collection, and valid measured ingredients. Nullable quantities
+remain supported for intentionally free-form amounts on individual writes;
+aggregate quantities retain their stricter existing payload contract. Invalid
+publication returns `422`, without storing the status or `publishedAt` change.
+Editing a published recipe must preserve these conditions.
+
+Aggregate writes check alcohol access against the proposed ingredients and the
+existing administrator override **before** any persistence or serialization.
+A minor cannot create an alcoholic aggregate or turn an accessible recipe into
+an alcoholic one, whether draft or published (`403`). The existing administrator
+exception to alcohol access and override precedence are unchanged.
+
+The individual operations remain available for compatibility:
+
+```text
+POST   /recipe_steps
+PATCH  /recipe_steps/{id}
+DELETE /recipe_steps/{id}
+POST   /recipe_ingredients
+PATCH  /recipe_ingredients/{id}
+DELETE /recipe_ingredients/{id}
+```
+
+Their `recipe` IRI is required at creation and immutable thereafter, including
+for administrators. Sending it in a `PATCH` returns `400`, even if unchanged.
+Other undeclared fields also return `400`. Ownership is checked server-side,
+and ingredient mutations recheck alcohol access against the proposed recipe.
+Deleting the last step or ingredient of a published recipe returns `422`.
+Allowed ingredient deletion updates alcohol classification in the same flush.
+All refused writes leave persisted recipe metadata, relations and children
+unchanged.
+
+The Nuxt editor uses aggregate writes and does not call these individual
+operations. They are nevertheless exposed API operations with functional tests;
+removing them would be a separate contract change. No routes are removed here.

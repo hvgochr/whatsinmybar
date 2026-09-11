@@ -95,6 +95,9 @@ final class RecipeAggregateController extends AbstractController
         $proposed = new Recipe();
         $proposed->setAuthor($recipe->getAuthor());
         $proposed->setTitle($payload['title']);
+        if (null !== $recipe->getId()) {
+            $proposed->setSlug($recipe->getSlug());
+        }
         $proposed->setDescription($payload['description']);
         $proposed->setDifficulty(RecipeDifficulty::from($payload['difficulty']));
         $proposed->setPreparationTimeMinutes($payload['preparationTimeMinutes']);

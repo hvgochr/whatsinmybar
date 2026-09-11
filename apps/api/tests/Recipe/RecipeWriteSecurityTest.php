@@ -48,6 +48,10 @@ final class RecipeWriteSecurityTest extends WebTestCase
         $this->refused($client, 'POST', '/api/recipes/aggregate', $this->payload($alcohol), null, 401);
         $client->request('POST', '/api/recipes/'.$recipe->getSlug().'/publish', server: $this->headers($token));
         self::assertResponseIsSuccessful();
+        $this->refused($client, 'PUT', '/api/recipes/'.$recipe->getSlug().'/aggregate', $this->payload($alcohol), $token, 403);
+        $juice = $recipe->getRecipeIngredients()->first()->getIngredient();
+        $client->jsonRequest('POST', '/api/recipes/aggregate', $this->payload($juice), server: $this->headers($token));
+        self::assertResponseStatusCodeSame(201);
     }
 
     public function testAdultAndAdminCanWriteAlcoholAndOnlyAdminCanModerate(): void
@@ -87,6 +91,44 @@ final class RecipeWriteSecurityTest extends WebTestCase
         $this->refused($client, 'PATCH', '/api/recipe_ingredients/'.$recipe->getRecipeIngredients()->first()->getId(), ['quantity' => '-1'], $owner, 422);
         $client->jsonRequest('PATCH', '/api/admin/recipes/'.$recipe->getSlug(), ['status' => 'published'], server: $this->headers($admin));
         self::assertResponseIsSuccessful();
+    }
+
+    public function testInvalidStoredContentCannotBePublishedThroughAnyEndpoint(): void
+    {
+        $client = self::createClient();
+        foreach (['step', 'ingredient', 'instruction', 'quantity', 'position'] as $invalid) {
+            [$token, $recipe] = $this->fixture(admin: true);
+            $em = self::getContainer()->get(EntityManagerInterface::class);
+            match ($invalid) {
+                'step' => $recipe->removeStep($recipe->getSteps()->first()),
+                'ingredient' => $recipe->removeRecipeIngredient($recipe->getRecipeIngredients()->first()),
+                'instruction' => $recipe->getSteps()->first()->setInstruction(''),
+                'quantity' => $recipe->getRecipeIngredients()->first()->setQuantity('0'),
+                'position' => $recipe->getSteps()->first()->setPosition(0),
+            };
+            $em->flush();
+            $this->refused($client, 'POST', '/api/recipes/'.$recipe->getSlug().'/publish', [], $token, 422);
+            $this->refused($client, 'PATCH', '/api/recipes/'.$recipe->getSlug(), ['status' => 'published'], $token, 422);
+            $this->refused($client, 'PATCH', '/api/admin/recipes/'.$recipe->getSlug(), ['status' => 'published'], $token, 422);
+        }
+    }
+
+    public function testPublishedAggregateUsesNormalizedContentAndKeepsItsSlug(): void
+    {
+        $client = self::createClient();
+        [$token, $recipe, $alcohol] = $this->fixture();
+        $client->request('POST', '/api/recipes/'.$recipe->getSlug().'/publish', server: $this->headers($token));
+        self::assertResponseIsSuccessful();
+        $payload = $this->payload($alcohol);
+        $payload['steps'][0]['instruction'] = '   ';
+        $this->refused($client, 'PUT', '/api/recipes/'.$recipe->getSlug().'/aggregate', $payload, $token, 422);
+        $payload['steps'][0]['instruction'] = 'Stir.';
+        $payload['title'] = '!!!';
+        $client->jsonRequest('PUT', '/api/recipes/'.$recipe->getSlug().'/aggregate', $payload, server: $this->headers($token));
+        self::assertResponseIsSuccessful();
+        $stored = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame($recipe->getSlug(), $stored['slug']);
+        self::assertTrue($stored['containsAlcoholComputed']);
     }
 
     /** @return array{string, Recipe, Ingredient} */

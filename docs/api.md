@@ -421,7 +421,14 @@ within each collection, and valid measured ingredients. Nullable quantities
 remain supported for intentionally free-form amounts on individual writes;
 aggregate quantities retain their stricter existing payload contract. Invalid
 publication returns `422`, without storing the status or `publishedAt` change.
-Editing a published recipe must preserve these conditions.
+Editing published recipe content must preserve these conditions. Administrator
+protection actions (hiding, removing, archiving, soft-deleting or correcting
+alcohol classification) remain available for legacy incomplete published
+recipes. Administrator mutations validate transitions into `published`, and
+transitions from a non-visible moderation status to `visible` while published,
+including report moderation. Sending an unchanged status does not itself trigger
+publication validation. Refused restoration leaves both recipe and report data
+unchanged.
 
 Aggregate writes check alcohol access against the proposed ingredients and the
 existing administrator override **before** any persistence or serialization.

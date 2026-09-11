@@ -56,6 +56,8 @@ final class AdminMutationController extends AbstractController
         }
 
         $payload = $this->decodeJson($request);
+        $previousStatus = $recipe->getStatus();
+        $previousModerationStatus = $recipe->getModerationStatus();
 
         if (array_key_exists('status', $payload)) {
             $recipe->setStatus(RecipeStatus::tryFrom((string) $payload['status']) ?? throw new BadRequestHttpException('Invalid recipe status.'));
@@ -73,9 +75,7 @@ final class AdminMutationController extends AbstractController
             $recipe->softDelete();
         }
 
-        if (RecipeStatus::Published === $recipe->getStatus() && null === $recipe->getDeletedAt()) {
-            $publicationValidator->validate($recipe);
-        }
+        $publicationValidator->validateVisibilityTransition($recipe, $previousStatus, $previousModerationStatus);
 
         $entityManager->flush();
 

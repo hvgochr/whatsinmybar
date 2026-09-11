@@ -3,6 +3,8 @@
 namespace App\Service;
 
 use App\Entity\Recipe;
+use App\Enum\RecipeModerationStatus;
+use App\Enum\RecipeStatus;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -10,6 +12,15 @@ final readonly class RecipePublicationValidator
 {
     public function __construct(private ValidatorInterface $validator)
     {
+    }
+
+    public function validateVisibilityTransition(Recipe $recipe, RecipeStatus $previousStatus, RecipeModerationStatus $previousModerationStatus): void
+    {
+        if (RecipeStatus::Published === $recipe->getStatus() && null === $recipe->getDeletedAt()
+            && (RecipeStatus::Published !== $previousStatus
+                || (RecipeModerationStatus::Visible !== $previousModerationStatus && RecipeModerationStatus::Visible === $recipe->getModerationStatus()))) {
+            $this->validate($recipe);
+        }
     }
 
     public function validate(Recipe $recipe): void

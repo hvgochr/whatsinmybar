@@ -18,6 +18,7 @@ use App\Repository\RecipeRepository;
 use App\Repository\ReportRepository;
 use App\Repository\UserRepository;
 use App\Security\RecipeAccess;
+use App\Service\RecipePublicationValidator;
 use App\Service\UserAccountAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,6 +33,10 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class ReportController extends AbstractController
 {
+    public function __construct(private readonly RecipePublicationValidator $publicationValidator)
+    {
+    }
+
     #[Route('/api/reports', name: 'api_reports_create', methods: ['POST'])]
     public function create(
         Request $request,
@@ -208,7 +213,9 @@ final class ReportController extends AbstractController
             throw $this->createNotFoundException('Report target not found.');
         }
 
+        $previousModerationStatus = $recipe->getModerationStatus();
         $recipe->setModerationStatus(RecipeModerationStatus::tryFrom($moderationStatus) ?? throw new BadRequestHttpException('Invalid moderation status.'));
+        $this->publicationValidator->validateVisibilityTransition($recipe, $recipe->getStatus(), $previousModerationStatus);
     }
 
     private function applyCommentModerationStatus(int $targetId, string $moderationStatus, CommentRepository $commentRepository): void

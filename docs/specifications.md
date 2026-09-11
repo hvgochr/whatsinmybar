@@ -121,7 +121,10 @@ Recipe deletion is soft deletion.
 Publication requires valid recipe metadata, at least one valid preparation step,
 and at least one valid measured ingredient. Positions must be positive and unique
 within each ordered collection. These conditions apply to every publication
-endpoint and must remain true when published content is edited. Drafts created
+endpoint and must remain true when published content is edited. Administrators
+can still protect legacy incomplete published content by hiding, removing,
+archiving, soft-deleting or correcting its alcohol classification. Publishing or
+restoring public moderation visibility requires valid content. Drafts created
 through individual operations can be assembled incrementally; the aggregate
 editor retains its complete-payload requirement.
 

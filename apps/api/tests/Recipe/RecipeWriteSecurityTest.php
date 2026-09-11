@@ -6,7 +6,11 @@ use App\Entity\Ingredient;
 use App\Entity\Recipe;
 use App\Entity\RecipeIngredient;
 use App\Entity\RecipeStep;
+use App\Entity\Report;
 use App\Entity\User;
+use App\Enum\RecipeStatus;
+use App\Enum\ReportReason;
+use App\Enum\ReportTargetType;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -131,6 +135,65 @@ final class RecipeWriteSecurityTest extends WebTestCase
         self::assertTrue($stored['containsAlcoholComputed']);
     }
 
+    public function testAdminCanProtectLegacyPublishedRecipesButCannotRestoreInvalidContent(): void
+    {
+        $client = self::createClient();
+        [$token, $recipe, $alcohol] = $this->fixture(admin: true, complete: false);
+        $recipe->publish();
+        self::getContainer()->get(EntityManagerInterface::class)->flush();
+        $url = '/api/admin/recipes/'.$recipe->getSlug();
+
+        // Also allow clients to resend the unchanged published status with moderation.
+        foreach ([
+            ['containsAlcoholOverride' => true],
+            ['moderationStatus' => 'hidden', 'status' => 'published'],
+            ['containsAlcoholOverride' => true],
+            ['containsAlcoholOverride' => false],
+            ['containsAlcoholOverride' => null],
+            ['moderationStatus' => 'pending_review'],
+            ['moderationStatus' => 'removed'],
+        ] as $payload) {
+            $client->jsonRequest('PATCH', $url, $payload, server: $this->headers($token));
+            self::assertResponseIsSuccessful();
+            $em = self::getContainer()->get(EntityManagerInterface::class);
+            $em->clear();
+            $stored = $em->find(Recipe::class, $recipe->getId());
+            self::assertSame(RecipeStatus::Published, $stored->getStatus());
+            if (array_key_exists('moderationStatus', $payload)) {
+                self::assertSame($payload['moderationStatus'], $stored->getModerationStatus()->value);
+            }
+            if (array_key_exists('containsAlcoholOverride', $payload)) {
+                self::assertSame($payload['containsAlcoholOverride'], $stored->getContainsAlcoholOverride());
+            }
+        }
+        $this->refused($client, 'PATCH', $url, ['moderationStatus' => 'visible', 'containsAlcoholOverride' => true], $token, 422);
+        $client->jsonRequest('PATCH', $url, ['status' => 'archived'], server: $this->headers($token));
+        self::assertResponseIsSuccessful();
+        $this->refused($client, 'PATCH', $url, ['status' => 'published'], $token, 422);
+        $this->refused($client, 'PATCH', $url, ['status' => 'published', 'moderationStatus' => 'visible'], $token, 422);
+        $client->jsonRequest('PUT', '/api/recipes/'.$recipe->getSlug().'/aggregate', $this->payload($alcohol), server: $this->headers($token));
+        self::assertResponseIsSuccessful();
+        $client->jsonRequest('PATCH', $url, ['status' => 'published', 'moderationStatus' => 'visible'], server: $this->headers($token));
+        self::assertResponseIsSuccessful();
+        $client->jsonRequest('PATCH', $url, ['deleted' => true], server: $this->headers($token));
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testReportModerationCannotRestoreAnInvalidPublishedRecipe(): void
+    {
+        $client = self::createClient();
+        [$token, $recipe] = $this->fixture(admin: true, complete: false);
+        $recipe->publish();
+        $report = new Report($recipe->getAuthor(), ReportTargetType::Recipe, $recipe->getId(), ReportReason::Other);
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->persist($report);
+        $em->flush();
+        $url = '/api/admin/reports/'.$report->getId();
+        $client->jsonRequest('PATCH', $url, ['moderationStatus' => 'hidden'], server: $this->headers($token));
+        self::assertResponseIsSuccessful();
+        $this->refused($client, 'PATCH', $url, ['status' => 'resolved', 'moderationStatus' => 'visible'], $token, 422);
+    }
+
     /** @return array{string, Recipe, Ingredient} */
     private function fixture(bool $minor = false, bool $admin = false, bool $complete = true): array
     {
@@ -194,7 +257,7 @@ final class RecipeWriteSecurityTest extends WebTestCase
     {
         $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
         $result = [];
-        foreach (['recipe', 'recipe_step', 'recipe_ingredient', 'recipe_category'] as $table) {
+        foreach (['recipe', 'recipe_step', 'recipe_ingredient', 'recipe_category', 'report'] as $table) {
             $result[$table] = $connection->fetchAllAssociative('SELECT * FROM '.$table.' ORDER BY 1, 2');
         }
 

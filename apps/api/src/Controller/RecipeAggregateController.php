@@ -10,10 +10,12 @@ use App\Entity\RecipeStep;
 use App\Entity\User;
 use App\Enum\IngredientUnit;
 use App\Enum\RecipeDifficulty;
+use App\Enum\RecipeStatus;
 use App\Repository\CategoryRepository;
 use App\Repository\IngredientRepository;
 use App\Repository\RecipeRepository;
 use App\Security\RecipeAccess;
+use App\Service\RecipePublicationValidator;
 use App\Util\SlugNormalizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -34,6 +36,7 @@ final class RecipeAggregateController extends AbstractController
         private readonly IngredientRepository $ingredientRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidatorInterface $validator,
+        private readonly RecipePublicationValidator $publicationValidator,
     ) {
     }
 
@@ -87,6 +90,26 @@ final class RecipeAggregateController extends AbstractController
 
         $steps = $this->steps($payload['steps']);
         $ingredients = $this->ingredients($payload['ingredients'], $resolved['ingredients']);
+
+        // Build an independent proposed aggregate before touching managed collections.
+        $proposed = new Recipe();
+        $proposed->setAuthor($recipe->getAuthor());
+        $proposed->setTitle($payload['title']);
+        $proposed->setDescription($payload['description']);
+        $proposed->setDifficulty(RecipeDifficulty::from($payload['difficulty']));
+        $proposed->setPreparationTimeMinutes($payload['preparationTimeMinutes']);
+        $proposed->setServings($payload['servings']);
+        $proposed->setContainsAlcoholOverride($recipe->getContainsAlcoholOverride());
+        foreach ($steps as $step) {
+            $proposed->addStep($step);
+        }
+        foreach ($ingredients as $ingredient) {
+            $proposed->addRecipeIngredient($ingredient);
+        }
+        $this->denyAccessUnlessGranted(RecipeAccess::Manage, $proposed);
+        if (RecipeStatus::Published === $recipe->getStatus()) {
+            $this->publicationValidator->validate($proposed);
+        }
 
         $this->entityManager->wrapInTransaction(function () use ($recipe, $payload, $resolved, $steps, $ingredients): void {
             $recipe->setTitle($payload['title']);

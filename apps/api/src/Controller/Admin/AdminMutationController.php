@@ -12,6 +12,7 @@ use App\Repository\CategoryRepository;
 use App\Repository\IngredientRepository;
 use App\Repository\RecipeRepository;
 use App\Service\RecipeAlcoholClassificationUpdater;
+use App\Service\RecipePublicationValidator;
 use App\Service\UserAccountAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -45,7 +46,7 @@ final class AdminMutationController extends AbstractController
     }
 
     #[Route('/api/admin/recipes/{slug}', name: 'api_admin_recipes_update', methods: ['PATCH'])]
-    public function updateRecipe(string $slug, Request $request, RecipeRepository $recipeRepository, EntityManagerInterface $entityManager): JsonResponse
+    public function updateRecipe(string $slug, Request $request, RecipeRepository $recipeRepository, EntityManagerInterface $entityManager, RecipePublicationValidator $publicationValidator): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
@@ -70,6 +71,10 @@ final class AdminMutationController extends AbstractController
 
         if (array_key_exists('deleted', $payload) && $this->boolean($payload['deleted'], 'deleted') && null === $recipe->getDeletedAt()) {
             $recipe->softDelete();
+        }
+
+        if (RecipeStatus::Published === $recipe->getStatus() && null === $recipe->getDeletedAt()) {
+            $publicationValidator->validate($recipe);
         }
 
         $entityManager->flush();

@@ -10,6 +10,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\RecipeStepRepository;
 use App\Security\RecipeAccess;
+use App\State\RecipePartProcessor;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -20,13 +21,13 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new GetCollection(security: "is_granted('ROLE_ADMIN')"),
-        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())"),
+        new Post(denormalizationContext: ['groups' => ['recipe_step:write', 'recipe_step:create'], 'allow_extra_attributes' => false], security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipePartProcessor::class),
         new Get(security: "object.getRecipe() and is_granted('".RecipeAccess::View."', object.getRecipe())"),
-        new Patch(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())"),
-        new Delete(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())"),
+        new Patch(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipePartProcessor::class),
+        new Delete(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipePartProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe_step:read']],
-    denormalizationContext: ['groups' => ['recipe_step:write']],
+    denormalizationContext: ['groups' => ['recipe_step:write'], 'allow_extra_attributes' => false],
 )]
 class RecipeStep
 {
@@ -38,7 +39,8 @@ class RecipeStep
 
     #[ORM\ManyToOne(inversedBy: 'steps')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    #[Groups(['recipe_step:read', 'recipe_step:write'])]
+    #[Groups(['recipe_step:read', 'recipe_step:create'])]
+    #[Assert\NotNull]
     private ?Recipe $recipe = null;
 
     #[ORM\Column]

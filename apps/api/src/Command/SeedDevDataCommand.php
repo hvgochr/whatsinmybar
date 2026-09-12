@@ -6,6 +6,7 @@ use App\Entity\Category;
 use App\Entity\Ingredient;
 use App\Entity\Recipe;
 use App\Entity\RecipeIngredient;
+use App\Entity\RecipeStep;
 use App\Entity\User;
 use App\Enum\IngredientUnit;
 use App\Enum\RecipeDifficulty;
@@ -58,6 +59,8 @@ final class SeedDevDataCommand extends Command
         $this->ingredientLine($negroni, $gin, '30', IngredientUnit::Milliliter, 1);
         $this->ingredientLine($negroni, $campari, '30', IngredientUnit::Milliliter, 2);
         $this->ingredientLine($negroni, $vermouth, '30', IngredientUnit::Milliliter, 3);
+        $this->step($negroni, 1, 'Pour the gin, Campari and sweet vermouth into a mixing glass filled with ice.');
+        $this->step($negroni, 2, 'Stir until chilled, then strain into a rocks glass over fresh ice.');
         $negroni->recalculateContainsAlcohol();
 
         $limeSoda = $this->recipe($max, 'Seed Lime Soda', 'A bright zero-proof highball.', RecipeStatus::Published, RecipeDifficulty::Easy);
@@ -65,6 +68,8 @@ final class SeedDevDataCommand extends Command
         $this->ingredientLine($limeSoda, $lime, '25', IngredientUnit::Milliliter, 1);
         $this->ingredientLine($limeSoda, $syrup, '15', IngredientUnit::Milliliter, 2);
         $this->ingredientLine($limeSoda, $soda, '120', IngredientUnit::Milliliter, 3);
+        $this->step($limeSoda, 1, 'Add the lime juice and simple syrup to a highball glass filled with ice.');
+        $this->step($limeSoda, 2, 'Top with soda water and stir gently.');
         $limeSoda->recalculateContainsAlcohol();
 
         $draft = $this->recipe($admin, 'Seed Draft Martini', 'A private admin draft.', RecipeStatus::Draft, RecipeDifficulty::Medium);
@@ -168,6 +173,20 @@ final class SeedDevDataCommand extends Command
         $recipe->addRecipeIngredient($recipeIngredient);
 
         $this->entityManager->persist($recipeIngredient);
+    }
+
+    private function step(Recipe $recipe, int $position, string $instruction): void
+    {
+        foreach ($recipe->getSteps() as $step) {
+            if ($step->getPosition() === $position) {
+                return;
+            }
+        }
+
+        $step = new RecipeStep();
+        $step->setPosition($position);
+        $step->setInstruction($instruction);
+        $recipe->addStep($step);
     }
 
     private function slug(string $value): string

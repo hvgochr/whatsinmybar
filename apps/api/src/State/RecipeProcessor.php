@@ -7,6 +7,9 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Recipe;
 use App\Entity\User;
+use App\Enum\RecipeStatus;
+use App\Security\RecipeAccess;
+use App\Service\RecipePublicationValidator;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -23,6 +26,7 @@ final readonly class RecipeProcessor implements ProcessorInterface
         #[Autowire(service: 'api_platform.doctrine.orm.state.persist_processor')]
         private ProcessorInterface $persistProcessor,
         private Security $security,
+        private RecipePublicationValidator $publicationValidator,
     ) {
     }
 
@@ -43,6 +47,16 @@ final readonly class RecipeProcessor implements ProcessorInterface
             }
 
             $data->setAuthor($user);
+        }
+
+        if (!$operation instanceof DeleteOperationInterface) {
+            $data->recalculateContainsAlcohol();
+            if (!$this->security->isGranted(RecipeAccess::Manage, $data)) {
+                throw new AccessDeniedException('Cannot manage the proposed recipe.');
+            }
+            if (RecipeStatus::Published === $data->getStatus()) {
+                $this->publicationValidator->validate($data);
+            }
         }
 
         return $this->persistProcessor->process($data, $operation, $uriVariables, $context);

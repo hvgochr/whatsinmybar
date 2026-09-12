@@ -88,6 +88,6 @@ The repository contains locally validated multi-stage production images,
 Docker Compose orchestration, Caddy HTTPS routing, healthchecks, persistent
 volumes, and a manual deployment runbook.
 
-A public production launch still requires a VPS and domain, external backups,
-monitoring, security hardening, a decision or implementation for S3-compatible
-uploads, dynamic sitemap generation, and final deployment acceptance testing.
+A public production launch still requires a VPS and domain, monitoring, security
+hardening, off-site database and local upload backups, dynamic sitemap
+generation, and final deployment acceptance testing.

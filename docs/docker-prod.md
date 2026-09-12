@@ -207,15 +207,20 @@ The current API implementation uses local filesystem storage behind upload
 interfaces. Production Compose persists `/app/public/uploads` in the
 `api_uploads` named volume and routes `/uploads/*` through the API.
 
-The V1 specification targets S3-compatible production storage. That adapter is
-not implemented yet. Before public production use, either:
+Local persistent storage is the selected solution for this low-traffic,
+single-VPS deployment; no S3 service or migration is required. Independently
+back up the `api_uploads` volume off-site and test restoration alongside the
+database. Set retention and disk-space alerts before deployment.
 
-- implement and configure the S3-compatible adapter; or
-- explicitly accept local uploads and add independent off-site backups for the
-  `api_uploads` volume.
+The API image now includes GD for bounded decoding and reencoding. Recipe
+images are delivered only through `/api/recipe-images/{filename}` with the
+recipe read voter; direct `/uploads/recipes/*` access is blocked by FrankenPHP.
+Avatars remain public. Deploy the API image/configuration and frontend changes
+together to preserve image rendering. The named volume and stored paths do not
+change. No deployment or destructive maintenance is performed by the checks.
 
-Switching to S3 will also require a migration plan for existing local objects
-and a decision about public object URLs or signed delivery.
+See [Local image storage](uploads.md) for exact limits, transaction behavior,
+confidentiality, backup considerations and the orphan-cleanup dry-run command.
 
 ## VPS Work Still Required
 

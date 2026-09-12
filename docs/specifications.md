@@ -591,23 +591,26 @@ Development:
 
 Production:
 
-- target storage is S3-compatible;
-- provider can be selected later, for example Scaleway Object Storage, MinIO, AWS S3, or equivalent;
-- the current implementation still uses the local storage adapter and a persistent Docker volume;
-- the S3 adapter, object migration strategy, and delivery URL strategy remain to be implemented before this requirement is considered complete.
+- local filesystem storage on the single VPS is the accepted production choice;
+- a persistent Docker volume retains uploads across container replacements;
+- independent off-site backups and restoration testing are required;
+- S3 is not part of this deployment scope.
 
 Stored image types:
 
 - user avatars;
 - recipe main images.
 
-V1 upload endpoints accept multipart image files and return public paths. Direct JSON writes to image path fields should be rejected or ignored so MIME type and file size validation cannot be bypassed.
+V1 upload endpoints accept multipart image files and return storage paths.
+Recipe images follow exactly the recipe read permissions and are delivered by
+a protected API endpoint; avatars retain public delivery. Direct JSON writes to
+image path fields should be rejected or ignored so type and file size
+validation cannot be bypassed.
 
-The API should validate:
-
-- MIME type;
-- file size;
-- image dimensions if needed.
+The API validates byte size, supported image type, dimensions and pixel count
+before requiring a successful GD decode. Accepted images are resized and
+reencoded without original metadata. See [Local image storage](uploads.md) for
+limits, delivery rules and orphan maintenance.
 
 The frontend should render responsive image sizes where possible.
 
@@ -749,7 +752,7 @@ Implemented:
 Remaining before the V1 production launch:
 
 1. Implement the dynamic sitemap required by the SEO specification.
-2. Implement and select the S3-compatible production storage adapter, or formally accept and back up local upload storage.
+2. Configure off-site backups and retention for the accepted local upload storage.
 3. Provision the VPS and complete DNS, firewall, SSH hardening, real TLS, monitoring, log retention, and off-site backups.
 4. Test database and upload restoration on an isolated environment.
 5. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
@@ -761,7 +764,5 @@ The following details still require a product or infrastructure decision:
 
 - whether recipe and category slugs become immutable after publication;
 - maximum comment nesting depth in the UI;
-- final upload transformations and image dimension policy;
-- production S3-compatible provider and public object delivery strategy;
 - public recipe pagination versus infinite loading as the long-term interaction;
 - VPS provider, domain, monitoring provider, and off-site backup destination.

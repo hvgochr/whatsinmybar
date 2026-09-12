@@ -132,6 +132,7 @@ export interface ApiClient {
     create: (payload: RecipeAggregatePayload) => Promise<RecipeResource>
     delete: (slug: string) => Promise<RecipeResource>
     get: (slug: string) => Promise<RecipeResource>
+    imageFile: (path: string, signal?: AbortSignal) => Promise<Blob>
     image: (slug: string, file: Blob) => Promise<RecipeImageState>
     list: (params?: RecipeSearchParams) => Promise<ApiCollection<RecipeResource>>
     publish: (slug: string) => Promise<RecipeWorkflow>
@@ -280,6 +281,13 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       create: (payload) => request<RecipeResource>('/recipes/aggregate', { body: payload, method: 'POST' }),
       delete: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`, { method: 'DELETE' }),
       get: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`),
+      imageFile: (path, signal) => {
+        const filename = /^\/uploads\/recipes\/([a-f0-9]{32}\.(?:jpg|png|webp))$/.exec(path)?.[1]
+        if (!filename) {
+          return Promise.reject(new Error('Invalid recipe image path.'))
+        }
+        return request<Blob>(`/recipe-images/${filename}`, { responseType: 'blob', cache: 'no-store', signal })
+      },
       image: (slug, file) => upload<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, 'image', file),
       list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { query: recipeSearchQuery(params) }),
       publish: (slug) => request<RecipeWorkflow>(`/recipes/${encodeURIComponent(slug)}/publish`, { method: 'POST' }),

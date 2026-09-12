@@ -6,5 +6,12 @@
 :8080 {
 	root * /app/public
 	encode zstd gzip
+	# Only canonical avatar files are public; recipe files and temporary files
+	# must never bypass Symfony authorization.
+	@blockedUploads {
+		path /uploads/*
+		not path_regexp ^/uploads/avatars/[a-f0-9]{32}\.(jpg|png|webp)$
+	}
+	respond @blockedUploads 404
 	php_server
 }

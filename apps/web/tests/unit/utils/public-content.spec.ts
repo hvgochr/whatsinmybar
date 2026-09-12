@@ -18,10 +18,10 @@ describe('public content helpers', () => {
   })
 
   it.each([
-    ['/api', '/uploads/recipes/negroni.jpg'],
-    ['/api/', '/uploads/recipes/negroni.jpg'],
-    ['http://localhost:8080/api', 'http://localhost:8080/uploads/recipes/negroni.jpg'],
-    ['http://localhost:8080/api/', 'http://localhost:8080/uploads/recipes/negroni.jpg']
+    ['/api', '/api/recipe-images/negroni.jpg'],
+    ['/api/', '/api/recipe-images/negroni.jpg'],
+    ['http://localhost:8080/api', 'http://localhost:8080/api/recipe-images/negroni.jpg'],
+    ['http://localhost:8080/api/', 'http://localhost:8080/api/recipe-images/negroni.jpg']
   ])('normalizes upload image URLs with API base %s', (apiBaseUrl, expected) => {
     expect(imageUrl('/uploads/recipes/negroni.jpg', apiBaseUrl)).toBe(expected)
   })

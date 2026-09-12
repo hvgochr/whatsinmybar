@@ -87,3 +87,14 @@ jobs:
           --file "${{ matrix.dockerfile }}"
           --tag "whatsinmybar-${{ matrix.service }}:ci"
           .
+
+      - name: Check upload routing in isolated API containers
+        if: matrix.service == 'api'
+        run: |
+          docker run --rm --network none \
+            --volume "${PWD}/infra/docker/api/test-upload-routing.php:/tmp/test-upload-routing.php:ro" \
+            --entrypoint php whatsinmybar-api:ci /tmp/test-upload-routing.php
+          docker run --rm --network none \
+            --volume "${PWD}/infra/docker/api/test-upload-routing.php:/tmp/test-upload-routing.php:ro" \
+            --volume "${PWD}/infra/docker/api/Caddyfile:/tmp/development.Caddyfile:ro" \
+            --entrypoint php whatsinmybar-api:ci /tmp/test-upload-routing.php /tmp/development.Caddyfile 80

@@ -35,6 +35,8 @@ check-web:
 check-containers:
 	$(PROD_COMPOSE) config --quiet
 	docker build --target production --file infra/docker/api/Dockerfile --tag whatsinmybar-api:check .
+	docker run --rm --network none --volume "$(CURDIR)/infra/docker/api/test-upload-routing.php:/tmp/test-upload-routing.php:ro" --entrypoint php whatsinmybar-api:check /tmp/test-upload-routing.php
+	docker run --rm --network none --volume "$(CURDIR)/infra/docker/api/test-upload-routing.php:/tmp/test-upload-routing.php:ro" --volume "$(CURDIR)/infra/docker/api/Caddyfile:/tmp/development.Caddyfile:ro" --entrypoint php whatsinmybar-api:check /tmp/test-upload-routing.php /tmp/development.Caddyfile 80
 	docker build --target production --file infra/docker/web/Dockerfile --tag whatsinmybar-web:check .
 
 test-api:

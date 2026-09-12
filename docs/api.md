@@ -8,8 +8,8 @@ Base URL in Docker development:
 http://localhost:8080/api
 ```
 
-All endpoints return JSON. Custom controller responses use stable plain JSON
-objects.
+Endpoints return JSON except the protected recipe image delivery endpoint.
+Custom controller responses use stable plain JSON objects.
 
 API Platform supports both:
 
@@ -402,6 +402,37 @@ Validation errors include `violations`:
 }
 ```
 
+## Image uploads and delivery
+
+Avatar uploads accept at most 2 MiB; recipe images at most 5 MiB. Only decodable
+JPEG, PNG and WebP images are accepted, at most 4096 pixels per side and
+8,000,000 pixels total. Invalid images return `400 bad_request`. The API
+resizes and reencodes them (maximum output side 512 for avatars, 1600 for
+recipes) and strips original metadata. File paths remain server-generated and
+cannot be assigned through JSON writes.
+
+`POST /me/avatar`, `POST /recipes/{slug}/image`, and
+`DELETE /recipes/{slug}/image` keep their existing JSON shapes. Replacing or
+removing an image deletes the old unreferenced file only after database commit.
+A failed write cleans up the new file where the database can confirm rollback.
+
+```text
+GET|HEAD /recipe-images/{filename}
+```
+
+`imagePath` remains `/uploads/recipes/{filename}` in recipe JSON, but this is a
+storage identifier: direct HTTP access to it now returns 404. Construct delivery
+URLs using `/api/recipe-images/{filename}`. That endpoint checks the current
+recipe read permission (including age, workflow, moderation and deletion) and
+returns 404 for missing references or denied access. Send the normal Bearer
+header for authenticated access. Do not send tokens in URLs or use the refresh
+cookie as an image credential. Anonymous users can retrieve only images of
+recipes readable anonymously.
+
+Successful delivery returns image bytes with `image/jpeg`, `image/png` or
+`image/webp`, `Cache-Control: private, no-store` and
+`X-Content-Type-Options: nosniff`. Avatars keep their public `/uploads/avatars/`
+URLs. See [Local image storage](uploads.md) for operational details and limits.
 ## Recipe write invariants
 
 General recipe `POST` and `PATCH` accept only their declared writable fields.

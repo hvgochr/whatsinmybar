@@ -40,6 +40,7 @@ services:
             $publicPathPrefix: '%app.avatar_public_path_prefix%'
             $maxSizeBytes: 2097152
             $label: 'Avatar'
+            $outputDimension: 512
 
     app.upload.recipe_image_storage:
         class: App\Service\Upload\LocalImageStorage

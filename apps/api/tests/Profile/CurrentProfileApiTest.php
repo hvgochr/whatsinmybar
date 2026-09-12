@@ -166,9 +166,7 @@ final class CurrentProfileApiTest extends WebTestCase
         $filePath = tempnam(sys_get_temp_dir(), 'avatar-upload');
         self::assertIsString($filePath);
 
-        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', true);
-        self::assertIsString($png);
-        file_put_contents($filePath, $png);
+        imagepng(imagecreatetruecolor(2, 2), $filePath);
 
         return new UploadedFile($filePath, 'avatar.png', 'image/png', test: true);
     }

@@ -3,6 +3,7 @@ FROM dunglas/frankenphp:1-php8.4-bookworm AS base
 WORKDIR /app
 
 RUN install-php-extensions \
+    gd \
     intl \
     opcache \
     pdo_pgsql \
@@ -28,6 +29,7 @@ WORKDIR /app
 COPY apps/api/composer.json apps/api/composer.lock apps/api/symfony.lock ./
 
 RUN composer install \
+    --ignore-platform-req=ext-gd \
     --classmap-authoritative \
     --no-dev \
     --no-interaction \

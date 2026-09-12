@@ -87,8 +87,12 @@ identifier for compatibility with existing rows. Frontend URL construction maps
 it to the protected endpoint. Anonymous public images remain normal SSR `<img>`
 URLs, also suitable for public OpenGraph images. Authenticated viewers initially
 see the same placeholder on server and hydration, then fetch image Blobs through
-the existing Bearer/refresh API client. Object URLs stay in component memory and
-are revoked on image changes, logout and unmount. No tokens appear in image URLs
+the existing Bearer/refresh API client. Lazy images defer that request until
+within 200 pixels of the viewport; eager images load immediately. Browsers
+without IntersectionObserver fall back to immediate loading. Pending observers
+are disconnected when the image or viewer changes or the component unmounts.
+Object URLs stay in component memory and are revoked on image changes, logout
+and unmount. No tokens appear in image URLs
 or persistent browser storage. Restricted OpenGraph URLs also require access;
 anonymous crawlers cannot retrieve them. Avatars retain public delivery.
 

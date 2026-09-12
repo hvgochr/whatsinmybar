@@ -45,6 +45,7 @@ final class LocalImageStorageTest extends TestCase
         self::assertFileDoesNotExist($this->directory.'/'.basename($path));
     }
 
+    /** @return iterable<array{string}> */
     public static function formats(): iterable
     {
         yield ['jpeg'];
@@ -60,6 +61,7 @@ final class LocalImageStorageTest extends TestCase
         $storage->store($this->upload($bytes));
     }
 
+    /** @return iterable<array{string}> */
     public static function invalidImages(): iterable
     {
         yield 'empty' => [''];
@@ -83,6 +85,7 @@ final class LocalImageStorageTest extends TestCase
         (new LocalImageStorage($this->directory, '/uploads/test', 1024, 'Test'))->store($this->upload($bytes));
     }
 
+    /** @return iterable<array{int, int}> */
     public static function dimensionLimits(): iterable
     {
         yield [4097, 1];

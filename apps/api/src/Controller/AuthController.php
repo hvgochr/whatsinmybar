@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Service\Account\PasswordChanger;
 use App\Service\Upload\AvatarStorageInterface;
+use App\Service\Upload\ImageReplacement;
 use App\Service\UserAccountAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -84,7 +85,7 @@ final class AuthController extends AbstractController
         Request $request,
         #[CurrentUser] ?User $user,
         AvatarStorageInterface $avatarStorage,
-        EntityManagerInterface $entityManager,
+        ImageReplacement $images,
     ): JsonResponse {
         if (!$user instanceof User) {
             return $this->json(['message' => 'Authentication required.'], JsonResponse::HTTP_UNAUTHORIZED);
@@ -95,8 +96,7 @@ final class AuthController extends AbstractController
             throw new BadRequestHttpException('Avatar file is required.');
         }
 
-        $user->setAvatarPath($avatarStorage->store($avatar));
-        $entityManager->flush();
+        $images->replace($user, $avatarStorage, $avatar);
 
         return $this->json($this->userPayload($user));
     }

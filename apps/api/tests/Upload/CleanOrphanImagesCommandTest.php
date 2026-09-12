@@ -4,6 +4,7 @@ namespace App\Tests\Upload;
 
 use App\Command\CleanOrphanImagesCommand;
 use App\Entity\User;
+use App\Service\Upload\AvatarStorageInterface;
 use App\Service\Upload\LocalImageStorage;
 use App\Service\Upload\UploadLock;
 use Doctrine\ORM\EntityManagerInterface;
@@ -50,6 +51,17 @@ final class CleanOrphanImagesCommandTest extends KernelTestCase
             foreach ([$old, $recent, $referenced, $partial, 'unknown.txt'] as $name) {
                 self::assertFileExists($directory.'/'.$name);
             }
+            self::assertSame(0, $tester->execute(['--grace-hours' => '72']));
+            self::assertStringContainsString('0 eligible orphan(s)', $tester->getDisplay());
+            self::assertSame(0, $tester->execute([]));
+            self::assertStringContainsString('DRY-RUN', $tester->getDisplay());
+            // Exercise --delete against a mock: never purge real upload files.
+            $mockStorage = $this->createMock(AvatarStorageInterface::class);
+            $mockStorage->method('files')->willReturn(['/uploads/test/'.$old => time() - 48 * 3600]);
+            $mockStorage->expects(self::once())->method('remove')->with('/uploads/test/'.$old);
+            $deleteTester = new CommandTester(new CleanOrphanImagesCommand($em, $mockStorage, $recipes, new UploadLock($directory.'/.lock')));
+            self::assertSame(0, $deleteTester->execute(['--delete' => true]));
+            self::assertFileExists($directory.'/'.$old);
             self::assertSame(2, $tester->execute(['--grace-hours' => '0']));
             self::assertSame(2, $tester->execute(['--dry-run' => true, '--delete' => true]));
         } finally {

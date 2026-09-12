@@ -93,6 +93,22 @@ final class LocalImageStorageTest extends TestCase
         yield [3000, 3000];
     }
 
+    public function testTruncatedJpegIsRejected(): void
+    {
+        $source = $this->directory.'/complete.jpg';
+        imagejpeg(imagecreatetruecolor(20, 20), $source);
+        $bytes = file_get_contents($source);
+        self::assertIsString($bytes);
+        $this->expectException(BadRequestHttpException::class);
+        (new LocalImageStorage($this->directory, '/uploads/test', 10000, 'Test'))->store($this->upload(substr($bytes, 0, -30)));
+    }
+
+    public function testTransportFailureIsRejected(): void
+    {
+        $this->expectException(BadRequestHttpException::class);
+        (new LocalImageStorage($this->directory, '/uploads/test', 10000, 'Test'))->store(new UploadedFile('', 'image.png', error: UPLOAD_ERR_INI_SIZE, test: true));
+    }
+
     public function testRemovalCannotEscapeStorageOrFollowSymlinks(): void
     {
         $storage = new LocalImageStorage($this->directory, '/uploads/test', 1024, 'Test');

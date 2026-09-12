@@ -101,6 +101,35 @@ final class ImageReplacementTest extends KernelTestCase
         self::assertSame($old, $em->getConnection()->fetchOne('SELECT '.$column.' FROM '.$table.' WHERE id = ?', [$owner->getId()]));
     }
 
+    public function testLostCommitAcknowledgementDoesNotDeleteCommittedImage(): void
+    {
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->owner($em, false);
+        $storage = new LocalImageStorage($this->directory, '/uploads/test', 10000, 'Test');
+        $old = $storage->store($this->upload());
+        $this->setPath($owner, $old);
+        $em->flush();
+        $uncertain = $this->createMock(EntityManagerInterface::class);
+        $uncertain->expects(self::atLeastOnce())->method('getConnection')->willReturn($em->getConnection());
+        $uncertain->expects(self::once())->method('refresh')->willReturnCallback($em->refresh(...));
+        $uncertain->expects(self::once())->method('wrapInTransaction')->willReturnCallback(static function (callable $work) use ($em): never {
+            $em->wrapInTransaction($work);
+            throw new \RuntimeException('Commit acknowledgement lost');
+        });
+        try {
+            (new ImageReplacement($uncertain, new NullLogger(), new UploadLock($this->directory.'/.lock')))->replace($owner, $storage, $this->upload());
+            self::fail('Expected lost acknowledgement.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Commit acknowledgement lost', $e->getMessage());
+        }
+        $em->refresh($owner);
+        $new = $this->path($owner);
+        self::assertIsString($new);
+        self::assertNotSame($old, $new);
+        self::assertFileExists($this->directory.'/'.basename($new));
+        self::assertFileExists($this->directory.'/'.basename($old));
+    }
+
     /** @return iterable<array{bool}> */
     public static function owners(): iterable
     {

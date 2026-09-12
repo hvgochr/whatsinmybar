@@ -11,7 +11,7 @@ use ApiPlatform\Metadata\Post;
 use App\Enum\IngredientUnit;
 use App\Repository\RecipeIngredientRepository;
 use App\Security\RecipeAccess;
-use App\State\RecipeIngredientProcessor;
+use App\State\RecipePartProcessor;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -22,13 +22,13 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new GetCollection(security: "is_granted('ROLE_ADMIN')"),
-        new Post(security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipeIngredientProcessor::class),
+        new Post(denormalizationContext: ['groups' => ['recipe_ingredient:write', 'recipe_ingredient:create'], 'allow_extra_attributes' => false], security: "is_granted('ROLE_USER')", securityPostDenormalize: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipePartProcessor::class),
         new Get(security: "object.getRecipe() and is_granted('".RecipeAccess::View."', object.getRecipe())"),
-        new Patch(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipeIngredientProcessor::class),
-        new Delete(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipeIngredientProcessor::class),
+        new Patch(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipePartProcessor::class),
+        new Delete(security: "object.getRecipe() and is_granted('".RecipeAccess::Manage."', object.getRecipe())", processor: RecipePartProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe_ingredient:read']],
-    denormalizationContext: ['groups' => ['recipe_ingredient:write']],
+    denormalizationContext: ['groups' => ['recipe_ingredient:write'], 'allow_extra_attributes' => false],
 )]
 class RecipeIngredient
 {
@@ -40,10 +40,12 @@ class RecipeIngredient
 
     #[ORM\ManyToOne(inversedBy: 'recipeIngredients')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    #[Groups(['recipe_ingredient:read', 'recipe_ingredient:write'])]
+    #[Groups(['recipe_ingredient:read', 'recipe_ingredient:create'])]
+    #[Assert\NotNull]
     private ?Recipe $recipe = null;
 
     #[ORM\ManyToOne]
+    #[Assert\NotNull]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(['recipe:read', 'recipe_ingredient:read', 'recipe_ingredient:write'])]
     private ?Ingredient $ingredient = null;

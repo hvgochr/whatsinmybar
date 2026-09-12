@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Recipe;
 use App\Repository\RecipeRepository;
 use App\Security\RecipeAccess;
+use App\Service\RecipePublicationValidator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -13,11 +14,12 @@ use Symfony\Component\Routing\Attribute\Route;
 final class RecipeWorkflowController extends AbstractController
 {
     #[Route('/api/recipes/{slug}/publish', name: 'api_recipe_publish', methods: ['POST'])]
-    public function publish(string $slug, RecipeRepository $recipeRepository, EntityManagerInterface $entityManager): JsonResponse
+    public function publish(string $slug, RecipeRepository $recipeRepository, EntityManagerInterface $entityManager, RecipePublicationValidator $publicationValidator): JsonResponse
     {
         $recipe = $this->findRecipe($slug, $recipeRepository);
         $this->denyAccessUnlessGranted(RecipeAccess::Manage, $recipe);
 
+        $publicationValidator->validate($recipe);
         $recipe->publish();
         $entityManager->flush();
 

@@ -43,7 +43,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         new Delete(security: "is_granted('".RecipeAccess::Manage."', object)", processor: RecipeProcessor::class),
     ],
     normalizationContext: ['groups' => ['recipe:read']],
-    denormalizationContext: ['groups' => ['recipe:write']],
+    denormalizationContext: ['groups' => ['recipe:write'], 'allow_extra_attributes' => false],
 )]
 class Recipe
 {
@@ -125,7 +125,7 @@ class Recipe
     private ?\DateTimeImmutable $deletedAt = null;
 
     #[ORM\Column(length: 30, enumType: RecipeModerationStatus::class, options: ['default' => 'visible'])]
-    #[Groups(['recipe:read', 'recipe:write'])]
+    #[Groups(['recipe:read'])]
     private RecipeModerationStatus $moderationStatus = RecipeModerationStatus::Visible;
 
     #[ORM\Column(options: ['default' => 0])]

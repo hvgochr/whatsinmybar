@@ -28,7 +28,6 @@ final class RecipeApiTest extends WebTestCase
             'preparationTimeMinutes' => 5,
             'servings' => 1,
             'status' => 'draft',
-            'imagePath' => '/uploads/recipes/manual.jpg',
             'categories' => ['/api/categories/'.$category->getSlug()],
         ], server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
@@ -64,7 +63,6 @@ final class RecipeApiTest extends WebTestCase
         $client->jsonRequest('POST', '/api/recipes', [
             'title' => sprintf('Protected Override %s', $suffix),
             'description' => 'A recipe whose classification is controlled by administrators.',
-            'containsAlcoholOverride' => true,
         ], server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
         ]);
@@ -86,8 +84,9 @@ final class RecipeApiTest extends WebTestCase
             'CONTENT_TYPE' => 'application/merge-patch+json',
         ]);
 
-        self::assertResponseIsSuccessful();
-        self::assertTrue($this->jsonResponse($client)['containsAlcoholOverride']);
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        self::assertTrue(static::getContainer()->get(EntityManagerInterface::class)->getRepository(\App\Entity\Recipe::class)->findOneBy(['slug' => $slug])->getContainsAlcoholOverride());
     }
 
     public function testPublishedRecipeIsVisibleInPublicCollection(): void
@@ -98,13 +97,15 @@ final class RecipeApiTest extends WebTestCase
         $suffix = bin2hex(random_bytes(4));
         $slug = sprintf('public-negroni-%s', $suffix);
 
-        $client->jsonRequest('POST', '/api/recipes', [
+        $client->jsonRequest('POST', '/api/recipes/aggregate', [
             'title' => sprintf('Public Negroni %s', $suffix),
             'description' => 'A published cocktail.',
             'difficulty' => 'easy',
             'preparationTimeMinutes' => 3,
             'servings' => 1,
-            'status' => 'published',
+            'categories' => [],
+            'steps' => [['instruction' => 'Mix.']],
+            'ingredients' => [$this->aggregateIngredient($this->createIngredient(false), '30')],
         ], server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
         ]);
@@ -113,8 +114,10 @@ final class RecipeApiTest extends WebTestCase
 
         $recipe = $this->jsonResponse($client);
         self::assertSame($slug, $recipe['slug']);
-        self::assertSame('published', $recipe['status']);
-        self::assertNotNull($recipe['publishedAt']);
+        $client->request('POST', '/api/recipes/'.$slug.'/publish', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$token]);
+        self::assertResponseIsSuccessful();
+        self::assertSame('published', $this->jsonResponse($client)['status']);
+        self::assertNotNull($this->jsonResponse($client)['publishedAt']);
 
         $client->request('GET', '/api/recipes?pagination=false');
 

@@ -69,6 +69,10 @@ Seed local development data:
 docker compose exec api php bin/console app:seed:dev
 ```
 
+The seed adds ordered preparation steps to the published Negroni and Lime Soda,
+including missing positions in previously loaded seed data. Rerunning it does
+not duplicate steps, replace existing instructions or reset moderation status.
+
 Seeded accounts use the password `very-secure-password`.
 
 Uploaded files are stored in the `api_uploads` Docker volume mounted at:

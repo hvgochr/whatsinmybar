@@ -118,6 +118,22 @@ Recipe statuses:
 
 Recipe deletion is soft deletion.
 
+Publication requires valid recipe metadata, at least one valid preparation step,
+and at least one valid measured ingredient. Positions must be positive and unique
+within each ordered collection. These conditions apply to every publication
+endpoint and must remain true when published content is edited. Administrators
+can still protect legacy incomplete published content by hiding, removing,
+archiving, soft-deleting or correcting its alcohol classification. Publishing or
+restoring public moderation visibility requires valid content. Drafts created
+through individual operations can be assembled incrementally; the aggregate
+editor retains its complete-payload requirement.
+
+A step or measured ingredient cannot be reassigned to another recipe through
+API updates. Recipe moderation status is writable only through administrator
+operations. Alcohol access checks apply to the proposed state of a write before
+persistence and serialization, including creation and ingredient replacement.
+Refused writes must not change persisted data.
+
 ### 3.5 Comments
 
 Authenticated users can comment on published recipes.

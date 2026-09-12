@@ -2,7 +2,10 @@
 
 namespace App\Tests\Recipe;
 
+use App\Entity\Ingredient;
 use App\Entity\Recipe;
+use App\Entity\RecipeIngredient;
+use App\Entity\RecipeStep;
 use App\Entity\User;
 use App\Enum\RecipeStatus;
 use App\Repository\RecipeRepository;
@@ -161,6 +164,16 @@ final class RecipeWorkflowApiTest extends WebTestCase
         $recipe->setStatus($status);
 
         $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $ingredient = new Ingredient();
+        $ingredient->setName('Juice '.bin2hex(random_bytes(6)));
+        $entityManager->persist($ingredient);
+        $step = new RecipeStep();
+        $step->setInstruction('Stir with ice.');
+        $recipe->addStep($step);
+        $part = new RecipeIngredient();
+        $part->setIngredient($ingredient);
+        $part->setQuantity('30');
+        $recipe->addRecipeIngredient($part);
         $entityManager->persist($recipe);
         $entityManager->flush();
 

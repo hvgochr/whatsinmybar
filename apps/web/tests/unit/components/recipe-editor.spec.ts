@@ -102,7 +102,7 @@ describe('RecipeEditor aggregate saves', () => {
 
     expect(mocks.update).toHaveBeenCalledOnce()
     expect(mocks.image).not.toHaveBeenCalled()
-    expect(wrapper.find('img[alt="Highball"]').attributes('src')).toContain('/uploads/recipes/existing.jpg')
+    expect(wrapper.find('img[alt="Highball"]').attributes('src')).toContain('/api/recipe-images/existing.jpg')
   })
 })
 

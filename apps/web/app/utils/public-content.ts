@@ -86,6 +86,10 @@ export function imageUrl(path: string | null | undefined, apiBaseUrl: string): s
     return path
   }
 
+  if (path.startsWith('/uploads/recipes/')) {
+    return `${apiBaseUrl.replace(/\/$/, '')}/recipe-images/${encodeURIComponent(path.slice('/uploads/recipes/'.length))}`
+  }
+
   if (path.startsWith('/uploads/')) {
     if (!/^https?:\/\//.test(apiBaseUrl)) {
       return path

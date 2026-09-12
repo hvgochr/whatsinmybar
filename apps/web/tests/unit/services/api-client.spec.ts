@@ -15,6 +15,21 @@ const user: User = {
 }
 
 describe('api client', () => {
+  it('fetches recipe image bytes with Bearer auth and no cache', async () => {
+    const blob = new Blob(['image'], { type: 'image/png' })
+    const fetch = vi.fn(async (_path: string, options?: Record<string, unknown>) => {
+      expect((options?.headers as Headers).get('Authorization')).toBe('Bearer access-token')
+      expect(options?.responseType).toBe('blob')
+      expect(options?.cache).toBe('no-store')
+      return blob
+    })
+    const api = createTestClient(fetch, { accessToken: 'access-token' })
+    await expect(api.recipes.imageFile(`/uploads/recipes/${'a'.repeat(32)}.png`)).resolves.toBe(blob)
+    expect(fetch).toHaveBeenCalledWith(`/recipe-images/${'a'.repeat(32)}.png`, expect.anything())
+    await expect(api.recipes.imageFile('https://example.com/steal-token')).rejects.toThrow('Invalid recipe image path')
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('adds the bearer token to authenticated requests', async () => {
     const fetch = vi.fn(async (_path: string, options?: Record<string, unknown>) => {
       expect((options?.headers as Headers).get('Authorization')).toBe('Bearer access-token')

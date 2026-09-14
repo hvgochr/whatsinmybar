@@ -121,12 +121,16 @@ createServer((request, response) => {
   }
 
   if (url.pathname === '/api/auth/refresh' && request.method === 'POST') {
+    if (request.headers.cookie?.includes('refresh_token=temporary-session')) return apiError(response, 503, 'Temporarily unavailable.')
+    if (request.headers.cookie?.includes('refresh_token=timeout-session')) {
+      setTimeout(() => apiError(response, 503, 'Too late.'), 5000)
+      return
+    }
     if (/refresh_token=(?:valid|rotated)-session/.test(request.headers.cookie ?? '')) {
       response.setHeader('Set-Cookie', 'refresh_token=rotated-session; Path=/; HttpOnly; SameSite=Strict')
       return json(response, 200, { token: 'adult-access-token' })
     }
 
-    response.setHeader('Set-Cookie', 'refresh_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict')
     return apiError(response, 401, 'No refresh session.')
   }
 

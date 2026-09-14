@@ -143,7 +143,86 @@ describe('api client', () => {
       status: 401
     })
     expect(state).toEqual({ accessToken: null })
-    expect(fetch).toHaveBeenCalledWith('/auth/logout', expect.objectContaining({ credentials: 'include' }))
+    expect(fetch.mock.calls.some(([path]) => path === '/auth/logout')).toBe(false)
+  })
+
+  it.each([0, 408, 429, 500, 502, 503, 504, 403])('preserves credentials on refresh failure %s without logout', async (status) => {
+    const state = { accessToken: 'existing-token' }
+    const fetch = vi.fn(async () => { throw { status } })
+    const api = createTestClient(fetch, state)
+    await expect(api.auth.refresh()).rejects.toMatchObject({ status })
+    expect(state.accessToken).toBe('existing-token')
+    await expect(api.auth.refresh()).rejects.toMatchObject({ status })
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it('falls back to anonymous public reads after a temporary refresh failure', async () => {
+    const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
+      if (path === '/auth/refresh') throw { status: 503 }
+      if ((options?.headers as Headers).has('Authorization')) throw unauthorizedError()
+      return []
+    })
+    const api = createTestClient(fetch, { accessToken: 'expired' })
+    await expect(api.recipes.list()).resolves.toEqual([])
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('rejects a second 401 and clears the session without looping', async () => {
+    const state = { accessToken: 'expired' }
+    const fetch = vi.fn(async (path: string) => {
+      if (path === '/auth/refresh') return { token: 'rejected-too' }
+      throw unauthorizedError()
+    })
+    const api = createTestClient(fetch, state)
+    await expect(api.account.me()).rejects.toMatchObject({ status: 401 })
+    expect(state.accessToken).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not restore a token after logout overtakes a pending refresh', async () => {
+    let finish!: (tokens: AuthTokens) => void
+    const fetch = vi.fn(() => new Promise<AuthTokens>((resolve) => { finish = resolve }))
+    const state = { accessToken: 'expired' }
+    const api = createTestClient(fetch, state)
+    const pending = api.auth.refresh()
+    api.clearTokens()
+    finish({ token: 'late-token' })
+    await expect(pending).rejects.toMatchObject({ code: 'session_changed' })
+    expect(state.accessToken).toBeNull()
+  })
+
+  it('discards personalized responses from a previous session', async () => {
+    let finish!: (value: User) => void
+    const api = createTestClient(() => new Promise<User>((resolve) => { finish = resolve }), { accessToken: 'old-user' })
+    const pending = api.account.me()
+    api.setTokens({ token: 'other-user' })
+    finish(user)
+    await expect(pending).rejects.toMatchObject({ code: 'session_changed' })
+  })
+
+  it('sets finite deadlines and disables implicit retries', async () => {
+    const fetch = vi.fn(async () => ({ token: 'token' }))
+    const api = createTestClient(fetch, { accessToken: null })
+    await api.auth.refresh()
+    await api.account.me()
+    expect(fetch).toHaveBeenNthCalledWith(1, '/auth/refresh', expect.objectContaining({ timeout: 3000, retry: 0, cache: 'no-store' }))
+    expect(fetch).toHaveBeenNthCalledWith(2, '/me', expect.objectContaining({ timeout: 8000, retry: 0 }))
+    expect(normalizeApiError({ cause: { name: 'TimeoutError' } }).code).toBe('timeout')
+  })
+
+  it('honors the deadline even when a caller supplies an abort signal', async () => {
+    const fetch = vi.fn((_path: string, options?: Record<string, unknown>) => new Promise((_resolve, reject) => {
+      const signal = options?.signal as AbortSignal
+      signal.addEventListener('abort', () => reject({ cause: signal.reason }), { once: true })
+    }))
+    const api = createTestClient(fetch, { accessToken: null })
+    await expect(api.request('/slow', { auth: false, timeout: 20, signal: new AbortController().signal })).rejects.toMatchObject({ code: 'timeout' })
+  })
+
+  it('honors Retry-After on rate limiting', async () => {
+    const error = normalizeApiError({ response: { status: 429, headers: new Headers({ 'Retry-After': '120' }) } })
+    expect(error.status).toBe(429)
+    expect(error.retryAfterMs).toBe(120_000)
   })
 
   it('exposes public taxonomy and profile endpoints without bearer tokens', async () => {

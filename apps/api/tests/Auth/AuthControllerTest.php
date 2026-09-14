@@ -2,6 +2,8 @@
 
 namespace App\Tests\Auth;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\BrowserKit\Cookie as BrowserCookie;
@@ -57,6 +59,7 @@ final class AuthControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
+        self::assertResponseHeaderSame('Cache-Control', 'no-store, private');
         $profile = $this->jsonResponse($client);
         self::assertSame($email, $profile['email']);
         self::assertSame($username, $profile['username']);
@@ -81,7 +84,17 @@ final class AuthControllerTest extends WebTestCase
         $this->setRefreshTokenCookie($client, $loginRefreshToken);
         $client->jsonRequest('POST', '/api/auth/refresh', [], $this->cookieRequestHeaders());
 
+        self::assertResponseIsSuccessful();
+        self::assertSame($rotatedRefreshToken, $this->refreshTokenCookie($client)->getValue());
+
+        static::getContainer()->get(Connection::class)->executeStatement(
+            'UPDATE refresh_tokens SET rotation_grace_until = ? WHERE refresh_token = ?',
+            [time() - 1, $rotatedRefreshToken],
+        );
+        $this->setRefreshTokenCookie($client, $loginRefreshToken);
+        $client->jsonRequest('POST', '/api/auth/refresh', [], $this->cookieRequestHeaders());
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+        self::assertSame([], $client->getResponse()->headers->getCookies());
 
         $this->setRefreshTokenCookie($client, $rotatedRefreshToken);
         $client->jsonRequest('POST', '/api/auth/logout', [], $this->cookieRequestHeaders());
@@ -129,6 +142,35 @@ final class AuthControllerTest extends WebTestCase
         $client->jsonRequest('POST', '/api/auth/refresh', [], $this->cookieRequestHeaders());
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+    }
+
+    public function testLockTimeoutDoesNotConsumeOrClearRefreshCookie(): void
+    {
+        $client = static::createClient();
+        $suffix = bin2hex(random_bytes(6));
+        $credentials = ['email' => "lock-$suffix@example.com", 'password' => 'very-secure-password'];
+        $client->jsonRequest('POST', '/api/auth/register', $credentials + [
+            'username' => "lock_$suffix", 'birthDate' => '1990-01-01',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+        $client->jsonRequest('POST', '/api/auth/login', $credentials, ['HTTPS' => 'on']);
+        $cookie = $this->refreshTokenCookie($client)->getValue();
+        $connection = static::getContainer()->get(Connection::class);
+        $blocker = DriverManager::getConnection($connection->getParams());
+        $blocker->beginTransaction();
+        try {
+            $blocker->executeQuery('SELECT id FROM refresh_tokens WHERE refresh_token = ? FOR UPDATE', [$cookie]);
+            $client->jsonRequest('POST', '/api/auth/refresh', [], $this->cookieRequestHeaders());
+            self::assertResponseStatusCodeSame(503);
+            self::assertResponseHeaderSame('Retry-After', '2');
+            self::assertSame([], $client->getResponse()->headers->getCookies());
+        } finally {
+            $blocker->rollBack();
+            $blocker->close();
+        }
+        $client->jsonRequest('POST', '/api/auth/refresh', [], $this->cookieRequestHeaders());
+        self::assertResponseIsSuccessful();
+        self::assertNotSame($cookie, $this->refreshTokenCookie($client)->getValue());
     }
 
     public function testRegistrationValidationErrorsAreReturned(): void

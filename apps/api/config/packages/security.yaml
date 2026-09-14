@@ -31,11 +31,6 @@ security:
             stateless: true
             provider: app_user_provider
             user_checker: App\Security\DeletedUserChecker
-            refresh-jwt:
-                check_path: /api/auth/refresh
-                invalidate_token_on_logout: true
-            logout:
-                path: api_auth_logout
         api:
             pattern: ^/api
             stateless: true

@@ -451,8 +451,8 @@ Preferred frontend security approach:
 
 The final V1 transport keeps the access token in Nuxt memory and the refresh
 token in a host-only, HttpOnly cookie scoped to `/api/auth`. The cookie uses
-`SameSite=Strict` and is `Secure` in production. Refresh tokens are single-use
-and rotate on refresh; their values are omitted from JSON responses. Refresh
+`SameSite=Strict` and is `Secure` in production. Refresh tokens rotate on refresh
+with a fixed 10-second repeat window for concurrent requests (see `docs/api.md`); their values are omitted from JSON responses. Refresh
 and logout require a custom anti-CSRF header and credentialed, origin-restricted
 CORS. Server-side logout revokes the current refresh token, and password changes
 revoke every refresh token for the account.

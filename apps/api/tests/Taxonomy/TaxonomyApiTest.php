@@ -146,7 +146,7 @@ final class TaxonomyApiTest extends WebTestCase
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<array-key, mixed>
      */
     private function jsonResponse(KernelBrowser $client): array
     {

@@ -5,7 +5,7 @@ import PublicPageHeader from '../../components/common/PublicPageHeader.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
 import RecipeSearchPanel from '../../components/recipes/RecipeSearchPanel.vue'
 import { collectionItems, collectionLastPage, collectionTotal } from '../../utils/api-collections'
-import { paginationState } from '../../utils/pagination'
+import { pageLocation, paginationState } from '../../utils/pagination'
 import { publicDescription, publicUrl } from '../../utils/public-content'
 import { activeRecipeFilters, cleanRecipeSearchQuery, recipeSearchStateFromQuery } from '../../utils/recipe-search'
 import type { RecipeSearchState } from '../../utils/recipe-search'
@@ -86,7 +86,7 @@ function filterRemovalTo(key: string) {
 }
 
 function categoryPageTo(page: number) {
-  return { path: `/categories/${slug.value}`, query: categoryQuery({ ...searchState.value, page }) }
+  return { ...pageLocation(route.path, route.query, page), hash: route.hash }
 }
 
 function categoryQuery(state: RecipeSearchState) {

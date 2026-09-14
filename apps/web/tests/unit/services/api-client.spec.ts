@@ -24,6 +24,17 @@ describe('api client', () => {
     await createTestClient(fetch, { accessToken: null }).recipes.list({ page: 2, category: 'classics', alcohol: 'without' })
   })
 
+  it('loads an ingredient directly by its encoded slug', async () => {
+    const ingredient = { slug: 'ingredient-65', name: 'Ingredient 65' }
+    const fetch = vi.fn(async (path: string, options?: Record<string, unknown>) => {
+      expect(path).toBe('/ingredients/ingredient%2065')
+      expect((options?.headers as Headers).get('Authorization')).toBeNull()
+      return ingredient
+    })
+    await expect(createTestClient(fetch, { accessToken: 'token' }).ingredients.get('ingredient 65')).resolves.toEqual(ingredient)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('fetches recipe image bytes with Bearer auth and no cache', async () => {
     const blob = new Blob(['image'], { type: 'image/png' })
     const fetch = vi.fn(async (_path: string, options?: Record<string, unknown>) => {

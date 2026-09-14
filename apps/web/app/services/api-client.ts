@@ -122,6 +122,7 @@ export interface ApiClient {
     remove: (recipeSlug: string) => Promise<FavoriteState>
   }
   ingredients: {
+    get: (slug: string) => Promise<Ingredient>
     list: () => Promise<ApiCollection<Ingredient>>
   }
   profiles: {
@@ -271,6 +272,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       remove: (recipeSlug) => request<FavoriteState>(`/recipes/${encodeURIComponent(recipeSlug)}/favorite`, { method: 'DELETE' })
     },
     ingredients: {
+      get: (slug) => request<Ingredient>(`/ingredients/${encodeURIComponent(slug)}`, { auth: false }),
       list: () => request<ApiCollection<Ingredient>>('/ingredients', { auth: false, query: { pagination: false } })
     },
     profiles: {
@@ -289,7 +291,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
         return request<Blob>(`/recipe-images/${filename}`, { responseType: 'blob', cache: 'no-store', signal })
       },
       image: (slug, file) => upload<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, 'image', file),
-      list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { query: recipeSearchQuery(params) }),
+      list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { headers: { Accept: 'application/ld+json' }, query: recipeSearchQuery(params) }),
       publish: (slug) => request<RecipeWorkflow>(`/recipes/${encodeURIComponent(slug)}/publish`, { method: 'POST' }),
       removeImage: (slug) => request<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, { method: 'DELETE' }),
       update: (slug, payload) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}/aggregate`, { body: payload, method: 'PUT' })

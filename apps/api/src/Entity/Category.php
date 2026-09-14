@@ -23,7 +23,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity(fields: ['slug'])]
 #[ApiResource(
     operations: [
-        new GetCollection(),
+        new GetCollection(paginationClientEnabled: true),
         new Post(security: "is_granted('ROLE_ADMIN')"),
         new Get(),
         new Patch(security: "is_granted('ROLE_ADMIN')"),

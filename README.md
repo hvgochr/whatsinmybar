@@ -84,10 +84,10 @@ remain in the developer's local Codex configuration.
 
 ## Production Status
 
-The repository contains locally validated multi-stage production images,
-Docker Compose orchestration, Caddy HTTPS routing, healthchecks, persistent
-volumes, and a manual deployment runbook.
+The production setup targets the shared OVH VPS and Caddy proxy, with two
+GHCR images pinned by digest, persistent uploads and abuse counters, a manual
+deployment script, and prepared backup/maintenance timers.
 
-A public production launch still requires a VPS and domain, monitoring, security
-hardening, off-site database and local upload backups, dynamic sitemap
-generation, and final deployment acceptance testing.
+See [the production runbook](docs/docker-prod.md) for required network settings,
+secrets, off-site backups, restore drills and monitoring. These must be configured
+and verified before public launch; no workflow deploys the application.

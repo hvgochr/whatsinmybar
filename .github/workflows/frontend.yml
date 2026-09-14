@@ -5,12 +5,16 @@ on:
     paths:
       - ".github/workflows/frontend.yml"
       - "apps/web/**"
+      - "compose.prod.yaml"
+      - "infra/**"
   push:
     branches:
       - main
     paths:
       - ".github/workflows/frontend.yml"
       - "apps/web/**"
+      - "compose.prod.yaml"
+      - "infra/**"
 
 permissions:
   contents: read

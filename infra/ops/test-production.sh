@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# CI-only disposable stack. Never run against the VPS or an existing proxy network.
+set -euo pipefail
+[[ "${GITHUB_ACTIONS:-}" == true ]]
+if docker network inspect proxy >/dev/null 2>&1; then
+  echo "Refusing to reuse an existing proxy network." >&2
+  exit 1
+fi
+temporary=$(mktemp -d)
+export API_IMAGE=whatsinmybar-api:check WEB_IMAGE=whatsinmybar-web:check
+export CADDY_PROXY_IP=172.30.73.2
+export APP_SECRET JWT_SECRET POSTGRES_PASSWORD DATABASE_URL
+APP_SECRET=$(openssl rand -hex 32)
+JWT_SECRET=$(openssl rand -hex 32)
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+DATABASE_URL="postgresql://whatsinmybar:$POSTGRES_PASSWORD@postgres:5432/whatsinmybar?serverVersion=16&charset=utf8"
+compose() { docker compose -p whatsinmybar-ci --env-file .env.prod.example -f compose.prod.yaml "$@"; }
+cleanup() {
+  status=$?
+  if (( status != 0 )); then compose logs --tail=50; fi
+  compose down -v || true
+  docker rm -f whatsinmybar-ci-caddy >/dev/null 2>&1 || true
+  docker network rm proxy >/dev/null || true
+  rm -rf -- "$temporary"
+  exit "$status"
+}
+trap cleanup EXIT
+docker network create --subnet 172.30.73.0/24 proxy
+# Only change the public listener; exercise the committed routing/header rules.
+sed 's/^whatsinmybar.charradehugo.com {/:80 {/' infra/caddy/Caddyfile.prod > "$temporary/Caddyfile"
+docker run -d --name whatsinmybar-ci-caddy --network proxy --ip "$CADDY_PROXY_IP" \
+  -v "$temporary/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine
+docker pull curlimages/curl:latest
+compose up -d --wait --wait-timeout 120 postgres
+compose run --rm --no-deps -T api php bin/console doctrine:migrations:migrate --no-interaction
+compose up -d --wait --wait-timeout 180 api web
+
+request() {
+  docker run --rm --network proxy --ip "$1" curlimages/curl:latest \
+    --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' \
+    -H "X-Forwarded-For: $3" -H 'Forwarded: for=198.51.100.8' -H 'X-Real-IP: 198.51.100.9' \
+    -H 'Content-Type: application/json' \
+    --data '{"email":"proxy-ci@example.invalid","password":"invalid"}' "$2"
+}
+url=http://whatsinmybar-ci-caddy/api/auth/login
+for attempt in {1..8}; do
+  [[ "$(request 172.30.73.10 "$url" "198.51.100.$attempt")" == 401 ]]
+done
+[[ "$(request 172.30.73.10 "$url" 203.0.113.1)" == 429 ]]
+[[ "$(request 172.30.73.11 "$url" 203.0.113.1)" == 401 ]]
+
+# Symfony must also ignore spoofed headers from another shared-network container.
+[[ "$(request 172.30.73.10 http://whatsinmybar-api:8080/api/auth/login 203.0.113.2)" == 429 ]]
+# The counter volume survives replacement, cache clearing and expired-entry pruning.
+compose up -d --no-deps --force-recreate --wait --wait-timeout 180 api
+compose exec -T api php bin/console cache:clear --env=prod --no-debug
+compose exec -T api php bin/console app:abuse:prune
+[[ "$(request 172.30.73.10 "$url" 203.0.113.3)" == 429 ]]
+
+# Smoke SSR through the real shared-proxy routes. Per-request header transport
+# and cookie/session behavior are asserted by the existing frontend tests.
+docker run --rm --network proxy curlimages/curl:latest \
+  --fail --silent --show-error --max-time 20 --output /dev/null \
+  -H 'X-Forwarded-For: 198.51.100.100' http://whatsinmybar-ci-caddy/
+echo "Production HTTP, proxy boundary and quota persistence passed."

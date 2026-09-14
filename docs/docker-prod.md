@@ -1,241 +1,317 @@
-# Docker Production Deployment
+# Production on the shared OVH VPS
 
-The production stack targets a single Linux VPS running Docker Compose.
-It is intentionally separate from the development stack.
+WhatsInMyBar uses two GHCR images, PostgreSQL 16 and local persistent uploads.
+The existing Caddy in /srv/proxy terminates HTTPS. This repository does not start
+another Caddy or publish any host port. GameSentry stays independently managed.
 
-## Architecture
+## Files and prerequisites
 
-```text
-Internet
-   |
-   v
-Caddy :80/:443
-   |------------> Nuxt :3000
-   |
-   `------------> FrankenPHP :8080
-                         |
-                         v
-                    PostgreSQL :5432
+- `compose.prod.yaml`: API, Nuxt, PostgreSQL, log rotation and persistent volumes.
+- `infra/caddy/Caddyfile.prod`: site block to merge into the existing Caddyfile.
+- `.github/workflows/images.yml`: builds both images from one main commit and
+  produces a `release.env` artifact containing their immutable digests.
+- `infra/ops/deploy.sh`: serialized manual deployment with HTTP checks.
+- `infra/ops/backup.sh`: consistent database/uploads backup and off-site copy.
+- `infra/ops/systemd/`: optional backup, pruning, disk/freshness checks and alerts.
+- `infra/ops/compose.restore.yaml`: disposable restoration environment.
+
+On the VPS, use /srv/whatsinmybar with Docker Compose v2 supporting
+`up --wait` and `start --wait`, Bash, flock (util-linux), curl, rsync, OpenSSH,
+gzip and coreutils. No Python, Redis, S3 or deployment framework is required.
+The backup script briefly stops **only WhatsInMyBar API/web**. Allow this small
+nightly outage for a consistent database/upload pair.
+
+No workflow deploys or connects to the VPS. Publication runs only after a push
+to main; opening a PR only builds/tests local runner images. Both builds must
+succeed before a release artifact exists. Keep the artifact and its digests:
+SHA tags identify the source, but deployment pins the actual image digests.
+Require application/container checks before merging into main. GHCR access for
+the VPS is a separate read-only package credential; do not commit it.
+
+## Shared network and exact proxy trust
+
+Inspect the actual VPS before filling in production settings:
+
+```bash
+docker network inspect proxy
+docker inspect CADDY_CONTAINER --format '{{json .NetworkSettings.Networks}}'
+docker network ls
 ```
 
-Only Caddy publishes host ports. PostgreSQL, Nuxt, and the API remain
-reachable only through Docker networks.
+Record the proxy network's subnet, allocation pool, IPv6 setting, Caddy's IPv4
+and existing attachments. Confirm that the dedicated application subnet
+(default 172.30.72.0/24) does not overlap Docker, host or VPN routes.
+Do not recreate proxy, move Caddy, or change GameSentry's networking.
 
-The edge network reserves fixed Caddy/Nuxt IPs for explicit proxy trust.
-The `api_abuse` volume persists rate-limit counters outside Symfony's cache.
-See [Abuse protection](abuse-protection.md) for thresholds, environment overrides,
-network requirements and the daily expired-counter pruning command.
+Set `CADDY_PROXY_IP` to Caddy's exact IPv4 on proxy. It deliberately has no
+production default. Confirm the Caddy connection actually uses that IPv4;
+if proxy is dual-stack, verify address selection before launch. The current
+Nuxt trust setting accepts one address, not a CIDR or a comma-separated list.
+If Caddy is recreated with a different address, re-inspect it, update this
+setting and recreate WhatsInMyBar API/web. Do not broaden trust to private
+ranges or all containers on proxy to avoid maintaining this setting.
+A stable Caddy address can be planned in the separately managed proxy project;
+this PR does not alter that network.
 
-Production files:
+| Connection | Destination | Trusted source |
+| --- | --- | --- |
+| Caddy to API | whatsinmybar-api:8080 on proxy | CADDY_PROXY_IP |
+| Caddy to Nuxt | whatsinmybar-web:3000 on proxy | CADDY_PROXY_IP |
+| Nuxt SSR to API | whatsinmybar-api-internal:8080 on app | WEB_INTERNAL_IP |
+| API to PostgreSQL | postgres:5432 on database | Private database network |
 
-- `compose.prod.yaml`: services, networks, volumes, healthchecks, and restart policies;
-- `.env.prod.example`: required environment variable template;
-- `infra/caddy/Caddyfile.prod`: automatic HTTPS and reverse proxy routing;
-- `infra/docker/api/Dockerfile`: optimized Symfony/FrankenPHP production target;
-- `infra/docker/web/Dockerfile`: built Nuxt/Nitro production target.
+Only API/Nuxt join proxy. The internal app network gives Nuxt its own static
+address (default 172.30.72.3); SSR uses an alias that exists **only** on app,
+so its source is deterministic without reserving an IP on the shared network.
+If needed, change APP_SUBNET, APP_IP_RANGE and WEB_INTERNAL_IP together.
+The dynamic pool must exclude the static Nuxt address.
 
-`.github/workflows/containers.yml` validates the production Compose and
-Caddy configuration and builds both production image targets when relevant
-infrastructure or dependency manifests change. It does not deploy anything.
+Symfony trusts only the exact Caddy address and WEB_INTERNAL_IP. Caddy replaces
+X-Forwarded-For with the TCP peer address and strips Forwarded/X-Real-IP on both
+upstreams. Nuxt checks its socket peer and forwards the verified client IP per
+SSR request. Other proxy-network containers are not trusted IP forwarders.
+The site assumes direct Internet-to-Caddy traffic, without a CDN/load balancer.
 
-## Prerequisites
+## Production settings and Caddy
 
-- Docker Engine with the Compose v2 plugin;
-- a domain whose A/AAAA records point to the VPS;
-- inbound TCP ports 80 and 443 open;
-- inbound UDP port 443 open for HTTP/3;
-- enough disk space for images, PostgreSQL, uploads, Caddy data, and backups.
-
-Do not expose PostgreSQL or the internal application ports through the VPS
-firewall.
-
-## Environment
-
-Create the untracked production environment file:
+Create the secret file and replace **all** example placeholders:
 
 ```bash
 cp .env.prod.example .env.prod
 chmod 600 .env.prod
-```
-
-Generate independent application secrets:
-
-```bash
 openssl rand -hex 32
 openssl rand -hex 32
-openssl rand -base64 36
+openssl rand -hex 32
 ```
 
-Use the first two values for `APP_SECRET` and `JWT_SECRET`. Use the third value
-for `POSTGRES_PASSWORD`.
+Use independent generated values for APP_SECRET, JWT_SECRET and
+POSTGRES_PASSWORD. Keep DATABASE_URL consistent (URL-encode the password).
+Keep APP_DOMAIN and anchored CORS_ALLOW_ORIGIN on the real HTTPS origin.
+The refresh cookie remains HttpOnly, Secure, SameSite=Strict and Path=/;
+the browser uses /api on the same origin. Never rotate APP_SECRET as part of
+ordinary deployment: it also namespaces the abuse counters.
 
-`DATABASE_URL` must contain the same PostgreSQL database, user, and password.
-URL-encode the password before inserting it into the connection URL.
+In /srv/proxy, back up its Caddyfile and integrate the **site block** from
+infra/caddy/Caddyfile.prod alongside GameSentry. Do not replace the whole shared
+configuration. Validate the complete file with the existing Caddy container,
+then reload it using that project's normal procedure after API/web are ready.
+Review the exact container and mounted path before running either command.
 
-Set:
+The block routes /api and /uploads to the API. FrankenPHP still denies direct
+recipe image files and hidden upload files; canonical avatars remain public.
+Protected /api/recipe-images/* responses retain private/no-store and the recipe
+voter. Do not add a static upload alias, image optimizer or shared caching.
+No API image routing configuration or authorization is loosened by this change.
 
-```text
-APP_DOMAIN=the public hostname without https:// or a path
-CORS_ALLOW_ORIGIN=an anchored regular expression for https://APP_DOMAIN
-```
+## Deploy and inspect
 
-The API forces `Secure` on its HttpOnly refresh-token cookie in production.
-Keep the browser API URL behind the same public HTTPS origin. Credentialed CORS
-is enabled for the configured origin because login, refresh, and logout manage
-that cookie; do not broaden `CORS_ALLOW_ORIGIN` to `*`.
+Use the operational files from the same commit as the downloaded release
+artifact. For updates, retain the previous compose.prod.yaml and operational
+files before replacing them. Copy/configure these files while holding
+`.ops.lock`, with timers stopped during configuration maintenance.
+Keep .env.prod and .env.deploy outside any source synchronization/deletion.
 
-Validate interpolation without starting containers:
+From /srv/whatsinmybar:
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml config --quiet
+bash infra/ops/deploy.sh /absolute/path/to/release.env
 ```
 
-Never commit `.env.prod`.
+The script takes the shared lock, strictly parses the digest manifest, pulls
+images, waits for PostgreSQL, migrates with the selected API image, recreates
+API/web and checks their health and image references. Public requests check
+Caddy /healthz, Nuxt /robots.txt and the DB-backed API categories endpoint.
+During a first deployment, install/reload the Caddy block once containers are
+ready; if public checks fail before that, reload Caddy then rerun the script.
 
-## First Deployment
+The internal API check requests /api/categories?page=1: it exercises PHP,
+Symfony and PostgreSQL. Nuxt's /robots.txt proves the built HTTP server serves
+requests; it does not prove API dependencies or authenticated SSR. /healthz
+alone proves only the edge. Monitor the API and frontend separately.
 
-Build immutable application contents into the API and web images:
+Only verified success replaces .env.deploy; the prior manifest becomes
+.env.deploy.previous. .env.deploy.pending records a deployment that has started
+mutating the stack. Failure leaves it for diagnosis and blocks scheduled
+backups; do not blindly delete it. A failed migration may already have changed
+the schema. Container replacement or public-check failure is not automatically
+rolled back.
+
+Routine commands use both files:
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml build --pull
+compose() {
+  docker compose --env-file .env.prod --env-file .env.deploy -f compose.prod.yaml "$@"
+}
+compose ps
+compose logs --tail=100 api web postgres
+compose exec -T api php bin/console doctrine:migrations:status
 ```
 
-Start PostgreSQL and wait for it to become healthy:
+Avoid exported API_IMAGE/WEB_IMAGE in the operator shell: exports override env
+files. During failed deployment diagnosis, explicitly use the pending manifest
+if inspecting the attempted release.
+
+## Rollback and persistence
+
+For an application rollback, first verify that the current database schema is
+compatible with the old code. Copy the previous release manifest to a separate
+file, restore the matching Compose/operational files under the maintenance lock,
+then run `bash infra/ops/deploy.sh /path/to/saved-release.env --skip-migrations`.
+This explicit mode never asks old migration code to change the current schema. For a failed update, .env.deploy
+still identifies the last verified release; after a successful update use
+.env.deploy.previous. Deploying an old manifest does not undo migrations.
+If migrations are incompatible, plan a maintenance window and coordinated
+database/upload restore; expect loss of writes after the backup.
+Do not run down migrations automatically.
+
+The Compose project remains **whatsinmybar-prod**. It preserves:
+`whatsinmybar-prod_postgres_data`, `whatsinmybar-prod_api_uploads` and
+`whatsinmybar-prod_api_abuse`. Do not change the project name or use down -v.
+API upload and abuse mounts remain /app/public/uploads and /app/var/abuse;
+the image still initializes them for www-data. No volume data migration is
+needed for an existing deployment using this project name.
+
+If a previous installation used another project name, inspect its container
+mounts first and explicitly map the three existing volumes before starting
+anything. An empty new database is not a successful migration. If an old
+standalone WhatsInMyBar Caddy exists, retire that identified container using
+its old Compose configuration without deleting application volumes. The shared
+Caddy is never managed by this Compose file.
+
+Ordinary deploy, restart, cache:clear and daily app:abuse:prune preserve active
+quotas. Backups intentionally do not snapshot quota counters: do not restore
+old counters over live ones. Disaster recovery to a fresh host starts fresh
+quotas. Preserve the live abuse volume during an in-place data recovery.
+
+## Backups, schedules and alerts
+
+Choose a dedicated off-site SSH destination first. It must exist, be writable
+by the backup account and provide encryption at rest. Verify its SSH host key
+and install a restricted key for the systemd execution user (`hugo` in the templates).
+Use no interactive password prompt and no StrictHostKeyChecking=no.
+The template refuses to run until BACKUP_REMOTE is set.
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml up -d --wait postgres
+sudo install -d -m 700 /etc/whatsinmybar
+sudo install -m 600 infra/ops/backup.env.example /etc/whatsinmybar/backup.env
+sudo install -d -o hugo -g hugo -m 700 /srv/backups/whatsinmybar
 ```
 
-Run migrations as a one-off API container:
+Adjust User/Group in the units if the deployment account is not hugo. Use the
+same account for manual operations; it must own /srv/whatsinmybar, belong to the
+Docker group and have write access to the backup directory. systemd loads the
+root-owned EnvironmentFile before changing users.
+
+Edit backup.env: local directory, remote destination and retention (7 days
+locally proposed). backup.sh locks against deployment/pruning, checks that all
+services are healthy, stops API/web, dumps PostgreSQL with strict pipeline
+failure handling, archives uploads including ownership, and restarts API/web.
+A trap attempts restart on failure. A SIGKILL/host crash can still leave
+services stopped: monitor availability and inspect compose ps after recovery.
+
+It verifies compressed files/checksums, sends the complete timestamped directory
+with rsync over SSH, then applies local retention. Failed dumps produce no
+completed bundle; failed remote copies retain the local bundle and skip
+retention. Retry a failed transfer of that directory and verify SHA256SUMS at
+the destination. Each bundle contains database.sql.gz, uploads.tar.gz, the image
+manifest and Compose file, not .env.prod. Back up secrets separately in encrypted
+storage so disaster recovery can recover them.
+
+The remote destination must enforce its own retention; rsync never uses
+--delete. Proposed starting policy: 7 days locally, 30 days off-site, daily
+backups, monthly restore drill. Confirm storage cost, accepted nightly downtime
+and a maximum 24-hour data-loss window before installation. Remote snapshots
+or an append-only account reduce damage if the VPS credentials are compromised.
+
+Create /etc/whatsinmybar/alert.curl, mode 600, containing a curl `url = "..."`
+setting for a provisioned HTTPS webhook accepting a form field named unit.
+The template sends the failed systemd unit name, no application secrets.
+Adapt this tiny alert unit to an existing notification provider if needed.
+Test the alert endpoint and verify delivery before relying on timers.
+
+After a successful manual backup and restore drill, installation is explicit:
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml run --rm api \
-  php bin/console doctrine:migrations:migrate --no-interaction
+sudo install -m 644 infra/ops/systemd/* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start whatsinmybar-backup.service
+sudo systemctl start whatsinmybar-abuse-prune.service
+sudo systemctl start whatsinmybar-check-backups.service
+sudo systemctl enable --now whatsinmybar-backup.timer whatsinmybar-abuse-prune.timer whatsinmybar-check-backups.timer
 ```
 
-Start the complete stack and wait for healthchecks:
+Backup runs around 04:00 UTC, pruning around 04:30 UTC; these differ from the
+existing GameSentry backup at 03:30 UTC. Pruning invokes the existing Symfony
+command as the API user and logs to the journal. OnFailure calls the alert unit.
+An hourly check reports disks at 85% and missing successful off-site copies
+for 36 hours; adjust the checked Docker data path if the daemon uses a custom
+data-root. Also configure an **external** HTTPS monitor for the frontend and
+/api/categories?page=1, with alerts and a small nightly maintenance window.
+A dead VPS cannot send local failure alerts.
+
+Application logs rotate at 10 MiB x 3 per container. Verify shared Caddy/Docker
+and systemd-journal retention separately; this repository does not edit the
+proxy project or global journald settings.
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml up -d --wait
+systemctl list-timers 'whatsinmybar-*'
+journalctl -u whatsinmybar-backup -u whatsinmybar-abuse-prune -u whatsinmybar-check-backups --since yesterday
 ```
 
-Verify:
+## Restore drill: isolated database and uploads
+
+Use a trusted backup on a separate machine or an isolated test environment,
+never the production Compose. Generate a new, unique project name for every
+drill. The restore file has no public ports, no proxy and no production mounts.
+
+Run in Bash; set BACKUP to the downloaded bundle's absolute path:
 
 ```bash
-curl --fail --show-error --silent https://YOUR_DOMAIN/healthz
-curl --fail --show-error --silent https://YOUR_DOMAIN/
-curl --fail --show-error --silent \
-  -H 'Accept: application/json' \
-  'https://YOUR_DOMAIN/api/categories?pagination=false'
+set -euo pipefail
+export RESTORE_PASSWORD
+RESTORE_PASSWORD=$(openssl rand -hex 32)
+RESTORE_PROJECT="wimb-restore-$(date -u +%Y%m%d%H%M%S)"
+(cd "$BACKUP" && sha256sum -c SHA256SUMS)
+restore() {
+  docker compose -p "$RESTORE_PROJECT" --env-file "$BACKUP/release.env" \
+    -f infra/ops/compose.restore.yaml "$@"
+}
+restore up -d --wait postgres
+gzip -dc "$BACKUP/database.sql.gz" \
+  | restore exec -T postgres psql -U restore -d restore --set ON_ERROR_STOP=on
+restore run --rm --no-deps -T uploads -C /restore -xzf - < "$BACKUP/uploads.tar.gz"
+restore exec -T postgres psql -U restore -d restore -c '\dt'
+restore run --rm --no-deps -T uploads -C /restore -tzf - < "$BACKUP/uploads.tar.gz"
 ```
 
-The health endpoint proves that public HTTPS reaches Caddy. Container
-healthchecks separately cover PostgreSQL readiness, the FrankenPHP listener,
-and the built Nuxt server.
-
-## Application Updates
-
-From the new checked-out revision:
+Verify representative users/recipes and image references in the restored
+database, inspect restored files/ownership and compare counts with the backup
+source. The archive listing alone does not verify application behavior.
+Before accepting recovery, boot the matching application release in a separately
+configured test stack and check login/refresh, SSR, avatar rendering and protected
+recipe images for anonymous, minor and adult users. No production proxy/volumes
+may be attached. Then remove only the drill's volumes:
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml build --pull
-docker compose --env-file .env.prod -f compose.prod.yaml up -d --wait postgres
-docker compose --env-file .env.prod -f compose.prod.yaml run --rm api \
-  php bin/console doctrine:migrations:migrate --no-interaction
-docker compose --env-file .env.prod -f compose.prod.yaml up -d --wait
+restore down -v
+unset RESTORE_PASSWORD
 ```
 
-Database migrations must remain backward-compatible with the previous
-application image whenever a zero-downtime update is required.
+## Validation coverage
 
-There is no automated deployment pipeline yet. A future registry-based
-deployment should build tagged images in CI, pull an immutable tag on the VPS,
-run migrations, and then recreate the application services.
+- `make check-ops`: Bash syntax, ShellCheck, fake-command failure injection
+  (pg_dump failure restarts services; failed rsync retains the local backup;
+  pending deployment blocks backup).
+- `make check-containers`: Compose interpolation, both production builds,
+  isolated upload rules and forged-header tests using both actual Caddyfiles.
+- Container CI also starts a disposable production stack with a simulated
+  shared proxy. It verifies separate visitor IP budgets, rejected spoofed headers,
+  direct untrusted API callers, quotas after container/cache/prune operations,
+  DB-backed HTTP health and an SSR page request.
+- Backend/frontend CI rerun for production infrastructure changes and preserve
+  the existing quota, IP, per-request SSR forwarding, session and upload tests.
 
-## Operations
-
-Inspect service state:
-
-```bash
-docker compose --env-file .env.prod -f compose.prod.yaml ps
-```
-
-Follow logs:
-
-```bash
-docker compose --env-file .env.prod -f compose.prod.yaml logs -f --tail=200
-```
-
-Run a Symfony command:
-
-```bash
-docker compose --env-file .env.prod -f compose.prod.yaml exec api \
-  php bin/console about
-```
-
-Stop containers without deleting production data:
-
-```bash
-docker compose --env-file .env.prod -f compose.prod.yaml down
-```
-
-Do not use `docker compose down -v` in production. It deletes the named
-PostgreSQL, upload, and Caddy volumes.
-
-## Database Backups
-
-Create a compressed logical backup on the VPS:
-
-```bash
-docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres \
-  sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
-  | gzip > "whatsinmybar-$(date +%Y%m%d-%H%M%S).sql.gz"
-```
-
-Backups stored only on the VPS are not sufficient. Copy them to encrypted
-off-site storage, define retention, and regularly test restoration.
-
-Example restore into an empty target database:
-
-```bash
-gzip -dc BACKUP.sql.gz \
-  | docker compose --env-file .env.prod -f compose.prod.yaml exec -T postgres \
-      sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"'
-```
-
-Restoration is destructive when applied to a non-empty database. Validate the
-target and retain the previous backup before running it.
-
-## Upload Storage
-
-The current API implementation uses local filesystem storage behind upload
-interfaces. Production Compose persists `/app/public/uploads` in the
-`api_uploads` named volume and routes `/uploads/*` through the API.
-
-Local persistent storage is the selected solution for this low-traffic,
-single-VPS deployment; no S3 service or migration is required. Independently
-back up the `api_uploads` volume off-site and test restoration alongside the
-database. Set retention and disk-space alerts before deployment.
-
-The API image now includes GD for bounded decoding and reencoding. Recipe
-images are delivered only through `/api/recipe-images/{filename}` with the
-recipe read voter; direct `/uploads/recipes/*` access is blocked by FrankenPHP.
-Avatars remain public. Deploy the API image/configuration and frontend changes
-together to preserve image rendering. The named volume and stored paths do not
-change. No deployment or destructive maintenance is performed by the checks.
-
-See [Local image storage](uploads.md) for exact limits, transaction behavior,
-confidentiality, backup considerations and the orphan-cleanup dry-run command.
-
-## VPS Work Still Required
-
-The repository cannot configure or verify these items before a VPS and domain
-exist:
-
-- DNS records and real ACME certificate issuance;
-- SSH hardening, non-root administration, and firewall policy;
-- unattended operating-system security updates;
-- off-site PostgreSQL and upload backups;
-- monitoring, alerting, disk-space checks, and log retention;
-- image registry, immutable release tags, and rollback automation;
-- recovery testing after a simulated host failure.
+The CI stack changes only its public listener to HTTP. It cannot validate the
+real VPS network, ACME, private GHCR pulls, off-site credentials, notification
+delivery, restore drill or real authenticated browser acceptance.
+Do not report these as passed based only on isolated tests.

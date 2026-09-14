@@ -107,7 +107,7 @@ their prior entries expire.
 Preview only (the default also applies without `--dry-run`):
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml exec api \
+docker compose --env-file .env.prod --env-file .env.deploy -f compose.prod.yaml exec api \
   php bin/console app:uploads:clean --dry-run --grace-hours=24
 ```
 

@@ -69,6 +69,16 @@ describe('coordinated session state', () => {
     expect(auth.isAuthenticated.value).toBe(true)
   })
 
+  it('preserves page/editor state on ordinary renewal for the same viewer', async () => {
+    const { api, state } = setup(async (path: string) => path === '/auth/refresh' ? { token: 'renewed' } : user)
+    const revision = state.revision.value
+    mocks.clear.mockClear()
+    await api.auth.refresh()
+    expect(state.status.value).toBe('authenticated')
+    expect(state.revision.value).toBe(revision)
+    expect(mocks.clear).not.toHaveBeenCalled()
+  })
+
   it('requires login immediately after confirmed password change', async () => {
     const { api, auth, state } = setup(async () => ({ changed: true }))
     await api.account.changePassword({ currentPassword: 'current-password', newPassword: 'new-secure-password' })

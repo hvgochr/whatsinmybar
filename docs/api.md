@@ -154,8 +154,9 @@ Session failure and recovery:
   never credentials. The database rotation window provides concurrency safety
   independently of browser coordination. Pending personalized responses from a
   previous session are discarded; renewed tokens are rebound to `/me` before
-  completing refresh (including when a tab changed the account); viewer changes invalidate Nuxt data and
-  remount page state.
+  completing refresh (including when a tab changed the account). Viewer changes
+  invalidate Nuxt data and remount page state. Routine renewal for an unchanged viewer preserves page
+  state and unsaved editor input.
 
 SSR and cache policy:
 

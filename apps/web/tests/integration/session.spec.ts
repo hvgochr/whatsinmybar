@@ -110,3 +110,42 @@ test('parallel SSR requests and browser tabs share rotation without leaking betw
     await other.close()
   }
 })
+
+test('password revocation wins against concurrent rotations and covers another device', async ({ request, playwright, baseURL }) => {
+  const first = await login(request)
+  const device = await playwright.request.newContext({ baseURL })
+  try {
+    const secondLogin = await device.post('/api/auth/login', { data: first.account })
+    expect(secondLogin.status()).toBe(200)
+    const secondCookie = secondLogin.headers()['set-cookie']!.split(';')[0]!
+    const results = await Promise.all([
+      ...Array.from({ length: 4 }, () => request.post('/api/auth/refresh', { headers: { Cookie: first.cookie, ...csrf } })),
+      request.patch('/api/me/password', {
+        headers: { Authorization: `Bearer ${first.token}` },
+        data: { currentPassword: first.account.password, newPassword: 'new-very-secure-password' }
+      })
+    ])
+    expect(results[4]!.status()).toBe(200)
+    const cookies = [first.cookie, secondCookie]
+    for (const result of results.slice(0, 4)) {
+      expect([200, 401]).toContain(result.status())
+      if (result.ok()) cookies.push(result.headers()['set-cookie']!.split(';')[0]!)
+    }
+    for (const cookie of cookies) {
+      expect((await request.post('/api/auth/refresh', { headers: { Cookie: cookie, ...csrf } })).status()).toBe(401)
+    }
+  } finally {
+    await device.dispose()
+  }
+})
+
+test('explicit browser logout clears every open tab after confirmed revocation', async ({ context, page }) => {
+  const { account } = await login(context.request)
+  const other = await context.newPage()
+  await Promise.all([page.goto('/'), other.goto('/')])
+  await expect(other.getByRole('button', { name: `Open profile menu for ${account.username}` })).toBeVisible()
+  await page.goto('/logout')
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(other.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
+  expect((await context.cookies()).find(cookie => cookie.name === 'refresh_token')).toBeUndefined()
+})

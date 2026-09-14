@@ -94,8 +94,9 @@ unique `session_*` accounts in the development database; it does not delete
 existing data. It covers six concurrent refresh requests, real predecessor
 expiry, concurrent 401 recovery in shared/independent API clients, three browser
 tabs plus independent SSR requests, cache headers, two-user isolation and
-password-change notification/revocation. It waits 11 real seconds to prove that
-an old token cannot refresh indefinitely. Chromium is tested; Firefox/WebKit,
+password-change notification/revocation, a race between password revocation and
+refresh, and explicit logout notification across tabs. It waits 11 real seconds
+to prove that an old token cannot refresh indefinitely. Chromium is tested; Firefox/WebKit,
 production HTTPS cookies, extended offline suspension and responses delayed
 beyond the grace window require separate acceptance testing.
 

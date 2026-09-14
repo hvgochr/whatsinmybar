@@ -1,34 +1,14 @@
 name: whatsinmybar-prod
 
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
-      web:
-        condition: service_healthy
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./infra/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
-      - caddy_config:/config
-      - caddy_data:/data
-    networks:
-      edge:
-        ipv4_address: 172.30.72.2
-
   api:
-    build:
-      context: .
-      dockerfile: infra/docker/api/Dockerfile
-      target: production
+    image: ${API_IMAGE:?Set API_IMAGE from the CI release.env}
     restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,7 +35,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.prod}
       DEFAULT_URI: https://${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
-      SYMFONY_TRUSTED_PROXIES: 172.30.72.2,172.30.72.3
+      SYMFONY_TRUSTED_PROXIES: ${CADDY_PROXY_IP:?Set the actual Caddy IPv4 on proxy},${WEB_INTERNAL_IP:-172.30.72.3}
       REFRESH_TOKEN_COOKIE_SECURE: "1"
     expose:
       - "8080"
@@ -67,24 +47,27 @@ services:
         - CMD
         - php
         - -r
-        - "exit(@fsockopen('127.0.0.1', 8080) ? 0 : 1);"
+        - "$$c = stream_context_create(['http' => ['timeout' => 2, 'header' => 'Accept: application/json']]); exit(@file_get_contents('http://127.0.0.1:8080/api/categories?page=1', false, $$c) === false ? 1 : 0);"
       interval: 10s
       timeout: 3s
       retries: 6
       start_period: 30s
     networks:
-      - database
-      - edge
+      database:
+      app:
+        aliases:
+          - whatsinmybar-api-internal
+      proxy:
+        aliases:
+          - whatsinmybar-api
 
   web:
-    build:
-      context: .
-      dockerfile: infra/docker/web/Dockerfile
-      target: production
+    image: ${WEB_IMAGE:?Set WEB_IMAGE from the CI release.env}
     restart: unless-stopped
+    logging: *logging
     environment:
-      NUXT_API_BASE_URL: http://api:8080/api
-      NUXT_TRUSTED_PROXY_IP: 172.30.72.2
+      NUXT_API_BASE_URL: http://whatsinmybar-api-internal:8080/api
+      NUXT_TRUSTED_PROXY_IP: ${CADDY_PROXY_IP:?Set the actual Caddy IPv4 on proxy}
       NUXT_PUBLIC_API_BASE_URL: /api
       NUXT_PUBLIC_SITE_URL: https://${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
     expose:
@@ -100,12 +83,16 @@ services:
       retries: 6
       start_period: 20s
     networks:
-      edge:
-        ipv4_address: 172.30.72.3
+      app:
+        ipv4_address: ${WEB_INTERNAL_IP:-172.30.72.3}
+      proxy:
+        aliases:
+          - whatsinmybar-web
 
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.prod}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
@@ -124,15 +111,17 @@ services:
 networks:
   database:
     internal: true
-  edge:
+  app:
+    internal: true
     ipam:
       config:
-        - subnet: 172.30.72.0/24
-          ip_range: 172.30.72.128/25
+        - subnet: ${APP_SUBNET:-172.30.72.0/24}
+          ip_range: ${APP_IP_RANGE:-172.30.72.128/25}
+  proxy:
+    external: true
+    name: proxy
 
 volumes:
   api_abuse:
   api_uploads:
-  caddy_config:
-  caddy_data:
   postgres_data:

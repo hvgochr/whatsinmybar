@@ -84,6 +84,7 @@ services:
 
 when@test:
     parameters:
+        env(ABUSE_TEST_DIRECTORY): '%kernel.project_dir%/var/abuse/test'
         app.abuse_directory: '%env(ABUSE_TEST_DIRECTORY)%'
         app.avatar_uploads_dir: '%kernel.project_dir%/var/test-uploads/avatars'
         app.recipe_image_uploads_dir: '%kernel.project_dir%/var/test-uploads/recipes'

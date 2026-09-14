@@ -45,6 +45,8 @@ final class AbuseProtectionTest extends WebTestCase
         }
         $client->jsonRequest('POST', '/api/auth/register', [], ['REMOTE_ADDR' => '192.0.2.10', 'HTTP_FORWARDED' => 'for=203.0.113.2', 'HTTP_X_REAL_IP' => '203.0.113.3']);
         $this->assertLimited();
+        $client->jsonRequest('POST', '/api/auth/%72egister', [], ['REMOTE_ADDR' => '192.0.2.10']);
+        $this->assertLimited();
         $client->jsonRequest('POST', '/api/auth/register', [], ['REMOTE_ADDR' => '192.0.2.11']);
         self::assertResponseStatusCodeSame(422);
         for ($i = 0; $i < 6; ++$i) {
@@ -76,7 +78,7 @@ final class AbuseProtectionTest extends WebTestCase
         $token = $this->token();
         $otherToken = $this->token();
         foreach ([
-            [60, [['POST', '/api/recipes'], ['POST', '/api/recipes/aggregate'], ['PUT', '/api/recipes/missing/aggregate'], ['PATCH', '/api/recipes/missing'], ['POST', '/api/recipe_steps'], ['POST', '/api/recipe_ingredients'], ['DELETE', '/api/recipe_steps/123'], ['PATCH', '/api/admin/recipes/missing']]],
+            [60, [['POST', '/api/recipes'], ['POST', '/api/recipes.json'], ['POST', '/api/recipes.jsonld'], ['POST', '/api/%72ecipes'], ['POST', '/api/recipes/aggregate'], ['PUT', '/api/recipes/missing/aggregate'], ['PATCH', '/api/recipes/missing'], ['POST', '/api/recipe_steps.json'], ['POST', '/api/recipe_ingredients.jsonld'], ['DELETE', '/api/recipe_steps/123'], ['PATCH', '/api/admin/recipes/missing']]],
             [20, [['POST', '/api/recipes/missing/comments'], ['PATCH', '/api/comments/123'], ['DELETE', '/api/comments/123']]],
             [5, [['POST', '/api/reports']]],
             [10, [['POST', '/api/me/avatar'], ['POST', '/api/recipes/missing/image'], ['DELETE', '/api/recipes/missing/image']]],

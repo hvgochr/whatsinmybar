@@ -2,6 +2,9 @@
 
 namespace App\EventSubscriber;
 
+use App\Entity\Recipe;
+use App\Entity\RecipeIngredient;
+use App\Entity\RecipeStep;
 use App\Entity\User;
 use App\Service\Abuse\AbuseLimiter;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -27,9 +30,9 @@ final class AbuseProtectionSubscriber implements EventSubscriberInterface
             return;
         }
         $ip = $request->getClientIp() ?? 'unknown';
-        if ('/api/auth/register' === $request->getPathInfo()) {
+        if ('api_auth_register' === $request->attributes->get('_route')) {
             $this->limiter->consume(['registration' => $ip]);
-        } elseif ('/api/auth/login' === $request->getPathInfo()) {
+        } elseif ('api_auth_login' === $request->attributes->get('_route')) {
             // Bound IP work before parsing JSON; malformed login attempts count too.
             $this->limiter->consume(['login_ip' => $ip]);
             $payload = json_decode($request->getContent(), true);
@@ -44,7 +47,7 @@ final class AbuseProtectionSubscriber implements EventSubscriberInterface
         if (!$event->isMainRequest() || !in_array($request->getMethod(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
             return;
         }
-        $path = $request->getPathInfo();
+        $path = rawurldecode($request->getPathInfo());
         if (!str_starts_with($path, '/api/') || str_starts_with($path, '/api/auth/')) {
             return;
         }
@@ -55,11 +58,15 @@ final class AbuseProtectionSubscriber implements EventSubscriberInterface
 
         $identity = (string) $user->getId();
         $budgets = ['writes' => $identity];
+        $route = $request->attributes->get('_route');
+        // Classify matched routes/resources, not raw URL strings: format suffixes
+        // and percent-encoded paths must spend the same quota.
         $policy = match (true) {
-            '/api/me/avatar' === $path, 1 === preg_match('#^/api/recipes/[^/]+/image$#D', $path) => 'uploads',
-            1 === preg_match('#^/api/(comments(?:/|$)|recipes/[^/]+/comments$)#D', $path) => 'comments',
-            '/api/reports' === $path => 'reports',
-            1 === preg_match('#^/api/(recipes(?:/|$)|recipe_steps(?:/|$)|recipe_ingredients(?:/|$)|admin/recipes(?:/|$))#D', $path) => 'recipes',
+            in_array($route, ['api_me_avatar_upload', 'api_recipe_image_upload', 'api_recipe_image_delete'], true) => 'uploads',
+            in_array($route, ['api_recipe_comments_create', 'api_comments_update', 'api_comments_delete'], true) => 'comments',
+            'api_reports_create' === $route => 'reports',
+            in_array($request->attributes->get('_api_resource_class'), [Recipe::class, RecipeStep::class, RecipeIngredient::class], true),
+            in_array($route, ['api_recipe_aggregate_create', 'api_recipe_aggregate_update', 'api_recipe_publish', 'api_recipe_archive', 'api_recipe_favorite_add', 'api_recipe_favorite_remove', 'api_admin_recipes_update'], true) => 'recipes',
             default => null,
         };
         if (null !== $policy) {

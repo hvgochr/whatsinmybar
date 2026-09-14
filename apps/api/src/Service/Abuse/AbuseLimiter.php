@@ -9,6 +9,8 @@ use Symfony\Component\RateLimiter\Storage\StorageInterface;
 
 final class AbuseLimiter
 {
+    public const string LOCK_NAME = 'abuse-counters';
+
     /** @param array<string, array{limit: int, interval: string}> $policies */
     public function __construct(
         private readonly StorageInterface $storage,
@@ -23,7 +25,7 @@ final class AbuseLimiter
     {
         // One local lock bounds lock-file cardinality and makes combined budgets atomic.
         // Keep only counter IO inside this critical section, never application work.
-        $lock = $this->locks->createLock('abuse-counters');
+        $lock = $this->locks->createLock(self::LOCK_NAME);
         $lock->acquire(true);
         try {
             $limiters = [];

@@ -2,10 +2,14 @@
 
 namespace App\Tests\Abuse;
 
+use App\Command\PruneAbuseCountersCommand;
 use App\Service\Abuse\AbuseLimiter;
+use App\Service\Abuse\CounterCache;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\FlockStore;
@@ -73,6 +77,30 @@ final class AbuseLimiterTest extends TestCase
         $restart = new Process([PHP_BINARY, '-r', $code, $this->directory], dirname(__DIR__, 2));
         $restart->mustRun();
         self::assertSame('limited', $restart->getOutput());
+    }
+
+    public function testPruningDoesNotResetActiveQuotas(): void
+    {
+        $cache = new CounterCache('test', 0, $this->directory.'/counters');
+        $locks = new LockFactory(new FlockStore($this->directory.'/locks'));
+        $limiter = new AbuseLimiter(new CacheStorage($cache), $locks, ['test' => ['limit' => 1, 'interval' => '1 minute']], 'test-secret');
+        $limiter->consume(['test' => 'visitor']);
+        self::assertSame(0, (new CommandTester(new PruneAbuseCountersCommand($cache, $locks)))->execute([]));
+        $this->expectException(TooManyRequestsHttpException::class);
+        $limiter->consume(['test' => 'visitor']);
+    }
+
+    public function testFailedCounterWriteFailsClosed(): void
+    {
+        $path = $this->directory.'/counters';
+        $cache = new CounterCache('test', 0, $path);
+        $item = $cache->getItem('counter');
+        $item->set('state');
+        // Simulate a filesystem failure after opening the cache.
+        (new Filesystem())->remove($path);
+        file_put_contents($path, 'not a directory');
+        $this->expectException(ServiceUnavailableHttpException::class);
+        $cache->save($item);
     }
 
     private function limiter(): AbuseLimiter

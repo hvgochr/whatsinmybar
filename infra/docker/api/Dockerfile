@@ -51,7 +51,7 @@ RUN composer dump-autoload \
         --no-dev \
         --no-interaction \
         --no-scripts \
-    && mkdir -p /app/public/uploads /app/var \
+    && mkdir -p /app/public/uploads /app/var/abuse \
     && chown -R www-data:www-data /app/public/uploads /app/var
 
 USER www-data

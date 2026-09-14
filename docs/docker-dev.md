@@ -83,6 +83,20 @@ Uploaded files are stored in the `api_uploads` Docker volume mounted at:
 
 ## Frontend Commands
 
+Nuxt reserves a fixed IP for trusted SSR requests. `make` frontend checks use
+the separate `172.30.71.4` address so the development server can keep running.
+For a manual disposable frontend command, prefix it with
+`WEB_CONTAINER_IP=172.30.71.4`, for example:
+
+```bash
+WEB_CONTAINER_IP=172.30.71.4 docker compose run --rm web pnpm test:unit
+```
+
+Run disposable frontend commands sequentially. The check container is not a
+trusted SSR proxy. Use `docker compose exec web` for real-stack session tests.
+When upgrading an existing development network to the reserved subnet, run
+`docker compose down` followed by `docker compose up -d` without `-v`.
+
 Run Nuxt/pnpm commands from the web container:
 
 ```bash

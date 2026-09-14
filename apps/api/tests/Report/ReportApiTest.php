@@ -53,14 +53,15 @@ final class ReportApiTest extends WebTestCase
         self::assertSame(1, static::getContainer()->get(EntityManagerInterface::class)->getRepository(Report::class)->count([]));
     }
 
-    public function testReportPayloadIsStrictlyValidated(): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidPayloadCases')]
+    public function testReportPayloadIsStrictlyValidated(int $case): void
     {
         $client = static::createClient();
         $this->clearReportsAndContent();
         $token = $this->loginAsUser($client);
         $recipe = $this->createRecipe(RecipeStatus::Published);
 
-        foreach ([
+        $payloads = [
             [],
             ['targetType' => '', 'targetId' => $recipe->getId(), 'reason' => 'spam'],
             ['targetType' => null, 'targetId' => $recipe->getId(), 'reason' => 'spam'],
@@ -68,16 +69,24 @@ final class ReportApiTest extends WebTestCase
             ['targetType' => 'recipe', 'targetId' => $recipe->getId(), 'reason' => ['spam']],
             ['targetType' => 'recipe', 'targetId' => $recipe->getId(), 'reason' => 'spam', 'message' => 123],
             ['targetType' => 'recipe', 'targetId' => $recipe->getId(), 'reason' => 'spam', 'unexpected' => true],
-        ] as $payload) {
-            $client->jsonRequest('POST', '/api/reports', $payload, server: [
-                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
-            ]);
+        ];
+        $payload = $payloads[$case];
+        $client->jsonRequest('POST', '/api/reports', $payload, server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
 
-            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-            $this->assertValidationError($client);
-        }
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertValidationError($client);
 
         self::assertSame(0, static::getContainer()->get(EntityManagerInterface::class)->getRepository(Report::class)->count([]));
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function invalidPayloadCases(): iterable
+    {
+        foreach (['empty', 'empty type', 'null type', 'string ID', 'array reason', 'numeric message', 'unknown field'] as $case => $name) {
+            yield $name => [$case];
+        }
     }
 
     public function testReportMessageMayBeEmptyMissingOrNull(): void

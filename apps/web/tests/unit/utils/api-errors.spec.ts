@@ -3,6 +3,13 @@ import { ApiRequestError } from '../../../app/services/api-client'
 import { normalizePropertyPath, toFormErrors } from '../../../app/utils/api-errors'
 
 describe('api error form helpers', () => {
+  it('explains rate limits and the Retry-After delay without blaming credentials', () => {
+    expect(toFormErrors(new ApiRequestError('Too many requests.', 429, 'too_many_requests', null, [], 1501)).message)
+      .toBe('Too many attempts. Please try again in 2 seconds.')
+    expect(toFormErrors(new ApiRequestError('Too many requests.', 429, 'too_many_requests')).message)
+      .toBe('Too many attempts. Please wait a moment before trying again.')
+  })
+
   it('normalizes Symfony collection property paths', () => {
     expect(normalizePropertyPath('[email]')).toBe('email')
     expect(normalizePropertyPath('[profile][bio]')).toBe('profile.bio')

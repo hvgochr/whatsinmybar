@@ -38,6 +38,12 @@ export function normalizePropertyPath(propertyPath: string): string {
 }
 
 function friendlyErrorMessage(error: ApiRequestError): string {
+  if (error.status === 429) {
+    return error.retryAfterMs
+      ? `Too many attempts. Please try again in ${Math.ceil(error.retryAfterMs / 1000)} seconds.`
+      : 'Too many attempts. Please wait a moment before trying again.'
+  }
+
   if (error.status === 401) {
     return 'Please check your credentials and try again.'
   }

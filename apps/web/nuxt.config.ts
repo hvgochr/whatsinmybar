@@ -18,6 +18,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxt/eslint', 'shadcn-nuxt'],
   runtimeConfig: {
+    trustedProxyIp: '',
     apiBaseUrl: process.env.NUXT_API_BASE_URL ?? 'http://api/api',
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL ?? process.env.NUXT_PUBLIC_API_BASE ?? '/api',

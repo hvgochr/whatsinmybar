@@ -2,6 +2,20 @@ import { describe, expect, it, vi } from 'vitest'
 import { createServerApiFetch } from '../../../app/services/server-api-fetch'
 
 describe('SSR cookie transport', () => {
+  it('forwards verified per-request IPs and strips caller-supplied proxy headers', async () => {
+    const raw = vi.fn(async (_path: string, options: Record<string, unknown>) => {
+      const headers = options.headers as Headers
+      expect(headers.has('Forwarded')).toBe(false)
+      expect(headers.has('X-Real-IP')).toBe(false)
+      return { _data: headers.get('X-Forwarded-For'), headers: new Headers() }
+    })
+    const a = createServerApiFetch(raw, undefined, vi.fn(), '192.0.2.1')
+    const b = createServerApiFetch(raw, undefined, vi.fn(), '192.0.2.2')
+    const options = { headers: { 'X-Forwarded-For': 'fake', 'Forwarded': 'for=fake', 'X-Real-IP': 'fake' } }
+    expect(await Promise.all([a('/auth/refresh', options), b('/recipes', options)])).toEqual(['192.0.2.1', '192.0.2.2'])
+    expect(await createServerApiFetch(raw, undefined, vi.fn())('/recipes', options)).toBeNull()
+  })
+
   it('updates the request cookie after rotation and never sends unrelated cookies', async () => {
     const append = vi.fn()
     const raw = vi.fn(async (_path: string, options: Record<string, unknown>) => {

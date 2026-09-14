@@ -1,0 +1,30 @@
+# Disposable restore target only. No production volume names, ports or proxy.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: restore
+      POSTGRES_DB: restore
+      POSTGRES_PASSWORD: ${RESTORE_PASSWORD:?Generate a disposable restore password}
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks:
+      - isolated
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U restore -d restore"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  uploads:
+    image: ${API_IMAGE:?Use the backed-up release.env}
+    user: root
+    entrypoint: tar
+    network_mode: none
+    volumes:
+      - uploads:/restore
+volumes:
+  database:
+  uploads:
+networks:
+  isolated:
+    internal: true

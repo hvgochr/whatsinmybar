@@ -1,0 +1,12 @@
+[Unit]
+Description=Check WhatsInMyBar disk space and backup freshness
+OnFailure=whatsinmybar-alert@%n.service
+
+[Service]
+Type=oneshot
+User=hugo
+Group=hugo
+WorkingDirectory=/srv/whatsinmybar
+EnvironmentFile=/etc/whatsinmybar/backup.env
+ExecStart=/usr/bin/bash infra/ops/check-backups.sh
+UMask=0077

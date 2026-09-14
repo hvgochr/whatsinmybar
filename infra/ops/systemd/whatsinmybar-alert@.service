@@ -1,0 +1,7 @@
+[Unit]
+Description=Report failed WhatsInMyBar unit %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl --config /etc/whatsinmybar/alert.curl --fail --silent --show-error --connect-timeout 5 --max-time 20 --retry 2 --data-urlencode "unit=%i"
+UMask=0077

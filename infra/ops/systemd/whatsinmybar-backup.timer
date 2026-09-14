@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily WhatsInMyBar backup
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

@@ -10,4 +10,9 @@ use Gesdinet\JWTRefreshTokenBundle\Entity\RefreshTokenRepository;
 #[ORM\Table(name: 'refresh_tokens')]
 class RefreshToken extends BaseRefreshToken
 {
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $previousTokenHash = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $rotationGraceUntil = null;
 }

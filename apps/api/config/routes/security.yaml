@@ -8,8 +8,10 @@ api_auth_login:
 
 api_auth_refresh:
     path: /api/auth/refresh
+    controller: App\Controller\SessionController::refresh
     methods: [POST]
 
 api_auth_logout:
     path: /api/auth/logout
+    controller: App\Controller\SessionController::logout
     methods: [POST]

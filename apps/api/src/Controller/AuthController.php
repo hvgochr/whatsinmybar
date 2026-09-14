@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Service\Account\PasswordChanger;
+use App\Service\RefreshCookie;
 use App\Service\Upload\AvatarStorageInterface;
 use App\Service\Upload\ImageReplacement;
 use App\Service\UserAccountAccess;
@@ -165,6 +166,7 @@ final class AuthController extends AbstractController
         #[CurrentUser] ?User $user,
         ValidatorInterface $validator,
         PasswordChanger $passwordChanger,
+        RefreshCookie $refreshCookie,
         UserAccountAccess $userAccountAccess,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
@@ -194,7 +196,10 @@ final class AuthController extends AbstractController
         $userAccountAccess->revokeRefreshTokens($user);
         $entityManager->flush();
 
-        return $this->json(['changed' => true]);
+        $response = $this->json(['changed' => true]);
+        $response->headers->setCookie($refreshCookie->create());
+
+        return $response;
     }
 
     /**

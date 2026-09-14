@@ -2,6 +2,7 @@
 
 namespace App\Tests\Auth;
 
+use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\BrowserKit\Cookie as BrowserCookie;
@@ -57,6 +58,7 @@ final class AuthControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
+        self::assertResponseHeaderSame('Cache-Control', 'no-store, private');
         $profile = $this->jsonResponse($client);
         self::assertSame($email, $profile['email']);
         self::assertSame($username, $profile['username']);
@@ -81,7 +83,17 @@ final class AuthControllerTest extends WebTestCase
         $this->setRefreshTokenCookie($client, $loginRefreshToken);
         $client->jsonRequest('POST', '/api/auth/refresh', [], $this->cookieRequestHeaders());
 
+        self::assertResponseIsSuccessful();
+        self::assertSame($rotatedRefreshToken, $this->refreshTokenCookie($client)->getValue());
+
+        static::getContainer()->get(Connection::class)->executeStatement(
+            'UPDATE refresh_tokens SET rotation_grace_until = ? WHERE refresh_token = ?',
+            [time() - 1, $rotatedRefreshToken],
+        );
+        $this->setRefreshTokenCookie($client, $loginRefreshToken);
+        $client->jsonRequest('POST', '/api/auth/refresh', [], $this->cookieRequestHeaders());
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+        self::assertSame([], $client->getResponse()->headers->getCookies());
 
         $this->setRefreshTokenCookie($client, $rotatedRefreshToken);
         $client->jsonRequest('POST', '/api/auth/logout', [], $this->cookieRequestHeaders());

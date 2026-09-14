@@ -155,8 +155,13 @@ Session failure and recovery:
   independently of browser coordination. Pending personalized responses from a
   previous session are discarded; renewed tokens are rebound to `/me` before
   completing refresh (including when a tab changed the account). Viewer changes
-  invalidate Nuxt data and remount page state. Routine renewal for an unchanged viewer preserves page
-  state and unsaved editor input.
+  invalidate Nuxt data and remount page state. Before retrying an authenticated
+  request after `401`, the client waits for any pending refresh and `/me`, then
+  checks the original session revision. A changed session rejects the original
+  request with client error `session_changed`, without replaying it under the
+  new account. This also applies to late `401` responses; merely seeing a newer
+  access token is insufficient. Routine renewal for an unchanged viewer
+  preserves page state and unsaved editor input.
 
 SSR and cache policy:
 

@@ -79,6 +79,63 @@ describe('coordinated session state', () => {
     expect(mocks.clear).not.toHaveBeenCalled()
   })
 
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)('does not replay a %s prepared by A after refresh identifies B', async (method) => {
+    const otherUser = { ...user, id: 2, username: 'other_account' }
+    let writes = 0
+    const { api, auth } = setup(async (path: string) => {
+      if (path === '/auth/refresh') return { token: 'other-token' }
+      if (path === '/me') return otherUser
+      if (++writes === 1) throw { status: 401 }
+      return { saved: true }
+    })
+    await expect(api.request('/action', { method, body: { message: 'Prepared by A' } })).rejects.toMatchObject({ code: 'session_changed' })
+    expect(writes).toBe(1)
+    expect(auth.currentUser.value).toEqual(otherUser)
+  })
+
+  it('waits for pending viewer verification before handling a late 401', async () => {
+    let rejectWrite!: (reason: unknown) => void
+    let finishProfile!: (value: User) => void
+    let profileStarted!: () => void
+    const verifying = new Promise<void>((resolve) => { profileStarted = resolve })
+    let writes = 0
+    const { api, auth } = setup(async (path: string) => {
+      if (path === '/auth/refresh') return { token: 'other-token' }
+      if (path === '/me') {
+        profileStarted()
+        return new Promise<User>((resolve) => { finishProfile = resolve })
+      }
+      if (++writes === 1) return new Promise((_resolve, reject) => { rejectWrite = reject })
+      return { saved: true }
+    })
+    const write = api.comments.create('recipe', { message: 'Prepared by A' })
+    const assertion = expect(write).rejects.toMatchObject({ code: 'session_changed' })
+    const refresh = api.auth.refresh()
+    await verifying
+    rejectWrite({ status: 401 })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(writes).toBe(1)
+    const otherUser = { ...user, id: 2, username: 'other_account' }
+    finishProfile(otherUser)
+    await refresh
+    await assertion
+    expect(writes).toBe(1)
+    expect(auth.currentUser.value).toEqual(otherUser)
+  })
+
+  it('still retries a write after renewal for the same viewer', async () => {
+    let writes = 0
+    const { api } = setup(async (path: string) => {
+      if (path === '/auth/refresh') return { token: 'renewed' }
+      if (path === '/me') return user
+      if (++writes === 1) throw { status: 401 }
+      return { saved: true }
+    })
+    await expect(api.request('/action', { method: 'POST' })).resolves.toEqual({ saved: true })
+    expect(writes).toBe(2)
+  })
+
   it('requires login immediately after confirmed password change', async () => {
     const { api, auth, state } = setup(async () => ({ changed: true }))
     await api.account.changePassword({ currentPassword: 'current-password', newPassword: 'new-secure-password' })

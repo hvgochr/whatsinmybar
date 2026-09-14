@@ -149,3 +149,40 @@ test('explicit browser logout clears every open tab after confirmed revocation',
   await expect(other.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
   expect((await context.cookies()).find(cookie => cookie.name === 'refresh_token')).toBeUndefined()
 })
+
+test('does not replay a comment prepared by A when the real refresh cookie identifies B', async ({ request }) => {
+  const first = await login(request)
+  const profile = await request.get('/api/me', { headers: { Authorization: `Bearer ${first.token}` } })
+  let viewer = await profile.json()
+  const second = await login(request)
+  let token: string | null = 'expired-access-token'
+  let revision = 0
+  let commentCalls = 0
+  const api = createApiClient({
+    baseURL: '/api',
+    getAccessToken: () => token,
+    setAccessToken: value => { token = value },
+    clearTokens: () => { token = null; revision++ },
+    getSessionRevision: () => revision,
+    setCurrentUser: (user) => {
+      if (viewer.id !== user.id) revision++
+      viewer = user
+    },
+    fetch: async <T>(path: string, options?: Record<string, unknown>): Promise<T> => {
+      if (path.endsWith('/comments')) commentCalls++
+      const response = await request.fetch(`/api${path}`, {
+        method: (options?.method as string) ?? 'GET',
+        headers: Object.fromEntries((options?.headers as Headers).entries()),
+        data: options?.body
+      })
+      const data = await response.json()
+      if (!response.ok()) throw { status: response.status(), data }
+      return data as T
+    }
+  })
+  // No recipe fixture is necessary: the initial JWT fails before controller
+  // dispatch, and the request must never be sent again after identifying B.
+  await expect(api.comments.create('does-not-exist', { message: 'Prepared by A' })).rejects.toMatchObject({ code: 'session_changed' })
+  expect(commentCalls).toBe(1)
+  expect(viewer.username).toBe(second.account.username)
+})

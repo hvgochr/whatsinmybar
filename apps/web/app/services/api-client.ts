@@ -218,19 +218,23 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     const started = generation
     const revision = config.getSessionRevision?.()
     const sentToken = config.getAccessToken()
+    const assertSameSession = () => {
+      if (started !== generation || revision !== config.getSessionRevision?.()) throw changedError()
+    }
     try {
       const result = await config.fetch<T>(path, fetchOptions(config, options))
-      if (options.auth !== false && (started !== generation || revision !== config.getSessionRevision?.())) throw changedError()
+      if (options.auth !== false) assertSameSession()
       return result
     } catch (error: unknown) {
       const normalizedError = normalizeApiError(error)
-      if (options.auth !== false && started !== generation) throw changedError()
+      if (options.auth !== false) assertSameSession()
 
       if (canRefresh && options.auth !== false && normalizedError.status === 401) {
-        // A slower 401 can arrive after another call already refreshed the token.
-        if (config.getAccessToken() && config.getAccessToken() !== sentToken) return request<T>(path, options, false)
         try {
-          await refreshTokens()
+          // A new token is not a verified viewer until the shared refresh's /me
+          // completes. This also covers a slower 401 from another request.
+          if (refreshPromise && refreshGeneration === generation) await refreshPromise
+          else if (!config.getAccessToken() || config.getAccessToken() === sentToken) await refreshTokens()
         } catch (refreshError) {
           const failure = normalizeApiError(refreshError)
           if (options.publicFallback && (failure.status === 401 || isTemporaryError(failure))) {
@@ -238,6 +242,9 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
           }
           throw failure
         }
+        // Keep the original request's identity boundary across every retry.
+        // Refresh may have successfully switched A to B without a notification.
+        assertSameSession()
         return request<T>(path, options, false)
       }
       if (!canRefresh && options.auth !== false && normalizedError.status === 401) clearTokens()

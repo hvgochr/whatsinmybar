@@ -22,6 +22,7 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+        exclude: '../src/Service/Abuse/CounterCache.php'
 
     App\Service\Upload\AvatarStorageInterface:
         alias: 'app.upload.avatar_storage'
@@ -53,7 +54,36 @@ services:
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
+    # Deliberately not a framework cache pool: cache:clear/pool:clear must not reset quotas.
+    app.abuse_cache:
+        class: App\Service\Abuse\CounterCache
+        arguments: ['abuse', 0, '%app.abuse_directory%/counters']
+    app.abuse_storage:
+        class: Symfony\Component\RateLimiter\Storage\CacheStorage
+        arguments: ['@app.abuse_cache']
+    app.abuse_lock_store:
+        class: Symfony\Component\Lock\Store\FlockStore
+        arguments: ['%app.abuse_directory%/locks']
+    app.abuse_locks:
+        class: Symfony\Component\Lock\LockFactory
+        arguments: ['@app.abuse_lock_store']
+    App\Service\Abuse\AbuseLimiter:
+        arguments:
+            $storage: '@app.abuse_storage'
+            $locks: '@app.abuse_locks'
+            $secret: '%kernel.secret%'
+            $policies:
+                login_ip: { limit: '%env(int:ABUSE_LOGIN_IP_LIMIT)%', interval: '%env(ABUSE_LOGIN_INTERVAL)%' }
+                login_account: { limit: '%env(int:ABUSE_LOGIN_ACCOUNT_LIMIT)%', interval: '%env(ABUSE_LOGIN_INTERVAL)%' }
+                registration: { limit: '%env(int:ABUSE_REGISTRATION_LIMIT)%', interval: '%env(ABUSE_REGISTRATION_INTERVAL)%' }
+                writes: { limit: '%env(int:ABUSE_WRITES_LIMIT)%', interval: '%env(ABUSE_WRITES_INTERVAL)%' }
+                comments: { limit: '%env(int:ABUSE_COMMENTS_LIMIT)%', interval: '%env(ABUSE_COMMENTS_INTERVAL)%' }
+                reports: { limit: '%env(int:ABUSE_REPORTS_LIMIT)%', interval: '%env(ABUSE_REPORTS_INTERVAL)%' }
+                recipes: { limit: '%env(int:ABUSE_RECIPES_LIMIT)%', interval: '%env(ABUSE_RECIPES_INTERVAL)%' }
+                uploads: { limit: '%env(int:ABUSE_UPLOADS_LIMIT)%', interval: '%env(ABUSE_UPLOADS_INTERVAL)%' }
+
 when@test:
     parameters:
+        app.abuse_directory: '%env(ABUSE_TEST_DIRECTORY)%'
         app.avatar_uploads_dir: '%kernel.project_dir%/var/test-uploads/avatars'
         app.recipe_image_uploads_dir: '%kernel.project_dir%/var/test-uploads/recipes'

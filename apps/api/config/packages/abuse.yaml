@@ -1,0 +1,18 @@
+parameters:
+    app.abuse_directory: '%kernel.project_dir%/var/abuse/%kernel.environment%'
+    env(ABUSE_LOGIN_IP_LIMIT): '40'
+    env(ABUSE_LOGIN_ACCOUNT_LIMIT): '8'
+    env(ABUSE_LOGIN_INTERVAL): '15 minutes'
+    env(ABUSE_REGISTRATION_LIMIT): '5'
+    env(ABUSE_REGISTRATION_INTERVAL): '1 hour'
+    env(ABUSE_WRITES_LIMIT): '120'
+    env(ABUSE_WRITES_INTERVAL): '10 minutes'
+    env(ABUSE_COMMENTS_LIMIT): '20'
+    env(ABUSE_COMMENTS_INTERVAL): '10 minutes'
+    env(ABUSE_REPORTS_LIMIT): '5'
+    env(ABUSE_REPORTS_INTERVAL): '1 hour'
+    env(ABUSE_RECIPES_LIMIT): '60'
+    env(ABUSE_RECIPES_INTERVAL): '10 minutes'
+    env(ABUSE_UPLOADS_LIMIT): '10'
+    env(ABUSE_UPLOADS_INTERVAL): '10 minutes'
+

@@ -7,7 +7,7 @@ import ReportAction from '../../components/social/ReportAction.vue'
 import UiButton from '../../components/ui/button/Button.vue'
 import { ApiRequestError } from '../../services/api-client'
 import type { RecipeResource } from '../../types/api'
-import { collectionItems } from '../../utils/api-collections'
+import { collectionItems, collectionLastPage, collectionTotal } from '../../utils/api-collections'
 import { paginationState } from '../../utils/pagination'
 import { formatPublicDate, imageUrl, publicDescription, publicUrl } from '../../utils/public-content'
 
@@ -25,10 +25,11 @@ if (profileError.value) {
 }
 
 const isOwner = computed(() => auth.currentUser.value?.username === profile.value?.username)
+const publicPage = computed(() => pageValue('page'))
 const recipesPage = computed(() => pageValue('recipesPage'))
 const favoritesPage = computed(() => pageValue('favoritesPage'))
 
-const { data: publicRecipesData, pending: publicPending, error: publicError, refresh: refreshPublic } = await useAsyncData(`profile:${username.value}:public-recipes`, () => api.recipes.list({ author: username.value, sort: 'newest' }))
+const { data: publicRecipesData, pending: publicPending, error: publicError, refresh: refreshPublic } = await useAsyncData(`profile:${username.value}:public-recipes`, () => api.recipes.list({ author: username.value, sort: 'newest', page: publicPage.value }), { watch: [publicPage] })
 const { data: ownedData, pending: ownedPending, error: ownedError, refresh: refreshOwned } = await useAsyncData(
   `profile:${username.value}:owned:${recipesPage.value}`,
   () => isOwner.value ? api.account.ownedRecipes({ page: recipesPage.value }) : Promise.resolve(null),
@@ -49,6 +50,12 @@ const canonicalUrl = computed(() => publicUrl(runtimeConfig.public.siteUrl, `/us
 const actionPending = ref<Record<string, boolean>>({})
 const actionError = ref<Record<string, string>>({})
 
+const publicPagination = computed(() => paginationState({
+  currentPage: publicPage.value,
+  itemsOnPage: publicRecipes.value.length,
+  totalItems: collectionTotal(publicRecipesData.value),
+  totalPages: collectionLastPage(publicRecipesData.value)
+}))
 const ownedPagination = computed(() => paginationState({
   currentPage: ownedData.value?.page ?? recipesPage.value,
   itemsOnPage: ownedRecipes.value.length,
@@ -96,7 +103,7 @@ function pageValue(key: string): number {
   return Number.isInteger(value) && value > 0 ? value : 1
 }
 
-function ownerPageTo(key: 'favoritesPage' | 'recipesPage', page: number, hash: string) {
+function ownerPageTo(key: 'favoritesPage' | 'recipesPage' | 'page', page: number, hash: string) {
   const query = page <= 1
     ? Object.fromEntries(Object.entries(route.query).filter(([queryKey]) => queryKey !== key))
     : { ...route.query, [key]: String(page) }
@@ -138,6 +145,7 @@ function errorStatus(error: unknown): number {
       <div v-else class="mt-5 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div v-for="recipe in publicRecipes" :key="recipe.slug" class="grid gap-2"><RecipeCard :recipe="recipe" /><UiButton v-if="isOwner" as-child size="sm" variant="outline"><NuxtLink :to="`/recipes/${recipe.slug}/edit`">Edit recipe</NuxtLink></UiButton></div>
       </div>
+      <PaginationNav v-if="!publicPending && !publicError" aria-label="Published recipes pagination" :next-to="ownerPageTo('page', publicPagination.nextPage, '#published-recipes')" :pagination="publicPagination" :previous-to="ownerPageTo('page', publicPagination.previousPage, '#published-recipes')" />
     </section>
 
     <section v-if="isOwner" id="my-recipes" class="scroll-mt-24 mt-14 border-t pt-10" aria-labelledby="my-recipes-title">

@@ -17,8 +17,46 @@ API Platform supports both:
 - `application/ld+json`, where collections use the Hydra/JSON-LD shape.
 
 The Nuxt collection helpers accept bare arrays, Hydra collections, and custom
-admin `{ "items": [] }` collections. New frontend calls should request or
-expect simple JSON unless JSON-LD metadata is specifically needed.
+`{ "items": [] }` collections. Paginated API Platform recipe calls MUST send
+`Accept: application/ld+json`, including discovery, category recipes, and public
+profile recipes (`author`). Bare array length is only the returned page length,
+never a reliable paginated total. Item requests and custom controllers keep
+simple JSON.
+
+Recipe collections have 30 items per page and accept `page` (default `1`). The
+JSON-LD response uses `member`, `totalItems`, and, when paginated, `view` with
+`first`, `last`, `previous` and `next` links as applicable. The frontend helpers
+also understand the equivalent `hydra:`-prefixed keys. For example, page 2 of
+65 visible recipes contains 30 members, `totalItems: 65`, and a `view.last`
+ending in `page=3`. Page 3 contains 5 members and no next link. An out-of-range
+page succeeds with no members while retaining the total and last-page link.
+An empty result has `totalItems: 0`, no members, and no next link. Totals and
+links reflect the active filters and server-side visibility restrictions.
+
+Frontend page navigation preserves the current URL query parameters and
+filters; changing search filters resets the page to 1. Public profiles use
+`page` for published recipes independently of `recipesPage` and `favoritesPage`
+for private collections.
+
+## Categories and ingredients
+
+```text
+GET /categories
+GET /categories/{slug}
+GET /ingredients
+GET /ingredients/{slug}
+```
+
+Both taxonomy collections remain paginated by default (30 items). Only their
+public collection operations authorize `pagination=false`. The frontend uses
+this explicitly to retrieve the complete category directory and the categories
+and ingredients used by search and recipe editor selectors. These calls use
+simple JSON arrays. Recipes and other resources do not gain client-controlled
+pagination disabling; sending `pagination=false` to `/recipes` still returns
+one page. Admin collection pagination is unchanged.
+
+The ingredient editor fetches `GET /ingredients/{slug}` directly; it never
+searches a collection page for the item. A missing ingredient returns 404.
 
 ## Authentication
 

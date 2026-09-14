@@ -147,10 +147,10 @@ createServer((request, response) => {
     return authorized ? json(response, 200, { changed: true }) : apiError(response, 401, 'Unauthorized.')
   }
 
-  if (url.pathname === '/api/users/jane_doe') {
+  if (['/api/users/jane_doe', '/api/users/pagination_user'].includes(url.pathname)) {
     return json(response, 200, {
       id: adultUser.id,
-      username: adultUser.username,
+      username: url.pathname.split('/').at(-1),
       bio: 'Cocktail enthusiast focused on clear, practical recipes.',
       avatarPath: null,
       createdAt: adultUser.createdAt
@@ -265,11 +265,38 @@ createServer((request, response) => {
   }
 
   if (url.pathname === '/api/recipes') {
-    return json(response, 200, authorized ? [negroni, zeroProofRecipe] : [zeroProofRecipe])
+    const large = url.searchParams.get('q') === 'pagination' || url.searchParams.get('author') === 'pagination_user'
+    const items = large
+      ? Array.from({ length: 65 }, (_, index) => ({ ...zeroProofRecipe, id: index + 10, slug: `pagination-${index + 1}`, title: `Pagination recipe ${index + 1}` }))
+      : url.searchParams.get('q') === 'empty-pagination' || url.searchParams.get('category')?.startsWith('category-') ? [] : authorized ? [negroni, zeroProofRecipe] : [zeroProofRecipe]
+    const page = Number(url.searchParams.get('page') || 1)
+    const member = items.slice((page - 1) * 30, page * 30)
+    if (request.headers.accept !== 'application/ld+json') return json(response, 200, member)
+    const last = Math.max(1, Math.ceil(items.length / 30))
+    const link = (pageNumber) => {
+      const query = new URLSearchParams(url.searchParams)
+      query.set('page', String(pageNumber))
+      return `${url.pathname}?${query}`
+    }
+    return json(response, 200, {
+      member, totalItems: items.length,
+      ...(last > 1 || page > 1 ? { view: {
+        first: link(1), last: link(last),
+        ...(page > 1 ? { previous: link(page - 1) } : {}),
+        ...(page < last ? { next: link(page + 1) } : {})
+      } } : {})
+    })
   }
 
+  if (url.pathname === '/api/ingredients/gin') return json(response, 200, gin)
+  if (url.pathname === '/api/ingredients/ingredient-65') return json(response, 200, { ...gin, slug: 'ingredient-65', name: 'Ingredient 65' })
+
   if (url.pathname === '/api/categories' || url.pathname === '/api/ingredients') {
-    return json(response, 200, url.pathname.endsWith('categories') ? [classics] : [gin])
+    const categories = url.pathname.endsWith('categories')
+    const items = [categories ? classics : gin, ...Array.from({ length: 64 }, (_, index) => categories
+      ? { ...classics, id: index + 2, slug: `category-${index + 2}`, name: `Category ${index + 2}` }
+      : { ...gin, id: index + 2, slug: `ingredient-${index + 2}`, name: `Ingredient ${index + 2}` })]
+    return json(response, 200, url.searchParams.get('pagination') === 'false' ? items : items.slice(0, 30))
   }
 
   return apiError(response, 404, `Unhandled mock endpoint: ${url.pathname}`)

@@ -84,11 +84,11 @@ Expired entries are logically ignored immediately. Run this daily from the VPS
 scheduler to reclaim their disk space without resetting active quotas:
 
 ```bash
-docker compose --env-file .env.prod --env-file .env.deploy -f compose.prod.yaml exec -T api php bin/console app:abuse:prune
+docker compose --env-file .env.production --env-file .env.deploy -f compose.prod.yaml exec -T api php bin/console app:abuse:prune
 ```
 
 Limits and intervals default in `apps/api/config/packages/abuse.yaml`. Both
-Compose files explicitly pass all listed variables. Add overrides to `.env.prod`
+Compose files explicitly pass all listed variables. Add overrides to `.env.production`
 (or the root development `.env`) and recreate the API container to apply them.
 Use positive integer capacities and positive PHP relative intervals such as
 `15 minutes`. Lowering a limit can take effect against an existing counter;

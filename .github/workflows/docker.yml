@@ -1,4 +1,4 @@
-name: Publish production images
+name: docker
 
 on:
   push:
@@ -46,16 +46,3 @@ jobs:
           tags: ghcr.io/hvgochr/whatsinmybar-web:${{ github.sha }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
-      - name: Record both immutable image digests
-        env:
-          RELEASE: ${{ github.sha }}
-          API_DIGEST: ${{ steps.api.outputs.digest }}
-          WEB_DIGEST: ${{ steps.web.outputs.digest }}
-        run: |
-          printf 'WIMB_RELEASE=%s\nAPI_IMAGE=ghcr.io/hvgochr/whatsinmybar-api@%s\nWEB_IMAGE=ghcr.io/hvgochr/whatsinmybar-web@%s\n' \
-            "$RELEASE" "$API_DIGEST" "$WEB_DIGEST" > release.env
-      - uses: actions/upload-artifact@v7
-        with:
-          name: release-${{ github.sha }}
-          path: release.env
-          retention-days: 90

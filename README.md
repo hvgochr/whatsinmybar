@@ -85,9 +85,10 @@ remain in the developer's local Codex configuration.
 ## Production Status
 
 The production setup targets the shared OVH VPS and Caddy proxy, with two
-GHCR images pinned by digest, persistent uploads and abuse counters, a manual
-deployment script, and prepared backup/maintenance timers.
+GHCR images and persistent uploads/abuse counters. Like GameSentry,
+`docker.yml` builds images and `deploy.yml` deploys over SSH after a successful
+main build. Backups, Docker cleanup and maintenance timers are managed on the VPS.
 
-See [the production runbook](docs/docker-prod.md) for required network settings,
-secrets, off-site backups, restore drills and monitoring. These must be configured
-and verified before public launch; no workflow deploys the application.
+See [the production runbook](docs/docker-prod.md) for settings, the host backup
+example, rollback and restoration. Configure and verify the VPS before enabling
+production deployment.

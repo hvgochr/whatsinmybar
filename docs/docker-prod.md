@@ -1,34 +1,35 @@
 # Production on the shared OVH VPS
 
-WhatsInMyBar uses two GHCR images, PostgreSQL 16 and local persistent uploads.
-The existing Caddy in /srv/proxy terminates HTTPS. This repository does not start
-another Caddy or publish any host port. GameSentry stays independently managed.
+The deployment follows GameSentry: GitHub Actions builds the images and deploys
+over SSH; host backups, Docker cleanup and timers are managed on the VPS.
+No operational scripts or systemd files are installed from the repository.
 
-## Files and prerequisites
+## Layout and prerequisites
 
-- `compose.prod.yaml`: API, Nuxt, PostgreSQL, log rotation and persistent volumes.
-- `infra/caddy/Caddyfile.prod`: site block to merge into the existing Caddyfile.
-- `.github/workflows/images.yml`: builds both images from one main commit and
-  produces a `release.env` artifact containing their immutable digests.
-- `infra/ops/deploy.sh`: serialized manual deployment with HTTP checks.
-- `infra/ops/backup.sh`: consistent database/uploads backup and off-site copy.
-- `infra/ops/systemd/`: optional backup, pruning, disk/freshness checks and alerts.
-- `infra/ops/compose.restore.yaml`: disposable restoration environment.
+In /srv/whatsinmybar:
+- compose.prod.yaml: uploaded from the published commit;
+- .env.production: provisioned on the VPS, never replaced by Actions;
+- .env.deploy: last verified API_IMAGE and WEB_IMAGE digests;
+- .env.deploy.previous and compose.prod.yaml.previous: previous verified pair.
 
-On the VPS, use /srv/whatsinmybar with Docker Compose v2 supporting
-`up --wait` and `start --wait`, Bash, flock (util-linux), curl, rsync, OpenSSH,
-gzip and coreutils. No Python, Redis, S3 or deployment framework is required.
-The backup script briefly stops **only WhatsInMyBar API/web**. Allow this small
-nightly outage for a consistent database/upload pair.
+Keep the Compose project name **whatsinmybar-prod**. This preserves existing
+postgres_data, api_uploads and api_abuse volume identities. Do not rename it to
+match GameSentry's shorter naming, or use down -v. The uploads and abuse mounts
+remain /app/public/uploads and /app/var/abuse, writable by www-data.
+Existing installs using another project name must explicitly map their three
+existing volumes before starting the stack.
 
-No workflow deploys or connects to the VPS. Publication runs only after a push
-to main; opening a PR only builds/tests local runner images. Both builds must
-succeed before a release artifact exists. Keep the artifact and its digests:
-SHA tags identify the source, but deployment pins the actual image digests.
-Require application/container checks before merging into main. GHCR access for
-the VPS is a separate read-only package credential; do not commit it.
+If you created .env.prod during the earlier PR draft, rename it to
+.env.production and update any host commands that reference it. No database or
+upload migration is required. Old standalone WhatsInMyBar Caddy installations
+must retire that identified container with their old configuration without
+deleting data; the shared Caddy is never controlled by this Compose.
+
+Use Docker Compose v2 supporting up/start --wait, Bash, flock, curl, OpenSSH,
+gzip and coreutils. Backup copies also need rsync when enabled.
 
 ## Shared network and exact proxy trust
+
 
 Inspect the actual VPS before filling in production settings:
 
@@ -77,8 +78,8 @@ The site assumes direct Internet-to-Caddy traffic, without a CDN/load balancer.
 Create the secret file and replace **all** example placeholders:
 
 ```bash
-cp .env.prod.example .env.prod
-chmod 600 .env.prod
+cp .env.production.example .env.production
+chmod 600 .env.production
 openssl rand -hex 32
 openssl rand -hex 32
 openssl rand -hex 32
@@ -103,215 +104,253 @@ Protected /api/recipe-images/* responses retain private/no-store and the recipe
 voter. Do not add a static upload alias, image optimizer or shared caching.
 No API image routing configuration or authorization is loosened by this change.
 
-## Deploy and inspect
+## GitHub Actions: same flow as GameSentry
 
-Use the operational files from the same commit as the downloaded release
-artifact. For updates, retain the previous compose.prod.yaml and operational
-files before replacing them. Copy/configure these files while holding
-`.ops.lock`, with timers stopped during configuration maintenance.
-Keep .env.prod and .env.deploy outside any source synchronization/deletion.
+docker.yml runs on pushes to main and publishes the API and web SHA tags from
+the same commit. Both builds must succeed. deploy.yml listens for its successful
+completion, checks out that exact commit and uploads only Compose. No SSH
+deployment runs for a pull request.
+
+Configure the production GitHub environment with:
+- secrets DEPLOY_SSH_KEY and DEPLOY_KNOWN_HOSTS (verified host key);
+- variables DEPLOY_HOST and DEPLOY_USER.
+
+Provision /srv/whatsinmybar and .env.production for that user, allow it to use
+Docker, and authenticate it to GHCR with read-only package access. Use the same
+user for host backup/prune jobs so .ops.lock has consistent ownership.
+Set DNS, integrate the shared Caddy site block and prepare host backups before
+merging/enabling the first production workflow. Main pushes will then deploy
+automatically; this PR does not perform that setup or a deployment.
+
+The workflow uses GitHub's production concurrency group plus a host flock.
+Compose is staged under a unique name and only replaced under the lock. The
+workflow pulls SHA-tagged images, resolves their actual digests, preserves the
+previous Compose/image pair, starts PostgreSQL without recreating it, migrates
+using the selected API image, and recreates API/web. It verifies image references,
+container health, public Caddy /healthz, Nuxt /robots.txt and DB-backed
+/api/categories?page=1 before atomically recording .env.deploy.
+
+API health exercises Symfony and PostgreSQL through a real HTTP request.
+Nuxt's check proves its built HTTP server responds; it does not prove authenticated
+SSR. /healthz alone proves only Caddy. Keep the existing session/browser tests.
+
+.env.deploy.pending marks an attempted deployment. Failures preserve it and stop
+later deployments/backups rather than overwrite recovery evidence. There is no
+automatic database rollback. Resolve the failure using the following procedures.
+
+## Manual commands and recovery
 
 From /srv/whatsinmybar:
 
 ```bash
-bash infra/ops/deploy.sh /absolute/path/to/release.env
-```
-
-The script takes the shared lock, strictly parses the digest manifest, pulls
-images, waits for PostgreSQL, migrates with the selected API image, recreates
-API/web and checks their health and image references. Public requests check
-Caddy /healthz, Nuxt /robots.txt and the DB-backed API categories endpoint.
-During a first deployment, install/reload the Caddy block once containers are
-ready; if public checks fail before that, reload Caddy then rerun the script.
-
-The internal API check requests /api/categories?page=1: it exercises PHP,
-Symfony and PostgreSQL. Nuxt's /robots.txt proves the built HTTP server serves
-requests; it does not prove API dependencies or authenticated SSR. /healthz
-alone proves only the edge. Monitor the API and frontend separately.
-
-Only verified success replaces .env.deploy; the prior manifest becomes
-.env.deploy.previous. .env.deploy.pending records a deployment that has started
-mutating the stack. Failure leaves it for diagnosis and blocks scheduled
-backups; do not blindly delete it. A failed migration may already have changed
-the schema. Container replacement or public-check failure is not automatically
-rolled back.
-
-Routine commands use both files:
-
-```bash
 compose() {
-  docker compose --env-file .env.prod --env-file .env.deploy -f compose.prod.yaml "$@"
+  docker compose --env-file .env.production --env-file .env.deploy \
+    -p whatsinmybar-prod -f compose.prod.yaml "$@"
 }
 compose ps
 compose logs --tail=100 api web postgres
 compose exec -T api php bin/console doctrine:migrations:status
 ```
 
-Avoid exported API_IMAGE/WEB_IMAGE in the operator shell: exports override env
-files. During failed deployment diagnosis, explicitly use the pending manifest
-if inspecting the attempted release.
+For a failed first deployment, fix the cause and use .env.deploy.pending as the
+env file for manual diagnosis. Once understood, archive/remove that pending file
+under .ops.lock and rerun the failed deploy workflow. Never label it successful
+just by renaming the file.
 
-## Rollback and persistence
-
-For an application rollback, first verify that the current database schema is
-compatible with the old code. Copy the previous release manifest to a separate
-file, restore the matching Compose/operational files under the maintenance lock,
-then run `bash infra/ops/deploy.sh /path/to/saved-release.env --skip-migrations`.
-This explicit mode never asks old migration code to change the current schema. For a failed update, .env.deploy
-still identifies the last verified release; after a successful update use
-.env.deploy.previous. Deploying an old manifest does not undo migrations.
-If migrations are incompatible, plan a maintenance window and coordinated
-database/upload restore; expect loss of writes after the backup.
-Do not run down migrations automatically.
-
-The Compose project remains **whatsinmybar-prod**. It preserves:
-`whatsinmybar-prod_postgres_data`, `whatsinmybar-prod_api_uploads` and
-`whatsinmybar-prod_api_abuse`. Do not change the project name or use down -v.
-API upload and abuse mounts remain /app/public/uploads and /app/var/abuse;
-the image still initializes them for www-data. No volume data migration is
-needed for an existing deployment using this project name.
-
-If a previous installation used another project name, inspect its container
-mounts first and explicitly map the three existing volumes before starting
-anything. An empty new database is not a successful migration. If an old
-standalone WhatsInMyBar Caddy exists, retire that identified container using
-its old Compose configuration without deleting application volumes. The shared
-Caddy is never managed by this Compose file.
-
-Ordinary deploy, restart, cache:clear and daily app:abuse:prune preserve active
-quotas. Backups intentionally do not snapshot quota counters: do not restore
-old counters over live ones. Disaster recovery to a fresh host starts fresh
-quotas. Preserve the live abuse volume during an in-place data recovery.
-
-## Backups, schedules and alerts
-
-Choose a dedicated off-site SSH destination first. It must exist, be writable
-by the backup account and provide encryption at rest. Verify its SSH host key
-and install a restricted key for the systemd execution user (`hugo` in the templates).
-Use no interactive password prompt and no StrictHostKeyChecking=no.
-The template refuses to run until BACKUP_REMOTE is set.
-
+For rollback, verify schema compatibility with the old code first. Under the
+same lock, restore compose.prod.yaml.previous and .env.deploy.previous, pull the
+recorded digests, then recreate API/web and repeat health/public checks:
 ```bash
-sudo install -d -m 700 /etc/whatsinmybar
-sudo install -m 600 infra/ops/backup.env.example /etc/whatsinmybar/backup.env
-sudo install -d -o hugo -g hugo -m 700 /srv/backups/whatsinmybar
+# Run in a dedicated Bash subshell after checking the recovery pair.
+(
+  set -euo pipefail
+  exec 9>.ops.lock
+  flock -w 900 9
+  unset API_IMAGE WEB_IMAGE
+  cp compose.prod.yaml.previous compose.prod.yaml
+  cp .env.deploy.previous .env.deploy
+  cp .env.deploy.previous .env.deploy.pending
+  docker compose --env-file .env.production --env-file .env.deploy \
+    -p whatsinmybar-prod -f compose.prod.yaml pull api web
+  docker compose --env-file .env.production --env-file .env.deploy \
+    -p whatsinmybar-prod -f compose.prod.yaml up -d --no-deps --force-recreate --wait api web
+  for path in /healthz /robots.txt '/api/categories?page=1'; do
+    curl --fail --silent --show-error --max-time 15 --output /dev/null \
+      "https://whatsinmybar.charradehugo.com$path"
+  done
+  rm -f .env.deploy.pending
+)
 ```
 
-Adjust User/Group in the units if the deployment account is not hugo. Use the
-same account for manual operations; it must own /srv/whatsinmybar, belong to the
-Docker group and have write access to the backup directory. systemd loads the
-root-owned EnvironmentFile before changing users.
+Do not run old migrations during an application rollback. Incompatible schema
+changes require a planned coordinated database/uploads restore and can lose
+writes since the backup. On a first deployment there is no previous pair.
 
-Edit backup.env: local directory, remote destination and retention (7 days
-locally proposed). backup.sh locks against deployment/pruning, checks that all
-services are healthy, stops API/web, dumps PostgreSQL with strict pipeline
-failure handling, archives uploads including ownership, and restarts API/web.
-A trap attempts restart on failure. A SIGKILL/host crash can still leave
-services stopped: monitor availability and inspect compose ps after recovery.
+## Host backup: /usr/local/bin/backup-whatsinmybar
 
-It verifies compressed files/checksums, sends the complete timestamped directory
-with rsync over SSH, then applies local retention. Failed dumps produce no
-completed bundle; failed remote copies retain the local bundle and skip
-retention. Retry a failed transfer of that directory and verify SHA256SUMS at
-the destination. Each bundle contains database.sql.gz, uploads.tar.gz, the image
-manifest and Compose file, not .env.prod. Back up secrets separately in encrypted
-storage so disaster recovery can recover them.
-
-The remote destination must enforce its own retention; rsync never uses
---delete. Proposed starting policy: 7 days locally, 30 days off-site, daily
-backups, monthly restore drill. Confirm storage cost, accepted nightly downtime
-and a maximum 24-hour data-loss window before installation. Remote snapshots
-or an append-only account reduce damage if the VPS credentials are compromised.
-
-Create /etc/whatsinmybar/alert.curl, mode 600, containing a curl `url = "..."`
-setting for a provisioned HTTPS webhook accepting a form field named unit.
-The template sends the failed systemd unit name, no application secrets.
-Adapt this tiny alert unit to an existing notification provider if needed.
-Test the alert endpoint and verify delivery before relying on timers.
-
-After a successful manual backup and restore drill, installation is explicit:
+Install and schedule this on the VPS like backup-gamesentry, not in this repo.
+Use the same deployment user, chmod 750, and /srv/backups/whatsinmybar with mode
+700. It uses pg_dump custom format and pg_restore --list like GameSentry.
+Uploads need a matching archive, so it briefly stops only WhatsInMyBar API/web
+while creating the pair. All maintenance/importers must respect .ops.lock.
 
 ```bash
-sudo install -m 644 infra/ops/systemd/* /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl start whatsinmybar-backup.service
-sudo systemctl start whatsinmybar-abuse-prune.service
-sudo systemctl start whatsinmybar-check-backups.service
-sudo systemctl enable --now whatsinmybar-backup.timer whatsinmybar-abuse-prune.timer whatsinmybar-check-backups.timer
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+APP_DIR="/srv/whatsinmybar"
+BACKUP_DIR="/srv/backups/whatsinmybar"
+TIMESTAMP="$(date -u +%Y-%m-%d_%H-%M-%S)"
+cd "$APP_DIR"
+exec 9>.ops.lock
+flock -w 900 9
+[[ -f .env.deploy && ! -e .env.deploy.pending ]]
+unset API_IMAGE WEB_IMAGE
+compose() {
+  docker compose --env-file .env.production --env-file .env.deploy \
+    -p whatsinmybar-prod -f compose.prod.yaml "$@"
+}
+mkdir -p "$BACKUP_DIR"
+PARTIAL="$(mktemp -d "$BACKUP_DIR/.partial-XXXXXXXX")"
+RESUME=0
+cleanup() {
+  STATUS=$?
+  trap - EXIT
+  if (( RESUME )); then compose start --wait api web || STATUS=1; fi
+  rm -rf -- "$PARTIAL"
+  exit "$STATUS"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+for SERVICE in api web postgres; do
+  CONTAINER="$(compose ps -q "$SERVICE")"
+  [[ -n "$CONTAINER" && "$(docker inspect --format '{{.State.Health.Status}}' "$CONTAINER")" == healthy ]]
+done
+RESUME=1
+compose stop -t 60 api web
+# Variables expand inside PostgreSQL.
+compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$PARTIAL/database.dump"
+compose exec -T postgres pg_restore --list < "$PARTIAL/database.dump" > /dev/null
+compose run --rm --no-deps -T --user root --entrypoint tar api \
+  -C /app/public/uploads -czf - . > "$PARTIAL/uploads.tar.gz"
+cp .env.deploy "$PARTIAL/release.env"
+cp compose.prod.yaml "$PARTIAL/compose.prod.yaml"
+compose start --wait api web
+RESUME=0
+(
+  cd "$PARTIAL"
+  tar -tzf uploads.tar.gz > /dev/null
+  sha256sum database.dump uploads.tar.gz release.env compose.prod.yaml > SHA256SUMS
+)
+BACKUP="$BACKUP_DIR/whatsinmybar-$TIMESTAMP"
+[[ ! -e "$BACKUP" ]]
+mv "$PARTIAL" "$BACKUP"
+# Optional user@host:/absolute/path from the host job environment.
+# When configured, a failed transfer stops retention and preserves local copies.
+if [[ -n "${BACKUP_REMOTE:-}" ]]; then
+  rsync -a --protect-args --timeout=120 -e 'ssh -o BatchMode=yes -o ConnectTimeout=15' \
+    -- "$BACKUP" "$BACKUP_REMOTE/"
+fi
+find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name 'whatsinmybar-*' \
+  -mtime +7 ! -path "$BACKUP" -exec rm -rf -- {} +
+echo "Backup complete: $BACKUP"
 ```
 
-Backup runs around 04:00 UTC, pruning around 04:30 UTC; these differ from the
-existing GameSentry backup at 03:30 UTC. Pruning invokes the existing Symfony
-command as the API user and logs to the journal. OnFailure calls the alert unit.
-An hourly check reports disks at 85% and missing successful off-site copies
-for 36 hours; adjust the checked Docker data path if the daemon uses a custom
-data-root. Also configure an **external** HTTPS monitor for the frontend and
-/api/categories?page=1, with alerts and a small nightly maintenance window.
-A dead VPS cannot send local failure alerts.
+Without BACKUP_REMOTE this only provides **local** backups, like the current
+GameSentry script. Before launch choose an encrypted off-site destination,
+verify its SSH host key/access, and configure BACKUP_REMOTE on the host job.
+No rsync --delete is used. Enforce remote retention at the destination
+(proposed: 7 days local, 30 days off-site) and verify transferred SHA256SUMS.
+Keep secrets (.env.production) separately backed up in encrypted storage.
+The backup does not overwrite or snapshot active abuse counters.
 
-Application logs rotate at 10 MiB x 3 per container. Verify shared Caddy/Docker
-and systemd-journal retention separately; this repository does not edit the
-proxy project or global journald settings.
+## Host scheduling, cleanup and monitoring
+
+Reuse the existing systemd/cron approach on the VPS. Suggested backup time:
+04:00 UTC, separate from GameSentry's 03:30 UTC. Configure the backup service
+to execute /usr/local/bin/backup-whatsinmybar, with WorkingDirectory set to
+/srv/whatsinmybar and the deployment user. Use its EnvironmentFile for
+BACKUP_REMOTE if needed. Give stop/start enough time and alert on failure.
+
+Schedule this existing Symfony command daily (e.g. 04:30 UTC), with the same
+working directory and user:
 
 ```bash
-systemctl list-timers 'whatsinmybar-*'
-journalctl -u whatsinmybar-backup -u whatsinmybar-abuse-prune -u whatsinmybar-check-backups --since yesterday
+flock -w 900 .ops.lock docker compose \
+  --env-file .env.production --env-file .env.deploy \
+  -p whatsinmybar-prod -f compose.prod.yaml \
+  exec -T api php bin/console app:abuse:prune
 ```
 
-## Restore drill: isolated database and uploads
+This prunes expired counters while preserving active quotas and their lock.
+Container recreation and cache:clear also retain the api_abuse volume.
+Changing APP_SECRET or deleting that volume resets quotas.
 
-Use a trusted backup on a separate machine or an isolated test environment,
-never the production Compose. Generate a new, unique project name for every
-drill. The restore file has no public ports, no proxy and no production mounts.
+Keep the existing /usr/local/bin/docker-cleanup: image/build-cache pruning
+already covers all Docker projects. Do not add another cleanup job or volume
+pruning. Cached rollback images older than seven days may be removed when no
+container uses them; keep GHCR releases available so recorded digests can be
+pulled again.
 
-Run in Bash; set BACKUP to the downloaded bundle's absolute path:
+Application logs rotate at 10 MiB x 3 per container. Keep shared Caddy and
+journald retention in the host configuration. Add host disk alerts around 85%,
+an off-site backup freshness alert (36 hours), and external HTTP monitoring of
+the frontend and /api/categories?page=1. The host jobs should log to the journal
+and use your notification provider on failure. Verify alert delivery, actual
+backup restoration and the nightly downtime window before relying on them.
+No timers or server scripts are installed or activated by this PR.
+
+## Isolated restore drill
+
+Download a trusted complete bundle to a test machine. Set BACKUP to its absolute
+path. Use a fresh container and volume name each time; never the production
+Compose or volumes. This example publishes no ports and uses no network.
 
 ```bash
 set -euo pipefail
+RESTORE="wimb-restore-$(date -u +%Y%m%d%H%M%S)"
 export RESTORE_PASSWORD
-RESTORE_PASSWORD=$(openssl rand -hex 32)
-RESTORE_PROJECT="wimb-restore-$(date -u +%Y%m%d%H%M%S)"
+RESTORE_PASSWORD="$(openssl rand -hex 32)"
 (cd "$BACKUP" && sha256sum -c SHA256SUMS)
-restore() {
-  docker compose -p "$RESTORE_PROJECT" --env-file "$BACKUP/release.env" \
-    -f infra/ops/compose.restore.yaml "$@"
-}
-restore up -d --wait postgres
-gzip -dc "$BACKUP/database.sql.gz" \
-  | restore exec -T postgres psql -U restore -d restore --set ON_ERROR_STOP=on
-restore run --rm --no-deps -T uploads -C /restore -xzf - < "$BACKUP/uploads.tar.gz"
-restore exec -T postgres psql -U restore -d restore -c '\dt'
-restore run --rm --no-deps -T uploads -C /restore -tzf - < "$BACKUP/uploads.tar.gz"
+docker run -d --name "$RESTORE" --network none \
+  -e POSTGRES_USER=restore -e POSTGRES_DB=restore \
+  -e POSTGRES_PASSWORD="$RESTORE_PASSWORD" \
+  -v "$RESTORE-db:/var/lib/postgresql/data" \
+  --health-cmd 'pg_isready -U restore -d restore' \
+  --health-interval 2s postgres:16-alpine
+# Wait until docker inspect reports healthy before the restore:
+docker inspect --format '{{.State.Health.Status}}' "$RESTORE"
+docker exec -i "$RESTORE" pg_restore -U restore -d restore \
+  --no-owner --no-acl --exit-on-error < "$BACKUP/database.dump"
+docker run --rm -i --network none -v "$RESTORE-uploads:/restore" \
+  postgres:16-alpine tar -C /restore -xzf - < "$BACKUP/uploads.tar.gz"
+docker exec "$RESTORE" psql -U restore -d restore -c '\dt'
+docker run --rm --network none -v "$RESTORE-uploads:/restore:ro" \
+  postgres:16-alpine find /restore -type f
 ```
 
-Verify representative users/recipes and image references in the restored
-database, inspect restored files/ownership and compare counts with the backup
-source. The archive listing alone does not verify application behavior.
-Before accepting recovery, boot the matching application release in a separately
-configured test stack and check login/refresh, SSR, avatar rendering and protected
-recipe images for anonymous, minor and adult users. No production proxy/volumes
-may be attached. Then remove only the drill's volumes:
+Compare representative recipes and image references with restored files.
+A successful pg_restore --list only checks the archive catalog, not restorability.
+Before accepting recovery, check login/refresh, SSR and protected images with
+the matching release in a separately configured test stack. Dispose of the
+drill only after verification:
 
 ```bash
-restore down -v
+docker rm -f "$RESTORE"
+docker volume rm "$RESTORE-db" "$RESTORE-uploads"
 unset RESTORE_PASSWORD
 ```
 
-## Validation coverage
+## Validation
 
-- `make check-ops`: Bash syntax, ShellCheck, fake-command failure injection
-  (pg_dump failure restarts services; failed rsync retains the local backup;
-  pending deployment blocks backup).
-- `make check-containers`: Compose interpolation, both production builds,
-  isolated upload rules and forged-header tests using both actual Caddyfiles.
-- Container CI also starts a disposable production stack with a simulated
-  shared proxy. It verifies separate visitor IP budgets, rejected spoofed headers,
-  direct untrusted API callers, quotas after container/cache/prune operations,
-  DB-backed HTTP health and an SSR page request.
-- Backend/frontend CI rerun for production infrastructure changes and preserve
-  the existing quota, IP, per-request SSR forwarding, session and upload tests.
+Container CI checks workflow syntax/embedded Bash, Compose, both image builds,
+actual upload/proxy routing and a disposable production stack. The latter tests
+distinct IP budgets, forged headers, direct untrusted API callers, counter
+persistence after recreation/cache/pruning and an SSR page request.
+The smoke scenario is inline in containers.yml, not an operational script.
+Backend/frontend CI preserve existing authorization, session and SSR tests.
 
-The CI stack changes only its public listener to HTTP. It cannot validate the
-real VPS network, ACME, private GHCR pulls, off-site credentials, notification
-delivery, restore drill or real authenticated browser acceptance.
-Do not report these as passed based only on isolated tests.
+CI does not connect to the VPS or execute the SSH deployment or host backup.
+Real network addressing, ACME, GHCR credentials, backups/restoration and
+notification delivery still require the host acceptance steps above.

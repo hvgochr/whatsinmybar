@@ -1,9 +1,0 @@
-[Unit]
-Description=Hourly WhatsInMyBar disk and backup checks
-
-[Timer]
-OnBootSec=10min
-OnUnitActiveSec=1h
-
-[Install]
-WantedBy=timers.target

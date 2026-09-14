@@ -2,10 +2,10 @@ SHELL := /bin/sh
 
 COMPOSE := docker compose
 WEB_CHECK_COMPOSE := WEB_CONTAINER_IP=172.30.71.4 docker compose
-PROD_COMPOSE := API_IMAGE=whatsinmybar-api:check WEB_IMAGE=whatsinmybar-web:check CADDY_PROXY_IP=192.0.2.2 docker compose --env-file .env.prod.example -f compose.prod.yaml
+PROD_COMPOSE := API_IMAGE=whatsinmybar-api:check WEB_IMAGE=whatsinmybar-web:check CADDY_PROXY_IP=192.0.2.2 docker compose --env-file .env.production.example -f compose.prod.yaml
 
 .PHONY: up down logs ps seed \
-	check check-api check-web check-containers check-ops \
+	check check-api check-web check-containers \
 	test-api lint-api analyse-api \
 	test-web lint-web typecheck-web build-web e2e-web
 
@@ -32,11 +32,6 @@ check-api:
 
 check-web:
 	$(WEB_CHECK_COMPOSE) run --rm web pnpm check
-
-check-ops:
-	for script in infra/ops/*.sh; do bash -n "$$script" || exit; done
-	shellcheck infra/ops/*.sh
-	bash infra/ops/test-backup.sh
 
 check-containers:
 	$(PROD_COMPOSE) config --quiet

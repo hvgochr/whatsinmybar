@@ -21,6 +21,11 @@ Caddy :80/:443
 Only Caddy publishes host ports. PostgreSQL, Nuxt, and the API remain
 reachable only through Docker networks.
 
+The edge network reserves fixed Caddy/Nuxt IPs for explicit proxy trust.
+The `api_abuse` volume persists rate-limit counters outside Symfony's cache.
+See [Abuse protection](abuse-protection.md) for thresholds, environment overrides,
+network requirements and the daily expired-counter pruning command.
+
 Production files:
 
 - `compose.prod.yaml`: services, networks, volumes, healthchecks, and restart policies;

@@ -15,10 +15,13 @@ The Nuxt frontend quality baseline lives in `apps/web`.
 Run commands from the web container:
 
 ```bash
-docker compose run --rm web pnpm check
+make check-web
 ```
 
-`pnpm check` installs the Chromium browser needed by Playwright inside the same disposable Docker container before running smoke tests.
+`pnpm check` installs the Chromium browser needed by Playwright inside the same disposable Docker container before running smoke tests. `make` reserves a separate
+container IP so the trusted development SSR server can keep running. Manual
+`docker compose run --rm web` commands below need the prefix
+`WEB_CONTAINER_IP=172.30.71.4`; `docker compose exec web` does not.
 
 Individual checks:
 

@@ -20,7 +20,8 @@ services:
       - caddy_config:/config
       - caddy_data:/data
     networks:
-      - edge
+      edge:
+        ipv4_address: 172.30.72.2
 
   api:
     build:
@@ -33,18 +34,34 @@ services:
         condition: service_healthy
     environment:
       APP_DEBUG: "0"
+      ABUSE_LOGIN_IP_LIMIT: ${ABUSE_LOGIN_IP_LIMIT:-40}
+      ABUSE_LOGIN_ACCOUNT_LIMIT: ${ABUSE_LOGIN_ACCOUNT_LIMIT:-8}
+      ABUSE_LOGIN_INTERVAL: ${ABUSE_LOGIN_INTERVAL:-15 minutes}
+      ABUSE_REGISTRATION_LIMIT: ${ABUSE_REGISTRATION_LIMIT:-5}
+      ABUSE_REGISTRATION_INTERVAL: ${ABUSE_REGISTRATION_INTERVAL:-1 hour}
+      ABUSE_WRITES_LIMIT: ${ABUSE_WRITES_LIMIT:-120}
+      ABUSE_WRITES_INTERVAL: ${ABUSE_WRITES_INTERVAL:-10 minutes}
+      ABUSE_COMMENTS_LIMIT: ${ABUSE_COMMENTS_LIMIT:-20}
+      ABUSE_COMMENTS_INTERVAL: ${ABUSE_COMMENTS_INTERVAL:-10 minutes}
+      ABUSE_REPORTS_LIMIT: ${ABUSE_REPORTS_LIMIT:-5}
+      ABUSE_REPORTS_INTERVAL: ${ABUSE_REPORTS_INTERVAL:-1 hour}
+      ABUSE_RECIPES_LIMIT: ${ABUSE_RECIPES_LIMIT:-60}
+      ABUSE_RECIPES_INTERVAL: ${ABUSE_RECIPES_INTERVAL:-10 minutes}
+      ABUSE_UPLOADS_LIMIT: ${ABUSE_UPLOADS_LIMIT:-10}
+      ABUSE_UPLOADS_INTERVAL: ${ABUSE_UPLOADS_INTERVAL:-10 minutes}
       APP_ENV: prod
       APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env.prod}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:?Set CORS_ALLOW_ORIGIN in .env.prod}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.prod}
       DEFAULT_URI: https://${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
+      SYMFONY_TRUSTED_PROXIES: 172.30.72.2,172.30.72.3
       REFRESH_TOKEN_COOKIE_SECURE: "1"
-      SYMFONY_TRUSTED_PROXIES: 127.0.0.1,REMOTE_ADDR
     expose:
       - "8080"
     volumes:
       - api_uploads:/app/public/uploads
+      - api_abuse:/app/var/abuse
     healthcheck:
       test:
         - CMD
@@ -67,6 +84,7 @@ services:
     restart: unless-stopped
     environment:
       NUXT_API_BASE_URL: http://api:8080/api
+      NUXT_TRUSTED_PROXY_IP: 172.30.72.2
       NUXT_PUBLIC_API_BASE_URL: /api
       NUXT_PUBLIC_SITE_URL: https://${APP_DOMAIN:?Set APP_DOMAIN in .env.prod}
     expose:
@@ -82,7 +100,8 @@ services:
       retries: 6
       start_period: 20s
     networks:
-      - edge
+      edge:
+        ipv4_address: 172.30.72.3
 
   postgres:
     image: postgres:16-alpine
@@ -106,8 +125,13 @@ networks:
   database:
     internal: true
   edge:
+    ipam:
+      config:
+        - subnet: 172.30.72.0/24
+          ip_range: 172.30.72.128/25
 
 volumes:
+  api_abuse:
   api_uploads:
   caddy_config:
   caddy_data:

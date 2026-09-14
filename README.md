@@ -52,7 +52,7 @@ docker compose run --rm api composer check
 Frontend:
 
 ```bash
-docker compose run --rm web pnpm check
+make check-web
 ```
 
 GitHub Actions runs the backend and frontend checks independently on relevant

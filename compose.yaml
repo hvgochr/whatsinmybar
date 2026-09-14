@@ -15,7 +15,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     networks:
-      - whatsinmybar
+      whatsinmybar:
+        ipv4_address: 172.30.71.2
 
   api:
     build:
@@ -26,12 +27,28 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      ABUSE_LOGIN_IP_LIMIT: ${ABUSE_LOGIN_IP_LIMIT:-40}
+      ABUSE_LOGIN_ACCOUNT_LIMIT: ${ABUSE_LOGIN_ACCOUNT_LIMIT:-8}
+      ABUSE_LOGIN_INTERVAL: ${ABUSE_LOGIN_INTERVAL:-15 minutes}
+      ABUSE_REGISTRATION_LIMIT: ${ABUSE_REGISTRATION_LIMIT:-5}
+      ABUSE_REGISTRATION_INTERVAL: ${ABUSE_REGISTRATION_INTERVAL:-1 hour}
+      ABUSE_WRITES_LIMIT: ${ABUSE_WRITES_LIMIT:-120}
+      ABUSE_WRITES_INTERVAL: ${ABUSE_WRITES_INTERVAL:-10 minutes}
+      ABUSE_COMMENTS_LIMIT: ${ABUSE_COMMENTS_LIMIT:-20}
+      ABUSE_COMMENTS_INTERVAL: ${ABUSE_COMMENTS_INTERVAL:-10 minutes}
+      ABUSE_REPORTS_LIMIT: ${ABUSE_REPORTS_LIMIT:-5}
+      ABUSE_REPORTS_INTERVAL: ${ABUSE_REPORTS_INTERVAL:-1 hour}
+      ABUSE_RECIPES_LIMIT: ${ABUSE_RECIPES_LIMIT:-60}
+      ABUSE_RECIPES_INTERVAL: ${ABUSE_RECIPES_INTERVAL:-10 minutes}
+      ABUSE_UPLOADS_LIMIT: ${ABUSE_UPLOADS_LIMIT:-10}
+      ABUSE_UPLOADS_INTERVAL: ${ABUSE_UPLOADS_INTERVAL:-10 minutes}
       APP_ENV: dev
       APP_SECRET: dev-only-change-me
       CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
       DATABASE_URL: 'postgresql://app:app@postgres:5432/whatsinmybar?serverVersion=16&charset=utf8'
       DEFAULT_URI: 'http://localhost:8080'
       JWT_SECRET: dev-only-change-me-at-least-32-bytes
+      SYMFONY_TRUSTED_PROXIES: 172.30.71.2,172.30.71.3
       REFRESH_TOKEN_COOKIE_SECURE: "0"
     ports:
       - "127.0.0.1:8000:80"
@@ -53,6 +70,7 @@ services:
       NUXT_API_BASE_URL: http://api/api
       NUXT_HOST: 0.0.0.0
       NUXT_PORT: "3000"
+      NUXT_TRUSTED_PROXY_IP: 172.30.71.2
       NUXT_PUBLIC_API_BASE_URL: /api
       PNPM_HOME: /pnpm
     ports:
@@ -63,7 +81,8 @@ services:
       - web_nuxt:/app/.nuxt
       - web_pnpm_store:/pnpm/store
     networks:
-      - whatsinmybar
+      whatsinmybar:
+        ipv4_address: ${WEB_CONTAINER_IP:-172.30.71.3}
 
   postgres:
     image: postgres:16-alpine
@@ -86,6 +105,10 @@ services:
 
 networks:
   whatsinmybar:
+    ipam:
+      config:
+        - subnet: 172.30.71.0/24
+          ip_range: 172.30.71.128/25
 
 volumes:
   api_uploads:

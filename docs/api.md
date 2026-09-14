@@ -60,6 +60,14 @@ searches a collection page for the item. A missing ingredient returns 404.
 
 ## Authentication
 
+Abuse protection returns `429` with `Retry-After` and the standard error object
+(`error.status: 429`, `error.code: "too_many_requests"`). Login is limited per IP
+and IP/email pair; registration per IP; authenticated writes per user, sharing
+budgets across equivalent endpoints. GET/HEAD/OPTIONS and refresh/logout are
+exempt. See [Abuse protection](abuse-protection.md) for exact thresholds,
+counting semantics, storage and proxy requirements. No request or successful
+response payload changes.
+
 ```text
 POST  /auth/register
 POST  /auth/login

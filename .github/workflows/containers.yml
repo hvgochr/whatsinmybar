@@ -98,3 +98,8 @@ jobs:
             --volume "${PWD}/infra/docker/api/test-upload-routing.php:/tmp/test-upload-routing.php:ro" \
             --volume "${PWD}/infra/docker/api/Caddyfile:/tmp/development.Caddyfile:ro" \
             --entrypoint php whatsinmybar-api:ci /tmp/test-upload-routing.php /tmp/development.Caddyfile 80
+          docker run --rm --network none \
+            --volume "${PWD}/infra/docker/api/test-proxy-headers.php:/tmp/test-proxy-headers.php:ro" \
+            --volume "${PWD}/infra/caddy/Caddyfile:/tmp/edge.Caddyfile:ro" \
+            --volume "${PWD}/infra/caddy/Caddyfile.prod:/tmp/edge.prod.Caddyfile:ro" \
+            --entrypoint php whatsinmybar-api:ci /tmp/test-proxy-headers.php

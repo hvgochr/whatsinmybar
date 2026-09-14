@@ -17,6 +17,8 @@ test('desktop header balances search and authenticated recipe actions', async ({
 
   await expect(page.getByRole('search').getByPlaceholder('Search recipes')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Create recipe', exact: true })).toBeVisible()
+  // Wait for the SSR header to hydrate before opening its menu.
+  await page.waitForLoadState('networkidle')
   await page.getByRole('button', { name: 'Open profile menu for jane_doe' }).click()
   await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible()

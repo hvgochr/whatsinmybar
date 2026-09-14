@@ -268,7 +268,7 @@ createServer((request, response) => {
     const large = url.searchParams.get('q') === 'pagination' || url.searchParams.get('author') === 'pagination_user'
     const items = large
       ? Array.from({ length: 65 }, (_, index) => ({ ...zeroProofRecipe, id: index + 10, slug: `pagination-${index + 1}`, title: `Pagination recipe ${index + 1}` }))
-      : url.searchParams.get('q') === 'empty-pagination' ? [] : authorized ? [negroni, zeroProofRecipe] : [zeroProofRecipe]
+      : url.searchParams.get('q') === 'empty-pagination' || url.searchParams.get('category')?.startsWith('category-') ? [] : authorized ? [negroni, zeroProofRecipe] : [zeroProofRecipe]
     const page = Number(url.searchParams.get('page') || 1)
     const member = items.slice((page - 1) * 30, page * 30)
     if (request.headers.accept !== 'application/ld+json') return json(response, 200, member)

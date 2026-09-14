@@ -1,6 +1,7 @@
 import { appendResponseHeader, setResponseHeader } from 'h3'
 import { createApiClient } from '../services/api-client'
 import { createServerApiFetch } from '../services/server-api-fetch'
+import { forwardedClientIp } from '../services/client-ip'
 
 export default defineNuxtPlugin({
   name: 'api',
@@ -18,7 +19,7 @@ export default defineNuxtPlugin({
       fetch: import.meta.server
         ? createServerApiFetch($fetch.raw, useRequestHeaders(['cookie']).cookie, (cookie) => {
             if (event) appendResponseHeader(event, 'set-cookie', cookie)
-          })
+          }, forwardedClientIp(event?.node.req.socket.remoteAddress, useRequestHeaders(['x-forwarded-for'])['x-forwarded-for'], runtimeConfig.trustedProxyIp))
         : $fetch,
       getAccessToken: () => session.status.value === 'degraded' ? null : session.accessToken.value,
       setAccessToken: session.setAccessToken,

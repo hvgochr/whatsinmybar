@@ -351,6 +351,7 @@ function validateRecipeImage(file: File): string | null {
 
 function recipeImageErrorMessage(error: unknown): string {
   if (error instanceof ApiRequestError) {
+    if (error.status === 429) return toFormErrors(error).message!
     if (/size/i.test(error.message)) return 'Image must be 5 MB or smaller.'
     if (/JPEG|PNG|WebP|image file is required/i.test(error.message)) return 'Choose a JPEG, PNG, or WebP image.'
   }

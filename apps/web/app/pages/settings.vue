@@ -5,6 +5,7 @@ import UiTextarea from '../components/ui/textarea/Textarea.vue'
 import ThemeControl from '../components/navigation/ThemeControl.vue'
 import { imageUrl } from '../utils/public-content'
 import { toFormErrors } from '../utils/api-errors'
+import { announceSessionChange } from '../services/session-events'
 
 const api = useApi()
 const auth = useAuth()
@@ -139,7 +140,9 @@ async function submitPassword() {
     })
     passwordForm.currentPassword = ''
     passwordForm.newPassword = ''
-    notifications.success('password-updated', 'Password updated.')
+    announceSessionChange('logout')
+    notifications.success('password-updated', 'Password updated. Please log in again.')
+    await navigateTo('/login', { replace: true })
   } catch (error: unknown) {
     const formErrors = toFormErrors(error)
     passwordFieldErrors.value = formErrors.fields

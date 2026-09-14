@@ -75,3 +75,32 @@ the moderation-report feed instead of inventing an incomplete comment index.
 The application design system uses shadcn-nuxt primitives, Hugeicons and
 monochrome zinc-compatible semantic tokens. Theme preference supports light,
 dark and system modes without changing the color of recipe photography.
+
+## Real session integration
+
+The ordinary Playwright suite uses fixtures for UI/error scenarios; it does not
+validate real refresh rotation. Run the additional suite against the running
+Docker API, PostgreSQL, Nuxt and Caddy (development data only):
+
+```bash
+make up
+docker compose exec api php bin/console doctrine:migrations:migrate --no-interaction
+docker compose exec web pnpm exec playwright install --with-deps chromium
+docker compose exec web pnpm exec playwright test --config playwright.integration.config.ts
+```
+
+`SESSION_TEST_BASE_URL` overrides the default `http://caddy`. The suite creates
+unique `session_*` accounts in the development database; it does not delete
+existing data. It covers six concurrent refresh requests, real predecessor
+expiry, concurrent 401 recovery in shared/independent API clients, three browser
+tabs plus independent SSR requests, cache headers, two-user isolation and
+password-change notification/revocation. It waits 11 real seconds to prove that
+an old token cannot refresh indefinitely. Chromium is tested; Firefox/WebKit,
+production HTTPS cookies, extended offline suspension and responses delayed
+beyond the grace window require separate acceptance testing.
+
+Unit tests cover transient/network/rate-limit/timeout classification, effective
+cancellation deadlines, late responses, state/cache coordination and the SSR
+cookie jar. Fixture E2E tests additionally cover SSR refresh 503 and timeout
+fallback while preserving the HttpOnly cookie. Symfony authentication tests
+include an actual competing PostgreSQL lock and successful retry after timeout.

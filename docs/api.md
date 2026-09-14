@@ -91,10 +91,19 @@ outside authentication endpoints.
 The browser must include credentials on login, refresh, and logout requests.
 Frontend JavaScript never receives or reads the refresh-token value.
 
-`POST /auth/refresh` has no JSON payload. It consumes the cookie, rejects replay
-of the previous single-use token, and rotates both the access token and refresh
-cookie. `POST /auth/logout` revokes the current refresh token and expires the
-cookie. Both cookie-authenticated endpoints require this header:
+`POST /auth/refresh` has no JSON payload. It consumes only the cookie (body/query tokens are ignored). Rotation uses a
+PostgreSQL row lock and keeps the SHA-256 hash of one predecessor. For a fixed
+10 seconds after rotation, requests using either that predecessor or its
+successor receive the **same successor cookie**, with the same expiry. They do
+not extend this window. After the window, the predecessor returns `401`; the
+current token rotates again on its next use. This bounded repeatability covers
+concurrent API calls, tabs, independent SSR requests and short lost-response
+retries without an indefinitely reusable old token. Login continues to issue
+refresh tokens through Gesdinet; the explicit Symfony session controller owns
+refresh and logout rotation semantics.
+
+`POST /auth/logout` revokes the row selected by the current token or its retained
+predecessor and expires the cookie. It is idempotent even without a cookie. Both cookie-authenticated endpoints require this header:
 
 ```text
 X-CSRF-Protection: 1
@@ -110,8 +119,63 @@ account deletion through an admin user mutation or report moderation also
 revokes all refresh tokens for that account. Restoring the account allows it to
 authenticate again, but does not restore revoked refresh tokens.
 
-Changing a password also revokes every refresh token for that account. Existing
-access tokens retain only their normal short lifetime.
+Changing a password also revokes every refresh token for that account, including
+rotation predecessors, and expires the calling browser's refresh cookie. On
+confirmed success Nuxt clears its session and personalized data, informs other
+open tabs and navigates to login with a success notice. Other devices must log
+in again when refresh is next needed. Existing access tokens retain their
+normal 15-minute lifetime; this change does not introduce immediate JWT
+revocation.
+
+Session failure and recovery:
+
+- `401` from refresh means absent, expired, revoked or invalid credentials. Nuxt
+  clears the access token, viewer and personalized data, without calling logout.
+  A failed refresh does **not** emit `Set-Cookie`: a late failure must not erase
+  another request's newer cookie. An invalid cookie may remain until expiry,
+  explicit logout or the next login.
+- Network errors, timeouts, `408`, `429` and `5xx` do not revoke the cookie.
+  Nuxt enters a degraded state, hides uncertain personalized UI and offers
+  recovery through a session banner or window focus. Public recipe reads can
+  retry anonymously, subject to the normal backend alcohol/visibility rules.
+  Protected reads and writes report the failure rather than silently retrying
+  as anonymous. `403` (including a CSRF failure) is not treated as a logout or
+  retried anonymously.
+- Refresh has a 3-second client deadline, ordinary API calls 8 seconds and
+  uploads 30 seconds, including calls with an explicit cancellation signal.
+  Implicit ofetch retries are disabled. Refresh attempts share a Promise within
+  one client, reuse an already refreshed access token for a late `401`, and
+  back off for 5 seconds after failure (30 seconds for `429` without
+  `Retry-After`). A supplied `Retry-After` is respected. PostgreSQL lock waits
+  during refresh are limited to 2 seconds and return `503` with `Retry-After: 2`.
+- Explicit logout waits for confirmed revocation; a temporary failure offers
+  retry rather than claiming the cookie has been revoked.
+- Browser tabs exchange only session-change notifications via BroadcastChannel,
+  never credentials. The database rotation window provides concurrency safety
+  independently of browser coordination. Pending personalized responses from a
+  previous session are discarded; renewed tokens are rebound to `/me` before
+  completing refresh (including when a tab changed the account); viewer changes invalidate Nuxt data and
+  remount page state.
+
+SSR and cache policy:
+
+Nuxt state and its outgoing cookie jar belong to one SSR request. Only the
+refresh cookie is forwarded, only to the authentication endpoints; subsequent
+calls in that request use any newly issued cookie. Response cookies are relayed
+as separate `Set-Cookie` headers, including on HTTP errors when present. The
+refresh value is never serialized into the Nuxt payload. The short-lived JWT
+and viewer can be present in personalized HTML/payloads.
+
+All API responses and Nuxt-rendered HTML/payload responses use
+`Cache-Control: private, no-store`. API responses vary on Authorization and
+Cookie; Nuxt responses vary on Cookie. Do not enable shared HTML/payload caching,
+SWR/ISR or authenticated prerendering without revisiting this policy. This
+conservative policy deliberately gives up public API caching at low traffic.
+
+The grace window is deliberately finite. A response/cookie delivered out of
+order beyond the window, or a lost rotation response retried only after the
+window, can require login again. Multi-region deployments, indefinite offline
+recovery and immediate revocation of existing JWTs are outside this contract.
 
 Register payload:
 

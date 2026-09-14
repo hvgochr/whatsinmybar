@@ -1,66 +1,33 @@
-import { appendResponseHeader } from 'h3'
+import { appendResponseHeader, setResponseHeader } from 'h3'
 import { createApiClient } from '../services/api-client'
+import { createServerApiFetch } from '../services/server-api-fetch'
 
 export default defineNuxtPlugin({
   name: 'api',
   setup() {
     const runtimeConfig = useRuntimeConfig()
-    const accessToken = useState<string | null>('auth.accessToken', () => null)
-
+    const session = useSessionState()
+    const event = useRequestEvent()
+    if (import.meta.server && event) {
+      // HTML and Nuxt payloads can contain the viewer and a short-lived JWT.
+      setResponseHeader(event, 'Cache-Control', 'private, no-store')
+      appendResponseHeader(event, 'Vary', 'Cookie')
+    }
     const api = createApiClient({
       baseURL: import.meta.server ? runtimeConfig.apiBaseUrl : runtimeConfig.public.apiBaseUrl,
-      fetch: import.meta.server ? serverApiFetch() : $fetch,
-      getAccessToken: () => accessToken.value,
-      setAccessToken: (token) => {
-        accessToken.value = token
-      },
-      clearTokens: () => {
-        accessToken.value = null
-      }
+      fetch: import.meta.server
+        ? createServerApiFetch($fetch.raw, useRequestHeaders(['cookie']).cookie, (cookie) => {
+            if (event) appendResponseHeader(event, 'set-cookie', cookie)
+          })
+        : $fetch,
+      getAccessToken: () => session.status.value === 'degraded' ? null : session.accessToken.value,
+      setAccessToken: session.setAccessToken,
+      setCurrentUser: session.setUser,
+      clearTokens: session.clear,
+      getSessionRevision: () => session.revision.value,
+      onRefreshUnavailable: session.degrade
     })
 
-    return {
-      provide: {
-        api
-      }
-    }
+    return { provide: { api } }
   }
 })
-
-function serverApiFetch() {
-  const event = useRequestEvent()
-  const requestCookie = useRequestHeaders(['cookie']).cookie
-
-  return async <T>(request: string, options: Record<string, unknown> = {}): Promise<T> => {
-    const headers = new Headers(options.headers as HeadersInit | undefined)
-
-    if (requestCookie && !headers.has('cookie')) {
-      headers.set('cookie', requestCookie)
-    }
-
-    try {
-      const response = await $fetch.raw<T>(request, { ...options, headers })
-      forwardResponseCookies(response.headers)
-
-      return response._data as T
-    } catch (error: unknown) {
-      const response = (error as { response?: { headers?: Headers } }).response
-
-      if (response?.headers) {
-        forwardResponseCookies(response.headers)
-      }
-
-      throw error
-    }
-  }
-
-  function forwardResponseCookies(headers: Headers): void {
-    if (!event) {
-      return
-    }
-
-    for (const cookie of headers.getSetCookie()) {
-      appendResponseHeader(event, 'set-cookie', cookie)
-    }
-  }
-}

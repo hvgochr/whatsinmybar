@@ -1,118 +1,63 @@
 import { ApiRequestError } from '../services/api-client'
+import { announceSessionChange } from '../services/session-events'
 import type { AuthTokens, LoginPayload, RegisterPayload, User } from '../types/api'
 
 export function useAuth() {
   const api = useApi()
-  const accessToken = useState<string | null>('auth.accessToken', () => null)
-  const currentUser = useState<User | null>('auth.currentUser', () => null)
-
-  const isAuthenticated = computed(() => Boolean(accessToken.value && currentUser.value))
-
-  const invalidateViewerData = (): void => {
-    clearNuxtData()
-  }
-
-  const applyTokens = (tokens: AuthTokens): void => {
-    api.setTokens(tokens)
-  }
-
-  const clearSession = (): void => {
-    const hadSession = Boolean(accessToken.value || currentUser.value)
-
-    api.clearTokens()
-    currentUser.value = null
-
-    if (hadSession) {
-      invalidateViewerData()
-    }
-  }
-
-  const setCurrentUser = (user: User): void => {
-    currentUser.value = user
-  }
+  const session = useSessionState()
+  const currentUser = computed(() => session.status.value === 'authenticated' ? session.user.value : null)
+  const isAuthenticated = computed(() => Boolean(session.accessToken.value && currentUser.value))
 
   const fetchCurrentUser = async (): Promise<User> => {
-    const hadUser = Boolean(currentUser.value)
-
     try {
-      currentUser.value = await api.account.me()
-
-      if (!hadUser) {
-        invalidateViewerData()
-      }
-
-      return currentUser.value
-    } catch (error: unknown) {
-      if (error instanceof ApiRequestError && error.status === 401) {
-        clearSession()
-      }
-
+      const user = await api.account.me()
+      session.setUser(user)
+      return user
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) api.clearTokens()
+      else if (!(error instanceof ApiRequestError) || error.code !== 'session_changed') session.degrade()
       throw error
     }
   }
-
   const login = async (payload: LoginPayload): Promise<User> => {
-    applyTokens(await api.auth.login(payload))
-
-    return fetchCurrentUser()
+    await api.auth.login(payload)
+    const user = await fetchCurrentUser()
+    announceSessionChange('changed')
+    return user
   }
-
-  const register = async (payload: RegisterPayload): Promise<User> => {
-    return api.auth.register(payload)
-  }
-
   const refreshSession = async (): Promise<AuthTokens | null> => {
     try {
-      const tokens = await api.auth.refresh()
-      applyTokens(tokens)
-
-      return tokens
-    } catch (error: unknown) {
-      clearSession()
-
-      if (error instanceof ApiRequestError && error.status === 401) {
-        return null
-      }
-
+      return await api.auth.refresh()
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) return null
       throw error
     }
   }
-
   const restoreSession = async (): Promise<User | null> => {
-    if (currentUser.value && accessToken.value) {
-      return currentUser.value
-    }
-
-    if (!accessToken.value) {
-      await refreshSession()
-    }
-
-    if (!accessToken.value) {
-      return null
-    }
-
+    if (isAuthenticated.value) return currentUser.value
+    if (!session.accessToken.value || session.status.value === 'degraded') await refreshSession()
+    if (!session.accessToken.value) return null
+    if (isAuthenticated.value) return currentUser.value
     return fetchCurrentUser()
   }
-
   const logout = async (): Promise<void> => {
-    try {
-      await api.auth.logout()
-    } finally {
-      clearSession()
-    }
+    // A failed revocation is reported to the user, who can retry it.
+    await api.auth.logout()
+    announceSessionChange('logout')
   }
 
   return {
-    accessToken: readonly(accessToken),
-    currentUser: readonly(currentUser),
+    accessToken: readonly(session.accessToken),
+    currentUser,
+    status: readonly(session.status),
     isAuthenticated,
-    clearSession,
+    clearSession: api.clearTokens,
     fetchCurrentUser,
     login,
     logout,
     refreshSession,
-    register,
+    register: (payload: RegisterPayload) => api.auth.register(payload),
     restoreSession,
-    setCurrentUser
+    setCurrentUser: session.setUser
   }
 }

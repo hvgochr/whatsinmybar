@@ -5,13 +5,21 @@ useSeoMeta({
   title: 'Log out | What\'s In My Bar'
 })
 
-onMounted(async () => {
+const error = ref(false)
+const pending = ref(false)
+async function logout() {
+  error.value = false
+  pending.value = true
   try {
     await auth.logout()
-  } finally {
     await navigateTo('/login', { replace: true })
+  } catch {
+    error.value = true
+  } finally {
+    pending.value = false
   }
-})
+}
+onMounted(logout)
 </script>
 
 <template>
@@ -23,6 +31,8 @@ onMounted(async () => {
       <p class="mt-2 text-sm text-muted-foreground">
         You are being logged out.
       </p>
+      <p v-if="error" role="alert">Logout could not be confirmed. Please retry.</p>
+      <button v-if="error" :disabled="pending" class="mt-4 underline" @click="logout">Retry logout</button>
     </section>
   </main>
 </template>

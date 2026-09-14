@@ -1,15 +1,112 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type APIRequestContext } from '@playwright/test'
+import { createApiClient } from '../../app/services/api-client'
 
-test('concurrent refreshes converge on one bounded rotation with Symfony', async ({ request }) => {
+async function login(request: APIRequestContext) {
   const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 12)
   const account = { email: `session-${suffix}@example.com`, username: `session_${suffix}`, password: 'very-secure-password', birthDate: '1990-01-01' }
   expect((await request.post('/api/auth/register', { data: account })).status()).toBe(201)
-  const login = await request.post('/api/auth/login', { data: account })
-  expect(login.status()).toBe(200)
-  const cookie = login.headers()['set-cookie']!.split(';')[0]!
+  const response = await request.post('/api/auth/login', { data: account })
+  expect(response.status()).toBe(200)
+  return { account, cookie: response.headers()['set-cookie']!.split(';')[0]!, token: (await response.json()).token as string }
+}
+
+const csrf = { 'X-CSRF-Protection': '1' }
+
+test('concurrent HTTP refreshes converge; replay is bounded and revocation includes predecessors', async ({ request }) => {
+  const { cookie } = await login(request)
   const responses = await Promise.all(Array.from({ length: 6 }, () => request.post('/api/auth/refresh', {
-    headers: { Cookie: cookie, 'X-CSRF-Protection': '1' }
+    headers: { Cookie: cookie, ...csrf }
   })))
   expect(responses.map(response => response.status())).toEqual(Array(6).fill(200))
+  const successor = responses[0]!.headers()['set-cookie']!.split(';')[0]!
+  expect(successor).not.toBe(cookie)
   expect(new Set(responses.map(response => response.headers()['set-cookie']!.split(';')[0])).size).toBe(1)
+  for (const response of responses) {
+    expect(response.headers()['cache-control']).toContain('no-store')
+    expect(await response.json()).not.toHaveProperty('refresh_token')
+  }
+  // Real elapsed time against Symfony, not a mock accepting the old cookie forever.
+  await new Promise(resolve => setTimeout(resolve, 11_000))
+  const replay = await request.post('/api/auth/refresh', { headers: { Cookie: cookie, ...csrf } })
+  expect(replay.status()).toBe(401)
+  expect(replay.headers()['set-cookie']).toBeUndefined()
+  const next = await request.post('/api/auth/refresh', { headers: { Cookie: successor, ...csrf } })
+  expect(next.status()).toBe(200)
+  const latest = next.headers()['set-cookie']!.split(';')[0]!
+  expect(latest).not.toBe(successor)
+  expect((await request.post('/api/auth/logout', { headers: { Cookie: successor, ...csrf } })).status()).toBe(200)
+  expect((await request.post('/api/auth/refresh', { headers: { Cookie: latest, ...csrf } })).status()).toBe(401)
+})
+
+test('one API client and independent API clients recover concurrent 401s using the real rotation', async ({ request }) => {
+  const { account, cookie } = await login(request)
+  let refreshCalls = 0
+  const makeClient = () => {
+    let token: string | null = 'expired-access-token'
+    return createApiClient({
+      baseURL: '/api',
+      getAccessToken: () => token,
+      setAccessToken: value => { token = value },
+      clearTokens: () => { token = null },
+      fetch: async <T>(path: string, options?: Record<string, unknown>): Promise<T> => {
+        if (path === '/auth/refresh') refreshCalls++
+        const headers = Object.fromEntries((options?.headers as Headers).entries())
+        const response = await request.fetch(`/api${path}`, { method: (options?.method as string) ?? 'GET', headers: { ...headers, Cookie: cookie } })
+        const data = await response.json()
+        if (!response.ok()) throw { status: response.status(), data }
+        return data as T
+      }
+    })
+  }
+  const client = makeClient()
+  const users = await Promise.all(Array.from({ length: 6 }, () => client.account.me()))
+  expect(users.every(user => user.username === account.username)).toBe(true)
+  expect(refreshCalls).toBe(1)
+  const independent = await Promise.all(Array.from({ length: 4 }, () => makeClient().account.me()))
+  expect(independent.every(user => user.username === account.username)).toBe(true)
+})
+
+test('parallel SSR requests and browser tabs share rotation without leaking between viewers', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL })
+  const other = await browser.newContext({ baseURL })
+  try {
+    const first = await login(context.request)
+    const second = await login(other.request)
+    const pages = await Promise.all(Array.from({ length: 3 }, () => context.newPage()))
+    const responses = await Promise.all([
+      ...pages.map(page => page.goto('/')),
+      context.request.get('/', { headers: { Cookie: first.cookie } }),
+      context.request.get('/', { headers: { Cookie: first.cookie } }),
+      other.request.get('/', { headers: { Cookie: second.cookie } })
+    ])
+    for (let i = 0; i < responses.length; i++) {
+      const response = responses[i]!
+      expect(response?.status()).toBe(200)
+      const headers = await response.headers()
+      expect(headers['cache-control']).toContain('private')
+      expect(headers['cache-control']).toContain('no-store')
+      const html = await response.text()
+      expect(html).toContain(i === 5 ? second.account.username : first.account.username)
+      expect(html).not.toContain(i === 5 ? first.account.email : second.account.email)
+      expect(html).not.toContain(first.cookie.split('=')[1]!)
+    }
+    for (const page of pages) await expect(page.getByRole('button', { name: `Open profile menu for ${first.account.username}` })).toBeVisible()
+    const cookie = (await context.cookies()).find(cookie => cookie.name === 'refresh_token')!
+    expect(cookie.httpOnly).toBe(true)
+    expect(cookie.sameSite).toBe('Strict')
+    expect(cookie.value).not.toBe(first.cookie.split('=')[1])
+    // Password change must clear local UI, notify the other tabs and require login.
+    await pages[0]!.goto('/settings')
+    await pages[0]!.getByLabel('Current password', { exact: true }).fill(first.account.password)
+    await pages[0]!.getByLabel('New password', { exact: true }).fill('new-very-secure-password')
+    await pages[0]!.getByRole('button', { name: 'Update password', exact: true }).click()
+    await expect(pages[0]!).toHaveURL(/\/login$/)
+    for (const page of pages.slice(1)) await expect(page.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
+    expect((await context.request.post('/api/auth/refresh', { headers: { Cookie: first.cookie, ...csrf } })).status()).toBe(401)
+    expect((await context.request.post('/api/auth/refresh', { headers: { Cookie: `refresh_token=${cookie.value}`, ...csrf } })).status()).toBe(401)
+    expect((await other.request.post('/api/auth/refresh', { headers: csrf })).status()).toBe(200)
+  } finally {
+    await context.close()
+    await other.close()
+  }
 })

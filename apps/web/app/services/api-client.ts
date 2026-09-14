@@ -36,6 +36,7 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 type QueryValue = string | number | boolean | null | undefined
 
 export interface ApiRequestOptions {
+  publicFallback?: boolean
   auth?: boolean
   body?: unknown
   headers?: HeadersInit
@@ -50,6 +51,9 @@ export interface ApiClientConfig {
   getAccessToken: () => string | null
   setAccessToken: (token: string | null) => void
   clearTokens: () => void
+  setCurrentUser?: (user: User) => void
+  onRefreshUnavailable?: (error: ApiRequestError) => void
+  getSessionRevision?: () => number
 }
 
 export class ApiRequestError extends Error {
@@ -57,14 +61,16 @@ export class ApiRequestError extends Error {
   readonly payload: ApiErrorBody | null
   readonly status: number
   readonly violations: ApiViolation[]
+  readonly retryAfterMs: number | null
 
-  constructor(message: string, status: number, code: string, payload: ApiErrorBody | null = null, violations: ApiViolation[] = []) {
+  constructor(message: string, status: number, code: string, payload: ApiErrorBody | null = null, violations: ApiViolation[] = [], retryAfterMs: number | null = null) {
     super(message)
     this.name = 'ApiRequestError'
     this.status = status
     this.code = code
     this.payload = payload
     this.violations = violations
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -150,54 +156,91 @@ export interface ApiClient {
 
 export function createApiClient(config: ApiClientConfig): ApiClient {
   let refreshPromise: Promise<AuthTokens> | null = null
+  let refreshGeneration = -1
+  let generation = 0
+  let refreshFailure: { error: ApiRequestError, until: number } | null = null
 
+  const clearTokens = (): void => {
+    generation++
+    refreshFailure = null
+    config.clearTokens()
+  }
   const setTokens = (tokens: AuthTokens): void => {
+    generation++
+    refreshFailure = null
     config.setAccessToken(tokens.token)
   }
+  const changedError = () => new ApiRequestError('Session changed. Please retry.', 0, 'session_changed')
 
   const refreshTokens = async (): Promise<AuthTokens> => {
-    refreshPromise ??= request<AuthTokens>('/auth/refresh', {
+    if (refreshFailure && Date.now() < refreshFailure.until) throw refreshFailure.error
+    if (refreshPromise && refreshGeneration === generation) return refreshPromise
+    const started = generation
+    refreshGeneration = started
+    const pending = request<AuthTokens>('/auth/refresh', {
       auth: false,
       headers: csrfProtectionHeaders(),
-      method: 'POST'
+      method: 'POST',
+      timeout: 3000
     })
-      .then((tokens) => {
-        setTokens(tokens)
+      .then(async (tokens) => {
+        if (started !== generation) throw changedError()
+        config.setAccessToken(tokens.token)
+        if (config.setCurrentUser) {
+          // The shared cookie may now identify a different account (another tab).
+          // Verify the viewer before completing automatic refresh or retrying work.
+          const user = await request<User>('/me', {}, false)
+          if (started !== generation) throw changedError()
+          config.setCurrentUser(user)
+        }
+        refreshFailure = null
         return tokens
       })
-      .catch(async (error: unknown) => {
-        await config.fetch('/auth/logout', fetchOptions(config, {
-          auth: false,
-          headers: csrfProtectionHeaders(),
-          method: 'POST'
-        })).catch(() => undefined)
-        config.clearTokens()
-        throw normalizeApiError(error)
+      .catch((error: unknown) => {
+        const normalized = normalizeApiError(error)
+        if (started === generation) {
+          if (normalized.status === 401) clearTokens()
+          else config.onRefreshUnavailable?.(normalized)
+          // Bound repeated attempts during an outage; explicit later retry is possible.
+          refreshFailure = { error: normalized, until: Date.now() + (normalized.retryAfterMs ?? (normalized.status === 429 ? 30_000 : 5000)) }
+        }
+        throw normalized
       })
       .finally(() => {
-        refreshPromise = null
+        if (refreshPromise === pending) refreshPromise = null
       })
 
-    return refreshPromise
+    refreshPromise = pending
+    return pending
   }
 
   const request = async <T>(path: string, options: ApiRequestOptions = {}, canRefresh = true): Promise<T> => {
+    const started = generation
+    const revision = config.getSessionRevision?.()
+    const sentToken = config.getAccessToken()
     try {
-      return await config.fetch<T>(path, fetchOptions(config, options))
+      const result = await config.fetch<T>(path, fetchOptions(config, options))
+      if (options.auth !== false && (started !== generation || revision !== config.getSessionRevision?.())) throw changedError()
+      return result
     } catch (error: unknown) {
       const normalizedError = normalizeApiError(error)
+      if (options.auth !== false && started !== generation) throw changedError()
 
-      if (
-        canRefresh
-        && options.auth !== false
-        && normalizedError.status === 401
-        && !path.endsWith('/auth/refresh')
-      ) {
-        await refreshTokens()
-
+      if (canRefresh && options.auth !== false && normalizedError.status === 401) {
+        // A slower 401 can arrive after another call already refreshed the token.
+        if (config.getAccessToken() && config.getAccessToken() !== sentToken) return request<T>(path, options, false)
+        try {
+          await refreshTokens()
+        } catch (refreshError) {
+          const failure = normalizeApiError(refreshError)
+          if (options.publicFallback && (failure.status === 401 || isTemporaryError(failure))) {
+            return request<T>(path, { ...options, auth: false }, false)
+          }
+          throw failure
+        }
         return request<T>(path, options, false)
       }
-
+      if (!canRefresh && options.auth !== false && normalizedError.status === 401) clearTokens()
       throw normalizedError
     }
   }
@@ -215,7 +258,11 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
   return {
     account: {
       avatar: (file) => upload<User>('/me/avatar', 'avatar', file),
-      changePassword: (payload) => request<{ changed: boolean }>('/me/password', { body: payload, method: 'PATCH' }),
+      changePassword: async (payload) => {
+        const result = await request<{ changed: boolean }>('/me/password', { body: payload, method: 'PATCH' })
+        clearTokens()
+        return result
+      },
       me: () => request<User>('/me'),
       ownedRecipes: (params = {}) => request<PaginatedList<RecipeResource>>('/me/recipes', { query: paginationQuery(params) }),
       savedRecipes: (params = {}) => request<PaginatedList<RecipeResource>>('/me/saved-recipes', { query: paginationQuery(params) }),
@@ -246,13 +293,21 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       }
     },
     auth: {
-      login: (payload) => request<AuthTokens>('/auth/login', { auth: false, body: payload, method: 'POST' }),
+      login: async (payload) => {
+        clearTokens()
+        const started = generation
+        const tokens = await request<AuthTokens>('/auth/login', { auth: false, body: payload, method: 'POST' })
+        if (started !== generation) throw changedError()
+        setTokens(tokens)
+        return tokens
+      },
       logout: async () => {
         await request('/auth/logout', {
           auth: false,
           headers: csrfProtectionHeaders(),
           method: 'POST'
         })
+        clearTokens()
       },
       refresh: refreshTokens,
       register: (payload) => request<User>('/auth/register', { auth: false, body: payload, method: 'POST' })
@@ -264,7 +319,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     comments: {
       create: (recipeSlug, payload) => request<Comment>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { body: payload, method: 'POST' }),
       delete: (id) => request<Comment>(`/comments/${id}`, { method: 'DELETE' }),
-      list: (recipeSlug) => request<ItemList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`),
+      list: (recipeSlug) => request<ItemList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { publicFallback: true }),
       update: (id, payload) => request<Comment>(`/comments/${id}`, { body: payload, method: 'PATCH' })
     },
     favorites: {
@@ -282,16 +337,16 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       archive: (slug) => request<RecipeWorkflow>(`/recipes/${encodeURIComponent(slug)}/archive`, { method: 'POST' }),
       create: (payload) => request<RecipeResource>('/recipes/aggregate', { body: payload, method: 'POST' }),
       delete: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`, { method: 'DELETE' }),
-      get: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`),
+      get: (slug) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}`, { publicFallback: true }),
       imageFile: (path, signal) => {
         const filename = /^\/uploads\/recipes\/([a-f0-9]{32}\.(?:jpg|png|webp))$/.exec(path)?.[1]
         if (!filename) {
           return Promise.reject(new Error('Invalid recipe image path.'))
         }
-        return request<Blob>(`/recipe-images/${filename}`, { responseType: 'blob', cache: 'no-store', signal })
+        return request<Blob>(`/recipe-images/${filename}`, { publicFallback: true, responseType: 'blob', cache: 'no-store', signal })
       },
       image: (slug, file) => upload<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, 'image', file),
-      list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { headers: { Accept: 'application/ld+json' }, query: recipeSearchQuery(params) }),
+      list: (params = {}) => request<ApiCollection<RecipeResource>>('/recipes', { publicFallback: true, headers: { Accept: 'application/ld+json' }, query: recipeSearchQuery(params) }),
       publish: (slug) => request<RecipeWorkflow>(`/recipes/${encodeURIComponent(slug)}/publish`, { method: 'POST' }),
       removeImage: (slug) => request<RecipeImageState>(`/recipes/${encodeURIComponent(slug)}/image`, { method: 'DELETE' }),
       update: (slug, payload) => request<RecipeResource>(`/recipes/${encodeURIComponent(slug)}/aggregate`, { body: payload, method: 'PUT' })
@@ -301,7 +356,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     },
     request,
     setTokens,
-    clearTokens: config.clearTokens
+    clearTokens
   }
 }
 
@@ -310,10 +365,13 @@ export function normalizeApiError(error: unknown): ApiRequestError {
     return error
   }
 
-  const fetchError = error as {
+  const fetchError = (error ?? {}) as {
+    name?: string
+    cause?: { name?: string }
     data?: ApiErrorBody
     message?: string
     response?: {
+      headers?: Headers
       status?: number
       statusText?: string
       _data?: ApiErrorBody
@@ -325,11 +383,14 @@ export function normalizeApiError(error: unknown): ApiRequestError {
   const payload = fetchError.data ?? fetchError.response?._data ?? null
   const apiError = payload?.error
   const status = apiError?.status ?? fetchError.statusCode ?? fetchError.status ?? fetchError.response?.status ?? 0
-  const code = apiError?.code ?? codeFromStatus(status)
+  const timedOut = fetchError.name === 'TimeoutError' || fetchError.cause?.name === 'TimeoutError'
+  const code = apiError?.code ?? (timedOut ? 'timeout' : codeFromStatus(status))
   const message = apiError?.message ?? payload?.message ?? fetchError.statusMessage ?? fetchError.message ?? 'Request failed.'
   const violations = apiError?.violations ?? payload?.errors ?? []
 
-  return new ApiRequestError(message, status, code, payload, violations)
+  const retryAfter = fetchError.response?.headers?.get('Retry-After')
+  const delay = retryAfter ? (/^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now()) : NaN
+  return new ApiRequestError(message, status, code, payload, violations, Number.isFinite(delay) ? Math.max(1000, delay) : null)
 }
 
 function paginationQuery(params: PaginationParams): Record<string, QueryValue> {
@@ -340,16 +401,23 @@ function paginationQuery(params: PaginationParams): Record<string, QueryValue> {
 }
 
 function fetchOptions(config: ApiClientConfig, options: ApiRequestOptions): Record<string, unknown> {
-  const { auth = true, headers, query, ...fetchOptions } = options
+  const { auth = true, publicFallback: _publicFallback, headers, query, ...fetchOptions } = options
   const resolvedHeaders = new Headers(headers)
   const accessToken = config.getAccessToken()
+  const timeout = typeof options.timeout === 'number' ? options.timeout : options.body instanceof FormData ? 30_000 : 8000
+  // ofetch 1.x ignores timeout when the caller supplies a signal (e.g. images).
+  const signal = options.signal instanceof AbortSignal ? AbortSignal.any([options.signal, AbortSignal.timeout(timeout)]) : undefined
 
   if (auth && accessToken) {
     resolvedHeaders.set('Authorization', `Bearer ${accessToken}`)
   }
 
   return {
+    timeout,
+    retry: 0,
+    cache: 'no-store',
     ...fetchOptions,
+    ...(signal ? { signal } : {}),
     baseURL: config.baseURL,
     credentials: 'include',
     headers: resolvedHeaders,
@@ -392,4 +460,8 @@ function codeFromStatus(status: number): string {
   }
 
   return `http_${status}`
+}
+
+export function isTemporaryError(error: ApiRequestError): boolean {
+  return (error.status === 0 && error.code !== 'session_changed') || error.status === 408 || error.status === 429 || error.status >= 500
 }

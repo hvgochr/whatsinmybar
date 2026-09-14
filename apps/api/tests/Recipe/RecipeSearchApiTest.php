@@ -16,6 +16,50 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class RecipeSearchApiTest extends WebTestCase
 {
+    public function testCollectionPaginationContract(): void
+    {
+        $client = static::createClient();
+        $this->clearRecipesAndTaxonomy();
+        $author = $this->createUser();
+        $category = $this->createCategory('Pagination');
+        for ($index = 1; $index <= 65; ++$index) {
+            $recipe = $this->createRecipe(title: 'Pagination '.$index, author: $author);
+            $recipe->addCategory($category);
+        }
+        $this->createRecipe(title: 'Restricted', author: $author, containsAlcohol: true);
+        $this->flush();
+
+        $client->request('GET', '/api/recipes?pagination=false', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        $plain = $this->jsonResponse($client);
+        self::assertTrue(array_is_list($plain));
+        self::assertCount(30, $plain);
+
+        foreach ([[], ['category' => $category->getSlug()], ['author' => $author->getUsername()]] as $filters) {
+            $slugs = [];
+            foreach ([1 => 30, 2 => 30, 3 => 5, 4 => 0] as $page => $count) {
+                $client->request('GET', '/api/recipes?'.http_build_query([...$filters, 'page' => $page]), server: ['HTTP_ACCEPT' => 'application/ld+json']);
+                self::assertResponseIsSuccessful();
+                $payload = $this->jsonResponse($client);
+                self::assertSame(65, $payload['totalItems']);
+                self::assertCount($count, $payload['member']);
+                self::assertStringContainsString('page=3', $payload['view']['last']);
+                self::assertSame($page < 3, isset($payload['view']['next']));
+                foreach ($filters as $key => $value) {
+                    self::assertStringContainsString($key.'='.$value, $payload['view']['last']);
+                }
+                $slugs = [...$slugs, ...$this->collectionSlugs($client)];
+            }
+            self::assertCount(65, array_unique($slugs));
+        }
+
+        $client->request('GET', '/api/recipes?q=no-matching-pagination-recipe', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+        self::assertResponseIsSuccessful();
+        $payload = $this->jsonResponse($client);
+        self::assertSame(0, $payload['totalItems']);
+        self::assertSame([], $payload['member']);
+    }
+
     public function testTextSearchMatchesTitleDescriptionAndSlug(): void
     {
         $client = static::createClient();

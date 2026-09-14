@@ -15,6 +15,15 @@ const user: User = {
 }
 
 describe('api client', () => {
+  it('requests JSON-LD metadata for paginated recipes', async () => {
+    const fetch = vi.fn(async (_path: string, options?: Record<string, unknown>) => {
+      expect((options?.headers as Headers).get('Accept')).toBe('application/ld+json')
+      expect(options?.query).toEqual({ page: 2, category: 'classics', alcohol: false })
+      return { member: [], totalItems: 65, view: { last: '/api/recipes?page=3' } }
+    })
+    await createTestClient(fetch, { accessToken: null }).recipes.list({ page: 2, category: 'classics', alcohol: 'without' })
+  })
+
   it('fetches recipe image bytes with Bearer auth and no cache', async () => {
     const blob = new Blob(['image'], { type: 'image/png' })
     const fetch = vi.fn(async (_path: string, options?: Record<string, unknown>) => {

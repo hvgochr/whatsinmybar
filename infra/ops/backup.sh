@@ -43,6 +43,8 @@ done
 # No other operator/importer may write while holding this lock.
 resume=1
 compose stop -t 60 api web
+# Expand the database variables inside PostgreSQL, never on the host.
+# shellcheck disable=SC2016
 compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-acl' \
   | gzip > "$temporary/database.sql.gz"
 compose run --rm --no-deps -T --user root --entrypoint tar api \

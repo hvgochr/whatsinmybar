@@ -34,24 +34,7 @@ cd "$temporary"
 export FAILURE=dump
 if bash backup.sh; then echo "Failed pg_dump was accepted." >&2; exit 1; fi
 grep -q ' start --wait ' "$CALLS"
-if grep -q '^rsync
-[[ ! -e "$BACKUP_DIR/last-success" ]]
-[[ -z "$(find "$BACKUP_DIR" -name 'backup-*' -print -quit)" ]]
-
-export FAILURE=transfer
-if bash backup.sh; then echo "Failed off-site copy was accepted." >&2; exit 1; fi
-[[ ! -e "$BACKUP_DIR/last-success" ]]
-bundle=$(find "$BACKUP_DIR" -name 'backup-*' -type d -print -quit)
-[[ -n "$bundle" ]]
-(cd "$bundle" && sha256sum -c SHA256SUMS)
-
-# A pending/failed deployment must block the backup before Docker is touched.
-: > "$CALLS"
-touch .env.deploy.pending
-if bash backup.sh; then echo "Pending deployment was ignored." >&2; exit 1; fi
-[[ ! -s "$CALLS" ]]
-echo "Backup failure handling passed ($root)."
- "$CALLS"; then echo 'Copied a failed dump.' >&2; exit 1; fi
+if grep -q '^rsync$' "$CALLS"; then echo 'Copied a failed dump.' >&2; exit 1; fi
 [[ ! -e "$BACKUP_DIR/last-success" ]]
 [[ -z "$(find "$BACKUP_DIR" -name 'backup-*' -print -quit)" ]]
 

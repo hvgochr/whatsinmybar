@@ -34,7 +34,7 @@ check-web:
 	$(WEB_CHECK_COMPOSE) run --rm web pnpm check
 
 check-ops:
-	for script in infra/ops/*.sh; do bash -n "$$script"; done
+	for script in infra/ops/*.sh; do bash -n "$$script" || exit; done
 	shellcheck infra/ops/*.sh
 	bash infra/ops/test-backup.sh
 

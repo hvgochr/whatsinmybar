@@ -19,9 +19,8 @@ final readonly class ActiveAdminGuard
      */
     public function assertCanApply(User $user, array $proposedRoles, bool $proposedDeleted): void
     {
-        $currentlyActiveAdmin = null === $user->getDeletedAt() && in_array('ROLE_ADMIN', $user->getRoles(), true);
         $willRemainActiveAdmin = !$proposedDeleted && in_array('ROLE_ADMIN', $proposedRoles, true);
-        if (!$currentlyActiveAdmin || $willRemainActiveAdmin) {
+        if ($willRemainActiveAdmin) {
             return;
         }
 
@@ -30,6 +29,25 @@ final readonly class ActiveAdminGuard
         }
 
         $this->connection->executeQuery('SELECT pg_advisory_xact_lock(:lockKey)', ['lockKey' => self::LOCK_KEY]);
+        $userId = $user->getId();
+        if (null === $userId) {
+            throw new \LogicException('The active administrator guard requires a persisted user.');
+        }
+
+        $currentlyActiveAdmin = $this->connection->fetchOne(<<<'SQL'
+            SELECT COUNT(*)
+            FROM "user"
+            WHERE id = :userId
+              AND deleted_at IS NULL
+              AND roles::jsonb @> CAST(:adminRole AS jsonb)
+            SQL, ['userId' => $userId, 'adminRole' => '["ROLE_ADMIN"]']);
+        if (!is_int($currentlyActiveAdmin) && !is_string($currentlyActiveAdmin)) {
+            throw new \RuntimeException('Administrator state could not be read.');
+        }
+        if (0 === (int) $currentlyActiveAdmin) {
+            return;
+        }
+
         $activeAdminCount = $this->connection->fetchOne(<<<'SQL'
             SELECT COUNT(*)
             FROM "user"

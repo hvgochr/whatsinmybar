@@ -37,7 +37,22 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+      - name: Skip obsolete release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [[ "$IMAGE_SHA" == "$latest_sha" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping obsolete release $IMAGE_SHA; main is now $latest_sha."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Stage Compose configuration
+        if: steps.release.outputs.current == 'true'
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
@@ -46,6 +61,7 @@ jobs:
           scp compose.prod.yaml \
             "${DEPLOY_USER}@${DEPLOY_HOST}:/srv/whatsinmybar/compose.prod.yaml.next-${RUN_ID}"
       - name: Deploy
+        if: steps.release.outputs.current == 'true'
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}

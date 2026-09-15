@@ -104,12 +104,19 @@ Protected /api/recipe-images/* responses retain private/no-store and the recipe
 voter. Do not add a static upload alias, image optimizer or shared caching.
 No API image routing configuration or authorization is loosened by this change.
 
-## GitHub Actions: same flow as GameSentry
+## GitHub Actions: validation, publication and deployment
 
-docker.yml runs on pushes to main and publishes the API and web SHA tags from
-the same commit. Both builds must succeed. deploy.yml listens for its successful
-completion, checks out that exact commit and uploads only Compose. No SSH
-deployment runs for a pull request.
+On every push to main, docker.yml calls the existing backend.yml, frontend.yml
+and containers.yml through workflow_call. Local workflow references and checkout
+use the caller's exact commit. The publish job needs all three CI jobs to succeed
+before building and publishing the API and web SHA tags. The CI workflows retain
+their path-filtered pull_request triggers; their main push triggers are replaced
+by these calls, so main validation runs once and cannot be bypassed by path filters.
+Workflow changes also exercise the reusable CI graph on pull requests, with
+publication skipped.
+
+deploy.yml listens for successful completion of docker.yml, checks out that exact
+commit and uploads only Compose. No SSH deployment runs for a pull request.
 
 Configure the production GitHub environment with:
 - secrets DEPLOY_SSH_KEY and DEPLOY_KNOWN_HOSTS (verified host key);
@@ -123,6 +130,12 @@ merging/enabling the first production workflow. Main pushes will then deploy
 automatically; this PR does not perform that setup or a deployment.
 
 The workflow uses GitHub's production concurrency group plus a host flock.
+After acquiring GitHub's concurrency slot and immediately before the first scp,
+it compares the published SHA with the current main SHA through the GitHub API.
+An obsolete release skips both scp and SSH; an API failure stops the workflow.
+Thus an older build finishing after a newer release cannot overwrite it. A new
+push after this check does not interrupt the running deployment; its validated
+release can deploy afterwards through the same concurrency group.
 Compose is staged under a unique name and only replaced under the lock. The
 workflow pulls SHA-tagged images, resolves their actual digests, preserves the
 previous Compose/image pair, starts PostgreSQL without recreating it, migrates

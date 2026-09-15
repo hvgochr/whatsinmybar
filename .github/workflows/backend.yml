@@ -7,14 +7,7 @@ on:
       - "apps/api/**"
       - "compose.prod.yaml"
       - "infra/**"
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/backend.yml"
-      - "apps/api/**"
-      - "compose.prod.yaml"
-      - "infra/**"
+  workflow_call:
 
 jobs:
   backend:

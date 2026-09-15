@@ -1,19 +1,32 @@
 name: docker
 
 on:
+  # Exercise the reusable CI graph on workflow changes without publishing.
+  pull_request:
+    paths: [".github/workflows/**"]
   push:
     branches: [main]
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: publish-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
+  backend:
+    uses: ./.github/workflows/backend.yml
+  frontend:
+    uses: ./.github/workflows/frontend.yml
+  containers:
+    uses: ./.github/workflows/containers.yml
   publish:
+    needs: [backend, frontend, containers]
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

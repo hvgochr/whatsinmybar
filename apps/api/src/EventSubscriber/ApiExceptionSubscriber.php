@@ -2,6 +2,7 @@
 
 namespace App\EventSubscriber;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +21,18 @@ final class ApiExceptionSubscriber implements EventSubscriberInterface
         }
 
         $exception = $event->getThrowable();
+        if ($exception instanceof UniqueConstraintViolationException) {
+            $event->setResponse(new JsonResponse([
+                'error' => [
+                    'status' => Response::HTTP_CONFLICT,
+                    'code' => 'conflict',
+                    'message' => $this->uniqueConflictMessage($exception),
+                ],
+            ], Response::HTTP_CONFLICT));
+
+            return;
+        }
+
         if (!$exception instanceof HttpExceptionInterface) {
             return;
         }
@@ -35,12 +48,12 @@ final class ApiExceptionSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, array{string, int}>
      */
     public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::EXCEPTION => 'onKernelException',
+            KernelEvents::EXCEPTION => ['onKernelException', 100],
         ];
     }
 
@@ -65,5 +78,19 @@ final class ApiExceptionSubscriber implements EventSubscriberInterface
         $message = trim($exception->getMessage());
 
         return '' === $message ? (Response::$statusTexts[$status] ?? 'Error') : $message;
+    }
+
+    private function uniqueConflictMessage(UniqueConstraintViolationException $exception): string
+    {
+        $message = $exception->getMessage();
+
+        return match (true) {
+            str_contains($message, 'uniq_user_email') => 'Email is already in use.',
+            str_contains($message, 'uniq_user_username') => 'Username is already in use.',
+            str_contains($message, 'uniq_recipe_slug') => 'Recipe slug is already in use.',
+            str_contains($message, 'uniq_category_slug') => 'Category slug is already in use.',
+            str_contains($message, 'uniq_ingredient_slug') => 'Ingredient slug is already in use.',
+            default => 'A resource with the same unique value already exists.',
+        };
     }
 }

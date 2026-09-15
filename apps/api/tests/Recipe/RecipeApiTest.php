@@ -302,6 +302,39 @@ final class RecipeApiTest extends WebTestCase
         self::assertSame('50.00', $stored['recipeIngredients'][0]['quantity']);
     }
 
+    public function testAggregateCollectionsMustBeBoundedJsonLists(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $ingredient = $this->createIngredient(false);
+        $basePayload = [
+            'title' => 'Bounded Aggregate '.bin2hex(random_bytes(4)),
+            'description' => 'A recipe used to validate aggregate collection shapes.',
+            'difficulty' => 'easy',
+            'preparationTimeMinutes' => 5,
+            'servings' => 1,
+            'categories' => [],
+            'steps' => [['instruction' => 'Stir.']],
+            'ingredients' => [$this->aggregateIngredient($ingredient, '10')],
+        ];
+
+        foreach ([
+            ['categories' => ['named' => '/api/categories/example']],
+            ['steps' => ['named' => ['instruction' => 'Stir.']]],
+            ['ingredients' => ['named' => $this->aggregateIngredient($ingredient, '10')]],
+            ['categories' => array_fill(0, 21, '/api/categories/example')],
+            ['steps' => array_fill(0, 101, ['instruction' => 'Stir.'])],
+            ['ingredients' => array_fill(0, 101, $this->aggregateIngredient($ingredient, '10'))],
+        ] as $override) {
+            $client->jsonRequest('POST', '/api/recipes/aggregate', [...$basePayload, ...$override], server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+            self::assertSame('validation_failed', $this->jsonResponse($client)['error']['code']);
+        }
+    }
+
     private function loginAsUser(KernelBrowser $client): string
     {
         $password = 'very-secure-password';

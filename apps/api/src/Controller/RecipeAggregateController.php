@@ -26,6 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class RecipeAggregateController extends AbstractController
@@ -187,6 +188,8 @@ final class RecipeAggregateController extends AbstractController
                 ]),
                 'categories' => new Assert\Required([
                     new Assert\Type('array'),
+                    $this->listConstraint(),
+                    new Assert\Count(max: 20),
                     new Assert\All([
                         new Assert\Type('string'),
                         new Assert\Regex('/^\/api\/categories\/[a-z0-9]+(?:-[a-z0-9]+)*$/'),
@@ -194,7 +197,8 @@ final class RecipeAggregateController extends AbstractController
                 ]),
                 'steps' => new Assert\Required([
                     new Assert\Type('array'),
-                    new Assert\Count(min: 1),
+                    $this->listConstraint(),
+                    new Assert\Count(min: 1, max: 100),
                     new Assert\All(new Assert\Collection(
                         fields: [
                             'instruction' => new Assert\Required([
@@ -208,7 +212,8 @@ final class RecipeAggregateController extends AbstractController
                 ]),
                 'ingredients' => new Assert\Required([
                     new Assert\Type('array'),
-                    new Assert\Count(min: 1),
+                    $this->listConstraint(),
+                    new Assert\Count(min: 1, max: 100),
                     new Assert\All(new Assert\Collection(
                         fields: [
                             'ingredient' => new Assert\Required([
@@ -238,6 +243,15 @@ final class RecipeAggregateController extends AbstractController
             ],
             allowExtraFields: false,
         );
+    }
+
+    private function listConstraint(): Assert\Callback
+    {
+        return new Assert\Callback(static function (mixed $value, ExecutionContextInterface $context): void {
+            if (is_array($value) && !array_is_list($value)) {
+                $context->buildViolation('This value must be a JSON list.')->addViolation();
+            }
+        });
     }
 
     /**

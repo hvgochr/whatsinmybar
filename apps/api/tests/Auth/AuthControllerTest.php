@@ -193,6 +193,26 @@ final class AuthControllerTest extends WebTestCase
         self::assertNotEmpty($payload['errors']);
     }
 
+    public function testRegistrationRejectsFutureAndSilentlyNormalizedBirthDates(): void
+    {
+        $client = static::createClient();
+
+        foreach (['2999-01-01', '2026-02-30'] as $index => $birthDate) {
+            $suffix = bin2hex(random_bytes(6));
+            $client->jsonRequest('POST', '/api/auth/register', [
+                'email' => sprintf('invalid-date-%d-%s@example.com', $index, $suffix),
+                'username' => sprintf('invalid_date_%d_%s', $index, $suffix),
+                'password' => 'very-secure-password',
+                'birthDate' => $birthDate,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+            $payload = $this->jsonResponse($client);
+            self::assertSame('validation_failed', $payload['error']['code']);
+            self::assertNotEmpty($payload['error']['violations']);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */

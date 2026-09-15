@@ -46,6 +46,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
+    #[Assert\LessThanOrEqual('today', message: 'Birth date cannot be in the future.')]
     private \DateTimeImmutable $birthDate;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]

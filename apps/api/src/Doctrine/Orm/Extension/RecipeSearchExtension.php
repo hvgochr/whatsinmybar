@@ -6,6 +6,7 @@ use ApiPlatform\Doctrine\Orm\Extension\QueryCollectionExtensionInterface;
 use ApiPlatform\Doctrine\Orm\Util\QueryNameGeneratorInterface;
 use ApiPlatform\Metadata\Operation;
 use App\Entity\Recipe;
+use App\Util\StrictDateParser;
 use Doctrine\ORM\QueryBuilder;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
@@ -183,8 +184,8 @@ final class RecipeSearchExtension implements QueryCollectionExtensionInterface
             return;
         }
 
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $filters[$filterName]);
-        if (!$date instanceof \DateTimeImmutable) {
+        $date = StrictDateParser::yearMonthDay($filters[$filterName]);
+        if (null === $date) {
             throw new BadRequestHttpException(sprintf('%s must be a valid YYYY-MM-DD date.', $filterName));
         }
 

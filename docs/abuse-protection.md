@@ -84,11 +84,11 @@ Expired entries are logically ignored immediately. Run this daily from the VPS
 scheduler to reclaim their disk space without resetting active quotas:
 
 ```bash
-docker compose --env-file .env.prod -f compose.prod.yaml exec -T api php bin/console app:abuse:prune
+docker compose --env-file .env.production --env-file .env.deploy -f compose.prod.yaml exec -T api php bin/console app:abuse:prune
 ```
 
 Limits and intervals default in `apps/api/config/packages/abuse.yaml`. Both
-Compose files explicitly pass all listed variables. Add overrides to `.env.prod`
+Compose files explicitly pass all listed variables. Add overrides to `.env.production`
 (or the root development `.env`) and recreate the API container to apply them.
 Use positive integer capacities and positive PHP relative intervals such as
 `15 minutes`. Lowering a limit can take effect against an existing counter;
@@ -97,8 +97,9 @@ storage as an ordinary deployment step.
 
 ## Proxy trust boundary
 
-Internet must reach Caddy first. Production publishes only Caddy's ports.
-Symfony trusts only Caddy `172.30.72.2` and Nuxt `172.30.72.3`, and only
+Internet must reach the separately managed shared Caddy first. The production
+Compose publishes no ports. Symfony trusts only the configured exact
+`CADDY_PROXY_IP` and Nuxt's dedicated `WEB_INTERNAL_IP` (default `172.30.72.3`), and only
 `X-Forwarded-For` and `X-Forwarded-Proto`. There is no `REMOTE_ADDR` wildcard,
 private-range trust, or trust in `Forwarded`, `X-Real-IP` or forwarded host headers.
 Caddy overwrites `X-Forwarded-For` with the TCP peer IP and strips the alternative
@@ -110,10 +111,12 @@ it. The verified address is forwarded per SSR request to Symfony, alongside the
 existing restricted cookie transport; it is not stored in global state. Direct
 API callers outside the trusted proxy addresses cannot override their IP.
 
-Development uses `172.30.71.0/24`; production uses `172.30.72.0/24`. Dynamic
-containers allocate from `.128/25`, leaving proxy addresses reserved. If these
-subnets overlap an existing VPS/VPN network, change the subnet, static addresses,
-Symfony trust list and Nuxt trusted peer together. Never attach untrusted
+Development uses `172.30.71.0/24`; the dedicated production SSR network uses
+`172.30.72.0/24` by default. Dynamic containers allocate from `.128/25`, reserving
+Nuxt's static address. Caddy remains on the existing external `proxy` network:
+inspect its actual IP rather than assuming one from this subnet. SSR targets the
+API alias on the dedicated network. See [Production deployment](docker-prod.md)
+for exact settings, shared-proxy address changes and overlap checks. Never attach untrusted
 containers to this network or expose API/Nuxt ports publicly. Adding a CDN,
 another proxy, replicas or another VPS requires revisiting this trust and storage
 design. A compromised trusted application container is outside this boundary.

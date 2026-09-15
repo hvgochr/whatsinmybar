@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 COMPOSE := docker compose
 WEB_CHECK_COMPOSE := WEB_CONTAINER_IP=172.30.71.4 docker compose
-PROD_COMPOSE := docker compose --env-file .env.prod.example -f compose.prod.yaml
+PROD_COMPOSE := API_IMAGE=whatsinmybar-api:check WEB_IMAGE=whatsinmybar-web:check CADDY_PROXY_IP=192.0.2.2 docker compose --env-file .env.production.example -f compose.prod.yaml
 
 .PHONY: up down logs ps seed \
 	check check-api check-web check-containers \

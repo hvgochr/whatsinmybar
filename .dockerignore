@@ -1,3 +1,10 @@
+.env.prod
+.env.production
+.env.deploy*
+.ops.lock
+compose.prod.yaml.next-*
+compose.prod.yaml.previous
+
 .git
 .github
 .idea

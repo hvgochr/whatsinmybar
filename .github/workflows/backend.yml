@@ -5,12 +5,9 @@ on:
     paths:
       - ".github/workflows/backend.yml"
       - "apps/api/**"
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/backend.yml"
-      - "apps/api/**"
+      - "compose.prod.yaml"
+      - "infra/**"
+  workflow_call:
 
 jobs:
   backend:

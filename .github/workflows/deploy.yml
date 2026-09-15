@@ -1,0 +1,125 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [docker]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://whatsinmybar.charradehugo.com
+    steps:
+      - name: Checkout published revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Skip obsolete release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [[ "$IMAGE_SHA" == "$latest_sha" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping obsolete release $IMAGE_SHA; main is now $latest_sha."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Stage Compose configuration
+        if: steps.release.outputs.current == 'true'
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          scp compose.prod.yaml \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/srv/whatsinmybar/compose.prod.yaml.next-${RUN_ID}"
+      - name: Deploy
+        if: steps.release.outputs.current == 'true'
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          IMAGE_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          # Only trusted GitHub SHA/run identifiers are expanded into the remote command.
+          # shellcheck disable=SC2029
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "IMAGE_SHA='${IMAGE_SHA}' RUN_ID='${RUN_ID}' bash -s" <<'EOF'
+            set -euo pipefail
+            umask 077
+            cd /srv/whatsinmybar
+            exec 9>.ops.lock
+            flock -w 900 9
+
+            # Preserve recovery evidence rather than overwriting a failed attempt.
+            if [[ -e .env.deploy.pending ]]; then
+              echo "Resolve the previous failed deployment first (see runbook)." >&2
+              exit 1
+            fi
+            export API_IMAGE="ghcr.io/hvgochr/whatsinmybar-api:$IMAGE_SHA"
+            export WEB_IMAGE="ghcr.io/hvgochr/whatsinmybar-web:$IMAGE_SHA"
+            candidate="compose.prod.yaml.next-$RUN_ID"
+            compose() {
+              docker compose --env-file .env.production -p whatsinmybar-prod -f "$candidate" "$@"
+            }
+            trap 'echo "Deployment failed; inspect .env.deploy.pending and container state." >&2; compose ps -a' ERR
+            compose config --quiet
+            compose pull api web postgres
+            # Resolve the SHA tags once and record the exact pulled images.
+            API_IMAGE=$(docker image inspect --format '{{index .RepoDigests 0}}' "$API_IMAGE")
+            WEB_IMAGE=$(docker image inspect --format '{{index .RepoDigests 0}}' "$WEB_IMAGE")
+            [[ "$API_IMAGE" == ghcr.io/hvgochr/whatsinmybar-api@sha256:* ]]
+            [[ "$WEB_IMAGE" == ghcr.io/hvgochr/whatsinmybar-web@sha256:* ]]
+            if [[ -f .env.deploy ]]; then
+              cp .env.deploy .env.deploy.previous
+              cp compose.prod.yaml compose.prod.yaml.previous
+            fi
+            printf 'API_IMAGE=%s\nWEB_IMAGE=%s\n' "$API_IMAGE" "$WEB_IMAGE" > .env.deploy.pending
+            mv "$candidate" compose.prod.yaml
+            candidate=compose.prod.yaml
+
+            compose up -d --no-recreate --wait --wait-timeout 120 postgres
+            compose run --rm --no-deps -T api php bin/console doctrine:migrations:migrate --no-interaction
+            compose up -d --no-deps --force-recreate --wait --wait-timeout 180 api web
+            for service in api web; do
+              container=$(compose ps -q "$service")
+              expected="$API_IMAGE"
+              [[ "$service" != web ]] || expected="$WEB_IMAGE"
+              [[ "$(docker inspect --format '{{.Config.Image}}' "$container")" == "$expected" ]]
+              [[ "$(docker inspect --format '{{.State.Health.Status}}' "$container")" == healthy ]]
+            done
+            for path in /healthz /robots.txt '/api/categories?page=1'; do
+              curl --fail --silent --show-error --output /dev/null \
+                --connect-timeout 5 --max-time 15 --retry 5 --retry-delay 2 \
+                "https://whatsinmybar.charradehugo.com$path"
+            done
+            mv .env.deploy.pending .env.deploy
+            echo "Deployment verified: $IMAGE_SHA"
+          EOF

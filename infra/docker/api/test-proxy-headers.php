@@ -6,9 +6,10 @@ foreach (['/tmp/edge.Caddyfile', '/tmp/edge.prod.Caddyfile'] as $source) {
     $config = file_get_contents($source);
     $config = strtr($config, [
         ':80 {' => 'http://127.0.0.1:19080 {',
-        '{$APP_DOMAIN} {' => 'http://127.0.0.1:19080 {',
-        'api:8080' => '127.0.0.1:19081',
+        'whatsinmybar.charradehugo.com {' => 'http://127.0.0.1:19080 {',
+        'whatsinmybar-api:8080' => '127.0.0.1:19081',
         'api:80' => '127.0.0.1:19081',
+        'whatsinmybar-web:3000' => '127.0.0.1:19081',
         'web:3000' => '127.0.0.1:19081',
     ]);
     $config .= <<<'CADDY'

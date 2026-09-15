@@ -55,8 +55,9 @@ Frontend:
 make check-web
 ```
 
-GitHub Actions runs the backend and frontend checks independently on relevant
-pull requests and pushes to `main`.
+GitHub Actions runs path-filtered checks on pull requests. On every push to
+`main`, `docker.yml` reuses the backend, frontend and container CI workflows;
+all three must pass on that commit before image publication.
 
 ## AI-assisted development
 
@@ -84,10 +85,11 @@ remain in the developer's local Codex configuration.
 
 ## Production Status
 
-The repository contains locally validated multi-stage production images,
-Docker Compose orchestration, Caddy HTTPS routing, healthchecks, persistent
-volumes, and a manual deployment runbook.
+The production setup targets the shared OVH VPS and Caddy proxy, with two
+GHCR images and persistent uploads/abuse counters. Like GameSentry,
+`docker.yml` validates and builds images, then `deploy.yml` deploys over SSH.
+Before any VPS write, deployment skips releases that no longer match `main`. Backups, Docker cleanup and maintenance timers are managed on the VPS.
 
-A public production launch still requires a VPS and domain, monitoring, security
-hardening, off-site database and local upload backups, dynamic sitemap
-generation, and final deployment acceptance testing.
+See [the production runbook](docs/docker-prod.md) for settings, the host backup
+example, rollback and restoration. Configure and verify the VPS before enabling
+production deployment.

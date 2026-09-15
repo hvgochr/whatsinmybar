@@ -145,7 +145,10 @@ Comments are threaded:
 - new threads are limited to three levels and the API reports each comment's
   one-based depth;
 - comment reads are paginated flat collections (20 by default, 100 maximum),
-  so rendering work and response size stay bounded.
+  so rendering work and response size stay bounded;
+- replies whose parent is on another page include a public parent summary;
+- after creation, clients can locate the containing page by comment ID and
+  resynchronize both collection items and pagination metadata.
 
 Authors can edit and soft-delete their own comments.
 
@@ -183,6 +186,10 @@ Admins can list reports, review the target content, update report status, and ap
 Admin report responses include current target context, including the original
 message of a hidden or deleted comment. That context is never included in the
 authenticated reporter response or any public content response.
+
+Deletion and demotion of administrators are serialized. The current persisted
+state must be reread after locking before deciding whether the target is the
+last active administrator.
 
 Moderation statuses for content should be explicit rather than inferred only from deletion:
 

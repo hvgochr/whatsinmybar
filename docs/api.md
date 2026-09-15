@@ -419,6 +419,7 @@ Comment payload:
   "authorUsername": "jane_doe",
   "authorAvatarPath": "/uploads/avatars/jane.png",
   "parentId": null,
+  "parentContext": null,
   "depth": 1,
   "canReply": true,
   "message": "Great recipe.",
@@ -439,11 +440,20 @@ error.
 Deleted or hidden comments return `message: null`.
 
 The comment collection is a chronological flat page and accepts `page` and
-`pageSize`. It uses the standard paginated object (`items`, `page`, `pageSize`,
+`pageSize`. Passing `around={commentId}` overrides `page` and returns the page
+that contains that comment. It uses the standard paginated object (`items`, `page`, `pageSize`,
 `totalItems`, `totalPages`), defaults to 20 items, and caps `pageSize` at 100.
 `replyCount` is the number of direct replies, including replies outside the
 current page. A page can therefore contain a reply whose parent is on another
-page; the frontend renders that item without recursively fetching its ancestry.
+page. Reply payloads include a public `parentContext` summary, and the frontend
+renders it as “Reply to …” rather than presenting the reply as an independent
+root comment. Hidden or deleted parent messages remain `null` in that summary.
+
+After creating a comment, the frontend requests the collection with `around`
+using the returned comment ID. It replaces both the collection and pagination
+metadata from that response, updates `commentsPage`, and anchors the URL to the
+created comment. Thus adding comment 21 to a 20-item first page displays it on
+page 2 rather than appending it to an already full page.
 
 New comment threads are limited to three levels (root, reply, nested reply).
 `depth` is one-based and `canReply` is false on the third level. Attempts to
@@ -526,7 +536,10 @@ descending timestamp order with the numeric ID as a descending tie-breaker.
 Admin mutations are always protected server-side with `ROLE_ADMIN`.
 Deleting or removing `ROLE_ADMIN` from the final active administrator returns
 `409 conflict`. The check is transactionally serialized so concurrent admin
-mutations cannot remove every active administrator.
+mutations cannot remove every active administrator. For a mutation that would
+leave its proposed target inactive, the target's current administrator state is
+read from PostgreSQL only after acquiring the transaction lock; a stale
+Doctrine entity therefore cannot bypass the final-administrator check.
 
 ## Errors
 

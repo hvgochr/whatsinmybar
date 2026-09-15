@@ -10,7 +10,6 @@ import type {
   CommentPayload,
   FavoriteState,
   Ingredient,
-  ItemList,
   LoginPayload,
   ModerationStatus,
   PasswordChangePayload,

@@ -203,6 +203,11 @@ Register payload:
 }
 ```
 
+`birthDate` must be an exact calendar date in `YYYY-MM-DD` form and cannot be
+in the future. Impossible dates and values that PHP could otherwise normalize
+(for example `2024-02-31`) return `422 validation_failed`. The same rules apply
+when the profile birth date is updated.
+
 Current user payload:
 
 ```json
@@ -307,10 +312,14 @@ accept the same JSON object:
 }
 ```
 
-`steps` and `ingredients` are required, non-empty arrays. Their array order is
-the stored position, starting at `1`; clients do not send child IDs or
-positions. Categories and ingredients are referenced by API IRI. Quantity is a
-positive decimal string with at most six integer digits and two decimal places.
+`categories`, `steps`, and `ingredients` must be JSON lists rather than keyed
+objects. `steps` and `ingredients` are required and non-empty. Aggregate writes
+accept at most 20 categories, 100 steps, and 100 ingredients, and validate every
+element before persistence. Their array order is the stored position, starting
+at `1`; clients do not send child IDs or positions. Categories and ingredients
+are referenced by API IRI. Quantity is a positive decimal string with at most
+six integer digits and two decimal places. Malformed aggregate input returns a
+controlled `422 validation_failed` response.
 
 The complete payload, including all saved categories, ordered `steps`, and
 ordered `recipeIngredients`, is validated before replacement. Metadata,
@@ -336,6 +345,9 @@ publishedAfter
 publishedBefore
 sort=popular|newest|oldest
 ```
+
+`publishedAfter` and `publishedBefore` accept exact `YYYY-MM-DD` calendar dates.
+Impossible or silently normalized dates return `400 invalid_query_parameter`.
 
 Recipe item and collection representations include `favorited`. It is `true`
 only when the authenticated viewer has saved that recipe; it is `false` for
@@ -377,6 +389,10 @@ Favorite response:
   "changed": true
 }
 ```
+
+Favorite creation is idempotent, including concurrent identical requests.
+Counter updates are atomic: a newly inserted favorite increments the count
+once, while a duplicate request reports `changed: false` without changing it.
 
 Recipe image upload is multipart with the `image` file field.
 

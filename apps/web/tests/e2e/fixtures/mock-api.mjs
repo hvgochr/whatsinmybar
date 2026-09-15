@@ -227,6 +227,8 @@ createServer((request, response) => {
       message: 'New comment',
       moderationStatus: 'visible',
       replyCount: 0,
+      depth: 1,
+      canReply: true,
       deleted: false,
       createdAt: '2026-07-25T10:00:00+00:00',
       updatedAt: '2026-07-25T10:00:00+00:00'
@@ -252,11 +254,17 @@ createServer((request, response) => {
             message: 'Authorized note',
             moderationStatus: 'visible',
             replyCount: 0,
+            depth: 1,
+            canReply: true,
             deleted: false,
             createdAt: '2026-07-25T10:00:00+00:00',
             updatedAt: '2026-07-25T10:00:00+00:00'
           }]
-        : []
+        : [],
+      page: 1,
+      pageSize: 20,
+      totalItems: authorized ? 1 : 0,
+      totalPages: authorized ? 1 : 0
     })
   }
 
@@ -315,6 +323,8 @@ function commentPayload() {
     message: 'Authorized note',
     moderationStatus: 'visible',
     replyCount: 0,
+    depth: 1,
+    canReply: true,
     deleted: false,
     createdAt: '2026-07-25T10:00:00+00:00',
     updatedAt: '2026-07-25T10:00:00+00:00'

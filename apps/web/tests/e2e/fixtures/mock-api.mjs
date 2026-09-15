@@ -224,9 +224,12 @@ createServer((request, response) => {
       recipeSlug: 'negroni',
       authorUsername: 'jane_doe',
       parentId: null,
+      parentContext: null,
       message: 'New comment',
       moderationStatus: 'visible',
       replyCount: 0,
+      depth: 1,
+      canReply: true,
       deleted: false,
       createdAt: '2026-07-25T10:00:00+00:00',
       updatedAt: '2026-07-25T10:00:00+00:00'
@@ -249,14 +252,21 @@ createServer((request, response) => {
             recipeSlug: 'negroni',
             authorUsername: 'jane_doe',
             parentId: null,
+            parentContext: null,
             message: 'Authorized note',
             moderationStatus: 'visible',
             replyCount: 0,
+            depth: 1,
+            canReply: true,
             deleted: false,
             createdAt: '2026-07-25T10:00:00+00:00',
             updatedAt: '2026-07-25T10:00:00+00:00'
           }]
-        : []
+        : [],
+      page: 1,
+      pageSize: 20,
+      totalItems: authorized ? 1 : 0,
+      totalPages: authorized ? 1 : 0
     })
   }
 
@@ -312,9 +322,12 @@ function commentPayload() {
     recipeSlug: 'negroni',
     authorUsername: 'jane_doe',
     parentId: null,
+    parentContext: null,
     message: 'Authorized note',
     moderationStatus: 'visible',
     replyCount: 0,
+    depth: 1,
+    canReply: true,
     deleted: false,
     createdAt: '2026-07-25T10:00:00+00:00',
     updatedAt: '2026-07-25T10:00:00+00:00'

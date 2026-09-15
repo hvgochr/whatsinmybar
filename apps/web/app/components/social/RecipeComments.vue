@@ -1,22 +1,33 @@
 <script setup lang="ts">
-import type { Comment } from '../../types/api'
+import type { Comment, PaginatedList } from '../../types/api'
+import type { PaginationState } from '../../utils/pagination'
+import { paginationState } from '../../utils/pagination'
 import { buildCommentTree } from '../../utils/social'
 import { toFormErrors } from '../../utils/api-errors'
 import FormAlert from '../common/FormAlert.vue'
 import DestructiveConfirm from '../common/DestructiveConfirm.vue'
+import PaginationNav from '../common/PaginationNav.vue'
 import CommentTreeItem from './CommentTreeItem.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
 
 const props = defineProps<{
   comments: Comment[]
+  nextTo: Record<string, unknown>
+  pagination: PaginationState
+  previousTo: Record<string, unknown>
   recipeSlug: string
+}>()
+
+const emit = defineEmits<{
+  resynced: [payload: { comment: Comment, page: PaginatedList<Comment> }]
 }>()
 
 const api = useApi()
 const auth = useAuth()
 const notifications = useNotifications()
 const comments = ref<Comment[]>([...props.comments])
+const currentPagination = ref(props.pagination)
 const message = ref('')
 const pending = ref(false)
 const pendingActionId = ref<number | null>(null)
@@ -31,6 +42,10 @@ watch(() => props.comments, (nextComments) => {
   comments.value = [...nextComments]
 })
 
+watch(() => props.pagination, (nextPagination) => {
+  currentPagination.value = nextPagination
+})
+
 async function createComment(payload: { message: string, parentId?: number | null }) {
   pending.value = true
   pendingActionId.value = payload.parentId ?? null
@@ -38,8 +53,21 @@ async function createComment(payload: { message: string, parentId?: number | nul
 
   try {
     const createdComment = await api.comments.create(props.recipeSlug, payload)
-    comments.value = [...comments.value, createdComment]
     message.value = ''
+    try {
+      const page = await api.comments.list(props.recipeSlug, { around: createdComment.id })
+      comments.value = [...page.items]
+      currentPagination.value = paginationState({
+        currentPage: page.page,
+        itemsOnPage: page.items.length,
+        pageSize: page.pageSize,
+        totalItems: page.totalItems,
+        totalPages: page.totalPages
+      })
+      emit('resynced', { comment: createdComment, page })
+    } catch {
+      formError.value = 'Your comment was posted, but the comment list could not be refreshed. Reload the page to find it.'
+    }
     notifications.success(
       payload.parentId ? `comment-reply:${payload.parentId}` : `comment-create:${props.recipeSlug}`,
       payload.parentId ? 'Reply posted.' : 'Comment posted.'
@@ -118,7 +146,7 @@ function socialErrorMessage(error: unknown, fallback: string): string {
         </p>
       </div>
       <p class="text-sm text-muted-foreground">
-        {{ comments.length }} comment{{ comments.length === 1 ? '' : 's' }}
+        {{ currentPagination.totalItems }} comment{{ currentPagination.totalItems === 1 ? '' : 's' }}
       </p>
     </div>
 
@@ -163,6 +191,13 @@ function socialErrorMessage(error: unknown, fallback: string): string {
     <p v-else class="mt-5 text-muted-foreground">
       No public comments yet.
     </p>
+
+    <PaginationNav
+      aria-label="Comment pagination"
+      :next-to="nextTo"
+      :pagination="currentPagination"
+      :previous-to="previousTo"
+    />
 
     <DestructiveConfirm
       v-model:open="deleteDialogOpen"

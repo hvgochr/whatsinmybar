@@ -23,6 +23,10 @@ final class ReportRepository extends PaginatedRepository
     public function paginateLatestForAdmin(PageRequest $pagination): PageResult
     {
         $query = $this->createQueryBuilder('report')
+            ->leftJoin('report.reporter', 'reporter')
+            ->addSelect('reporter')
+            ->leftJoin('report.reviewedBy', 'reviewedBy')
+            ->addSelect('reviewedBy')
             ->orderBy('report.createdAt', 'DESC')
             ->addOrderBy('report.id', 'DESC')
             ->getQuery()

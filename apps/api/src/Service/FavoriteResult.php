@@ -8,6 +8,7 @@ final readonly class FavoriteResult
 {
     public function __construct(
         public Recipe $recipe,
+        public int $favoriteCount,
         public bool $favorited,
         public bool $changed,
     ) {

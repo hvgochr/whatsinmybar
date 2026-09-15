@@ -257,13 +257,23 @@ export interface Comment {
   recipeSlug: string
   authorUsername: string
   authorAvatarPath?: string | null
+  canReply: boolean
+  depth: number
   parentId: ApiId | null
+  parentContext: CommentParentContext | null
   message: string | null
   moderationStatus: ModerationStatus
   replyCount: number
   deleted: boolean
   createdAt: ApiDateTime
   updatedAt: ApiDateTime
+}
+
+export interface CommentParentContext {
+  id: ApiId
+  authorUsername: string
+  message: string | null
+  deleted: boolean
 }
 
 export interface CommentPayload {
@@ -276,6 +286,7 @@ export interface Report {
   reporterUsername: string
   targetType: ReportTargetType
   targetId: ApiId
+  targetContext?: ReportTargetContext | null
   reason: ReportReason
   message: string | null
   status: ReportStatus
@@ -283,6 +294,23 @@ export interface Report {
   reviewedAt: ApiDateTime | null
   createdAt: ApiDateTime
   updatedAt: ApiDateTime
+}
+
+export interface ReportTargetContext {
+  type: ReportTargetType
+  authorUsername?: string | null
+  bio?: string | null
+  deleted: boolean
+  description?: string | null
+  email?: string
+  message?: string
+  moderationStatus?: ModerationStatus
+  recipeSlug?: string
+  roles?: string[]
+  slug?: string
+  status?: RecipeStatus
+  title?: string
+  username?: string
 }
 
 export interface ReportPayload {
@@ -306,4 +334,8 @@ export interface PaginatedList<T> extends ItemList<T> {
 export interface PaginationParams {
   page?: number
   pageSize?: number
+}
+
+export interface CommentPaginationParams extends PaginationParams {
+  around?: ApiId
 }

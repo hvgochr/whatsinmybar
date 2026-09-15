@@ -142,7 +142,13 @@ Comments are threaded:
 
 - a comment can have a nullable parent comment;
 - replies belong to the same recipe as their parent;
-- nested rendering depth can be limited in the frontend if needed.
+- new threads are limited to three levels and the API reports each comment's
+  one-based depth;
+- comment reads are paginated flat collections (20 by default, 100 maximum),
+  so rendering work and response size stay bounded;
+- replies whose parent is on another page include a public parent summary;
+- after creation, clients can locate the containing page by comment ID and
+  resynchronize both collection items and pagination metadata.
 
 Authors can edit and soft-delete their own comments.
 
@@ -177,6 +183,14 @@ Report status values:
 - `rejected`.
 
 Admins can list reports, review the target content, update report status, and apply moderation actions.
+Admin report responses include current target context, including the original
+message of a hidden or deleted comment. That context is never included in the
+authenticated reporter response or any public content response.
+
+Deletion and demotion of administrators are serialized. The current persisted
+state must be reread after locking before deciding whether the target is the
+last active administrator; no entity state loaded before the lock decides
+whether that lock is acquired.
 
 Moderation statuses for content should be explicit rather than inferred only from deletion:
 
@@ -198,6 +212,8 @@ Admin features:
 - reports and moderation.
 
 The API must expose admin-only operations with role checks. The frontend admin routes are only a UI layer and must not be trusted for authorization.
+The last active administrator cannot be deleted or demoted; concurrent admin
+mutations are serialized around this invariant.
 
 ## 4. Alcohol Access Rules
 
@@ -733,6 +749,7 @@ Security:
 Performance:
 
 - paginate recipe lists and admin lists;
+- paginate comment collections and batch direct-reply counts;
 - index common filters;
 - avoid N+1 queries for recipe detail pages;
 - cache public metadata where appropriate later.
@@ -774,11 +791,15 @@ Remaining before the V1 production launch:
 5. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
 6. Run a final accessibility, responsive layout, security, and end-to-end acceptance pass.
 
+Account recovery, email verification and self-service deletion are deliberately
+deferred pending the delivery, identity and retention decisions documented in
+[`docs/account-lifecycle.md`](account-lifecycle.md). No public email credentials
+or default production administrator password are part of V1.
+
 ## 14. Open Decisions
 
 The following details still require a product or infrastructure decision:
 
 - whether recipe and category slugs become immutable after publication;
-- maximum comment nesting depth in the UI;
 - public recipe pagination versus infinite loading as the long-term interaction;
 - VPS provider, domain, monitoring provider, and off-site backup destination.

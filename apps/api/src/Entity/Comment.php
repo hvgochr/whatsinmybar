@@ -14,6 +14,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(name: 'idx_comment_recipe', columns: ['recipe_id'])]
 #[ORM\Index(name: 'idx_comment_author', columns: ['author_id'])]
 #[ORM\Index(name: 'idx_comment_parent', columns: ['parent_id'])]
+#[ORM\Index(name: 'idx_comment_recipe_created', columns: ['recipe_id', 'created_at', 'id'])]
 #[ORM\Index(name: 'idx_comment_moderation_status', columns: ['moderation_status'])]
 #[ORM\HasLifecycleCallbacks]
 class Comment
@@ -34,6 +35,9 @@ class Comment
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'replies')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     private ?self $parent = null;
+
+    #[ORM\Column(options: ['default' => 1])]
+    private int $depth = 1;
 
     /**
      * @var Collection<int, self>
@@ -95,6 +99,12 @@ class Comment
         }
 
         $this->parent = $parent;
+        $this->depth = null === $parent ? 1 : $parent->getDepth() + 1;
+    }
+
+    public function getDepth(): int
+    {
+        return $this->depth;
     }
 
     /**

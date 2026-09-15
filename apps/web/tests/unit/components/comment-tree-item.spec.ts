@@ -42,6 +42,28 @@ describe('CommentTreeItem', () => {
     expect(wrapper.findAll('a[href="/users/a_very_long_member_name"]').map(link => link.text())).toContain('a_very_long_member_name')
     expect(wrapper.text()).toContain('A')
   })
+
+  it('does not offer replies at the maximum nesting depth', () => {
+    const wrapper = mountComment({ canReply: false, depth: 3 })
+
+    expect(wrapper.get('[aria-label="Comment actions"]').findAll('button').map(button => button.text())).toEqual(['Edit', 'Delete', 'Report'])
+  })
+
+  it('shows public parent context when a reply is isolated by pagination', () => {
+    const wrapper = mountComment({
+      depth: 2,
+      parentId: 42,
+      parentContext: {
+        id: 42,
+        authorUsername: 'parent_author',
+        message: 'The earlier part of the conversation.',
+        deleted: false
+      }
+    })
+
+    expect(wrapper.text()).toContain('Reply to parent_author')
+    expect(wrapper.text()).toContain('The earlier part of the conversation.')
+  })
 })
 
 function mountComment(overrides: Partial<CommentTreeNode> = {}) {
@@ -63,12 +85,15 @@ function mountComment(overrides: Partial<CommentTreeNode> = {}) {
 function comment(overrides: Partial<CommentTreeNode> = {}): CommentTreeNode {
   return {
     authorUsername: 'jane_doe',
+    canReply: true,
     createdAt: '2026-01-01T00:00:00+00:00',
     deleted: false,
+    depth: 1,
     id: 1,
     message: 'A useful note.',
     moderationStatus: 'visible',
     parentId: null,
+    parentContext: null,
     recipeSlug: 'negroni',
     replies: [],
     replyCount: 0,

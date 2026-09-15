@@ -18,7 +18,9 @@ use App\Repository\RecipeRepository;
 use App\Repository\ReportRepository;
 use App\Repository\UserRepository;
 use App\Security\RecipeAccess;
+use App\Service\ActiveAdminGuard;
 use App\Service\RecipePublicationValidator;
+use App\Service\ReportTargetContextProvider;
 use App\Service\UserAccountAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -33,8 +35,10 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class ReportController extends AbstractController
 {
-    public function __construct(private readonly RecipePublicationValidator $publicationValidator)
-    {
+    public function __construct(
+        private readonly RecipePublicationValidator $publicationValidator,
+        private readonly ReportTargetContextProvider $targetContextProvider,
+    ) {
     }
 
     #[Route('/api/reports', name: 'api_reports_create', methods: ['POST'])]
@@ -106,11 +110,12 @@ final class ReportController extends AbstractController
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
         $pagination = PageRequest::fromRequest($request);
         $page = $reportRepository->paginateLatestForAdmin($pagination);
+        $contexts = $this->targetContextProvider->forReports($page->items);
 
         return $this->json(PaginatedResponse::from(
             $page,
             $pagination,
-            fn (Report $report): array => $this->payload($report),
+            fn (Report $report): array => $this->payload($report, $contexts[(int) $report->getId()] ?? null, true),
         ));
     }
 
@@ -123,6 +128,7 @@ final class ReportController extends AbstractController
         CommentRepository $commentRepository,
         UserRepository $userRepository,
         UserAccountAccess $userAccountAccess,
+        ActiveAdminGuard $activeAdminGuard,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
@@ -133,17 +139,21 @@ final class ReportController extends AbstractController
 
         $payload = $this->decodeJson($request);
 
-        if (array_key_exists('status', $payload)) {
-            $report->review($this->status((string) $payload['status']), $user);
-        }
+        $entityManager->wrapInTransaction(function () use ($activeAdminGuard, $commentRepository, $entityManager, $payload, $recipeRepository, $report, $user, $userAccountAccess, $userRepository): void {
+            if (array_key_exists('status', $payload)) {
+                $report->review($this->status((string) $payload['status']), $user);
+            }
 
-        if (array_key_exists('moderationStatus', $payload)) {
-            $this->applyModerationStatus($report, (string) $payload['moderationStatus'], $recipeRepository, $commentRepository, $userRepository, $userAccountAccess);
-        }
+            if (array_key_exists('moderationStatus', $payload)) {
+                $this->applyModerationStatus($report, (string) $payload['moderationStatus'], $recipeRepository, $commentRepository, $userRepository, $userAccountAccess, $activeAdminGuard);
+            }
 
-        $entityManager->flush();
+            $entityManager->flush();
+        });
 
-        return $this->json($this->payload($report));
+        $context = $this->targetContextProvider->forReports([$report]);
+
+        return $this->json($this->payload($report, $context[(int) $report->getId()] ?? null, true));
     }
 
     private function assertTargetCanBeReported(
@@ -198,11 +208,12 @@ final class ReportController extends AbstractController
         CommentRepository $commentRepository,
         UserRepository $userRepository,
         UserAccountAccess $userAccountAccess,
+        ActiveAdminGuard $activeAdminGuard,
     ): void {
         match ($report->getTargetType()) {
             ReportTargetType::Recipe => $this->applyRecipeModerationStatus($report->getTargetId(), $moderationStatus, $recipeRepository),
             ReportTargetType::Comment => $this->applyCommentModerationStatus($report->getTargetId(), $moderationStatus, $commentRepository),
-            ReportTargetType::User => $this->applyUserModerationStatus($report->getTargetId(), $moderationStatus, $userRepository, $userAccountAccess),
+            ReportTargetType::User => $this->applyUserModerationStatus($report->getTargetId(), $moderationStatus, $userRepository, $userAccountAccess, $activeAdminGuard),
         };
     }
 
@@ -228,26 +239,30 @@ final class ReportController extends AbstractController
         $comment->setModerationStatus(CommentModerationStatus::tryFrom($moderationStatus) ?? throw new BadRequestHttpException('Invalid moderation status.'));
     }
 
-    private function applyUserModerationStatus(int $targetId, string $moderationStatus, UserRepository $userRepository, UserAccountAccess $userAccountAccess): void
+    private function applyUserModerationStatus(int $targetId, string $moderationStatus, UserRepository $userRepository, UserAccountAccess $userAccountAccess, ActiveAdminGuard $activeAdminGuard): void
     {
         $user = $userRepository->find($targetId);
         if (!$user instanceof User) {
             throw $this->createNotFoundException('Report target not found.');
         }
 
-        match ($moderationStatus) {
-            RecipeModerationStatus::Visible->value => $userAccountAccess->setDeleted($user, false),
-            RecipeModerationStatus::Removed->value => $userAccountAccess->setDeleted($user, true),
+        $deleted = match ($moderationStatus) {
+            RecipeModerationStatus::Visible->value => false,
+            RecipeModerationStatus::Removed->value => true,
             default => throw new BadRequestHttpException('User moderation status must be visible or removed.'),
         };
+        $activeAdminGuard->assertCanApply($user, $user->getRoles(), $deleted);
+        $userAccountAccess->setDeleted($user, $deleted);
     }
 
     /**
+     * @param array<string, mixed>|null $targetContext
+     *
      * @return array<string, mixed>
      */
-    private function payload(Report $report): array
+    private function payload(Report $report, ?array $targetContext = null, bool $includeTargetContext = false): array
     {
-        return [
+        $payload = [
             'id' => $report->getId(),
             'reporterUsername' => $report->getReporter()->getUsername(),
             'targetType' => $report->getTargetType()->value,
@@ -260,6 +275,12 @@ final class ReportController extends AbstractController
             'createdAt' => $report->getCreatedAt()->format(DATE_ATOM),
             'updatedAt' => $report->getUpdatedAt()->format(DATE_ATOM),
         ];
+
+        if ($includeTargetContext) {
+            $payload['targetContext'] = $targetContext;
+        }
+
+        return $payload;
     }
 
     /**

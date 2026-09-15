@@ -26,6 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class RecipeAggregateController extends AbstractController
@@ -162,82 +163,116 @@ final class RecipeAggregateController extends AbstractController
         return new Assert\Collection(
             fields: [
                 'title' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('string'),
                     new Assert\NotBlank(),
                     new Assert\Length(max: 160),
                 ]),
                 'description' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('string'),
                     new Assert\NotBlank(),
                     new Assert\Length(max: 5000),
                 ]),
                 'difficulty' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('string'),
                     new Assert\Choice(choices: array_column(RecipeDifficulty::cases(), 'value')),
                 ]),
                 'preparationTimeMinutes' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('integer'),
                     new Assert\Positive(),
                     new Assert\LessThanOrEqual(2147483647),
                 ]),
                 'servings' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('integer'),
                     new Assert\Positive(),
                     new Assert\LessThanOrEqual(2147483647),
                 ]),
                 'categories' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('array'),
+                    $this->listConstraint(),
+                    new Assert\Count(max: 20),
                     new Assert\All([
+                        new Assert\NotNull(),
                         new Assert\Type('string'),
                         new Assert\Regex('/^\/api\/categories\/[a-z0-9]+(?:-[a-z0-9]+)*$/'),
                     ]),
                 ]),
                 'steps' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('array'),
-                    new Assert\Count(min: 1),
-                    new Assert\All(new Assert\Collection(
-                        fields: [
-                            'instruction' => new Assert\Required([
-                                new Assert\Type('string'),
-                                new Assert\NotBlank(),
-                                new Assert\Length(max: 2000),
-                            ]),
-                        ],
-                        allowExtraFields: false,
-                    )),
+                    $this->listConstraint(),
+                    new Assert\Count(min: 1, max: 100),
+                    new Assert\All([
+                        new Assert\NotNull(),
+                        new Assert\Type('array'),
+                        new Assert\Collection(
+                            fields: [
+                                'instruction' => new Assert\Required([
+                                    new Assert\NotNull(),
+                                    new Assert\Type('string'),
+                                    new Assert\NotBlank(),
+                                    new Assert\Length(max: 2000),
+                                ]),
+                            ],
+                            allowExtraFields: false,
+                        ),
+                    ]),
                 ]),
                 'ingredients' => new Assert\Required([
+                    new Assert\NotNull(),
                     new Assert\Type('array'),
-                    new Assert\Count(min: 1),
-                    new Assert\All(new Assert\Collection(
-                        fields: [
-                            'ingredient' => new Assert\Required([
-                                new Assert\Type('string'),
-                                new Assert\Regex('/^\/api\/ingredients\/[a-z0-9]+(?:-[a-z0-9]+)*$/'),
-                            ]),
-                            'quantity' => new Assert\Required([
-                                new Assert\Type('string'),
-                                new Assert\Regex('/^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/'),
-                                new Assert\Positive(),
-                            ]),
-                            'unit' => new Assert\Required([
-                                new Assert\Type('string'),
-                                new Assert\Choice(choices: array_column(IngredientUnit::cases(), 'value')),
-                            ]),
-                            'note' => new Assert\Optional([
-                                new Assert\AtLeastOneOf([
-                                    new Assert\IsNull(),
+                    $this->listConstraint(),
+                    new Assert\Count(min: 1, max: 100),
+                    new Assert\All([
+                        new Assert\NotNull(),
+                        new Assert\Type('array'),
+                        new Assert\Collection(
+                            fields: [
+                                'ingredient' => new Assert\Required([
+                                    new Assert\NotNull(),
                                     new Assert\Type('string'),
+                                    new Assert\Regex('/^\/api\/ingredients\/[a-z0-9]+(?:-[a-z0-9]+)*$/'),
                                 ]),
-                                new Assert\Length(max: 1000),
-                            ]),
-                        ],
-                        allowExtraFields: false,
-                    )),
+                                'quantity' => new Assert\Required([
+                                    new Assert\NotNull(),
+                                    new Assert\Type('string'),
+                                    new Assert\Regex('/^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/'),
+                                    new Assert\Positive(),
+                                ]),
+                                'unit' => new Assert\Required([
+                                    new Assert\NotNull(),
+                                    new Assert\Type('string'),
+                                    new Assert\Choice(choices: array_column(IngredientUnit::cases(), 'value')),
+                                ]),
+                                'note' => new Assert\Optional([
+                                    new Assert\AtLeastOneOf([
+                                        new Assert\IsNull(),
+                                        new Assert\Type('string'),
+                                    ]),
+                                    new Assert\Length(max: 1000),
+                                ]),
+                            ],
+                            allowExtraFields: false,
+                        ),
+                    ]),
                 ]),
             ],
             allowExtraFields: false,
         );
+    }
+
+    private function listConstraint(): Assert\Callback
+    {
+        return new Assert\Callback(static function (mixed $value, ExecutionContextInterface $context): void {
+            if (is_array($value) && !array_is_list($value)) {
+                $context->buildViolation('This value must be a JSON list.')->addViolation();
+            }
+        });
     }
 
     /**

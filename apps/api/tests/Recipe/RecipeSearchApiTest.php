@@ -227,6 +227,20 @@ final class RecipeSearchApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
     }
 
+    public function testInvalidAndSilentlyNormalizedSearchDatesReturnBadRequest(): void
+    {
+        $client = static::createClient();
+
+        foreach (['2026-02-30', '2026-2-03', 'not-a-date'] as $date) {
+            $client->request('GET', '/api/recipes?'.http_build_query([
+                'publishedAfter' => $date,
+            ]));
+
+            self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+            self::assertSame('bad_request', $this->jsonResponse($client)['error']['code']);
+        }
+    }
+
     private function createUser(): User
     {
         $container = static::getContainer();

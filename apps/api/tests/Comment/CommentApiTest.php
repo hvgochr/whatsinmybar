@@ -137,6 +137,12 @@ final class CommentApiTest extends WebTestCase
         $reply = $this->jsonResponse($client);
         self::assertSame('Agreed.', $reply['message']);
         self::assertSame($parent['id'], $reply['parentId']);
+        self::assertSame([
+            'id' => $parent['id'],
+            'authorUsername' => $parent['authorUsername'],
+            'message' => 'Great recipe.',
+            'deleted' => false,
+        ], $reply['parentContext']);
 
         $client->request('GET', '/api/recipes/'.$recipe->getSlug().'/comments');
 
@@ -146,6 +152,112 @@ final class CommentApiTest extends WebTestCase
         self::assertCount(2, $items);
         self::assertSame('Great recipe.', $items[0]['message']);
         self::assertSame(1, $items[0]['replyCount']);
+        self::assertSame(1, $items[0]['depth']);
+        self::assertTrue($items[0]['canReply']);
+        self::assertSame(2, $items[1]['depth']);
+    }
+
+    public function testCommentCollectionIsPaginated(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $author = $this->createUser('very-secure-password');
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+
+        for ($index = 1; $index <= 25; ++$index) {
+            $comment = new Comment($recipe, $author);
+            $comment->setMessage('Comment '.$index);
+            $entityManager->persist($comment);
+        }
+        $entityManager->flush();
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug().'/comments?page=2&pageSize=10');
+
+        self::assertResponseIsSuccessful();
+        $payload = $this->jsonResponse($client);
+        self::assertCount(10, $payload['items']);
+        self::assertSame(2, $payload['page']);
+        self::assertSame(10, $payload['pageSize']);
+        self::assertSame(25, $payload['totalItems']);
+        self::assertSame(3, $payload['totalPages']);
+        self::assertSame('Comment 11', $payload['items'][0]['message']);
+    }
+
+    public function testCreatedTwentyFirstCommentCanBeLocatedWithFreshCollectionMetadata(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $token = $this->loginAsUser($client);
+        $author = $this->createUser('very-secure-password');
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+
+        for ($index = 1; $index <= 20; ++$index) {
+            $comment = new Comment($recipe, $author);
+            $comment->setMessage('Existing comment '.$index);
+            $entityManager->persist($comment);
+        }
+        $entityManager->flush();
+
+        $client->jsonRequest('POST', '/api/recipes/'.$recipe->getSlug().'/comments', [
+            'message' => 'Comment 21',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $created = $this->jsonResponse($client);
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug().'/comments?around='.$created['id']);
+
+        self::assertResponseIsSuccessful();
+        $focusedPage = $this->jsonResponse($client);
+        self::assertSame(2, $focusedPage['page']);
+        self::assertSame(20, $focusedPage['pageSize']);
+        self::assertSame(21, $focusedPage['totalItems']);
+        self::assertSame(2, $focusedPage['totalPages']);
+        self::assertCount(1, $focusedPage['items']);
+        self::assertSame($created['id'], $focusedPage['items'][0]['id']);
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug().'/comments?page=1');
+        $firstPage = $this->jsonResponse($client);
+        self::assertCount(20, $firstPage['items']);
+        self::assertSame(21, $firstPage['totalItems']);
+        self::assertSame(2, $firstPage['totalPages']);
+    }
+
+    public function testCommentNestingIsLimitedToThreeLevels(): void
+    {
+        $client = static::createClient();
+        $this->clearCommentsAndRecipes();
+        $token = $this->loginAsUser($client);
+        $recipe = $this->createRecipe(RecipeStatus::Published);
+        $parentId = null;
+
+        for ($depth = 1; $depth <= 3; ++$depth) {
+            $payload = ['message' => 'Depth '.$depth];
+            if (null !== $parentId) {
+                $payload['parentId'] = $parentId;
+            }
+            $client->jsonRequest('POST', '/api/recipes/'.$recipe->getSlug().'/comments', $payload, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+            self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+            $created = $this->jsonResponse($client);
+            self::assertSame($depth, $created['depth']);
+            self::assertSame($depth < 3, $created['canReply']);
+            $parentId = $created['id'];
+        }
+
+        $client->jsonRequest('POST', '/api/recipes/'.$recipe->getSlug().'/comments', [
+            'message' => 'Too deep',
+            'parentId' => $parentId,
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertValidationError($client);
     }
 
     public function testAuthorCanUpdateAndSoftDeleteOwnComment(): void
@@ -205,6 +317,14 @@ final class CommentApiTest extends WebTestCase
         $adminToken = $this->loginAsUser($client, roles: ['ROLE_ADMIN']);
         $recipe = $this->createRecipe(RecipeStatus::Published);
         $commentId = $this->createComment($client, $authorToken, $recipe, 'Moderate me');
+        $client->jsonRequest('POST', '/api/recipes/'.$recipe->getSlug().'/comments', [
+            'message' => 'Public reply',
+            'parentId' => $commentId,
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$authorToken,
+        ]);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $replyId = $this->jsonResponse($client)['id'];
 
         $client->jsonRequest('PATCH', '/api/comments/'.$commentId, [
             'moderationStatus' => 'hidden',
@@ -217,6 +337,10 @@ final class CommentApiTest extends WebTestCase
         $hidden = $this->jsonResponse($client);
         self::assertSame('hidden', $hidden['moderationStatus']);
         self::assertNull($hidden['message']);
+
+        $client->request('GET', '/api/recipes/'.$recipe->getSlug().'/comments?around='.$replyId);
+        $items = $this->jsonResponse($client)['items'];
+        self::assertNull($items[1]['parentContext']['message']);
     }
 
     public function testNonAdminCannotUpdateModerationStatus(): void

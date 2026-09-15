@@ -6,8 +6,9 @@ import FavoriteButton from '../../../components/social/FavoriteButton.vue'
 import RecipeComments from '../../../components/social/RecipeComments.vue'
 import ReportAction from '../../../components/social/ReportAction.vue'
 import UiButton from '../../../components/ui/button/Button.vue'
-import type { RecipeResource } from '../../../types/api'
+import type { Comment, PaginatedList, RecipeResource } from '../../../types/api'
 import { collectionItems } from '../../../utils/api-collections'
+import { pageFromQuery, pageLocation, paginationState } from '../../../utils/pagination'
 import {
   categoryName,
   categorySlug,
@@ -24,6 +25,7 @@ const auth = useAuth()
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const slug = computed(() => String(route.params.slug))
+const requestedCommentsPage = computed(() => pageFromQuery(route.query, 'commentsPage'))
 
 const { data: recipe, error: recipeError } = await useAsyncData(`recipe:${slug.value}`, () => api.recipes.get(slug.value))
 
@@ -35,7 +37,9 @@ if (recipeError.value && errorStatus(recipeError.value) !== 403) {
 }
 
 const [{ data: commentsData }, { data: relatedRecipesData }] = await Promise.all([
-  useAsyncData(`recipe:${slug.value}:comments`, () => api.comments.list(slug.value)),
+  useAsyncData(`recipe:${slug.value}:comments:${route.fullPath}`, () => api.comments.list(slug.value, { page: requestedCommentsPage.value }), {
+    watch: [() => route.fullPath]
+  }),
   useAsyncData(`recipe:${slug.value}:related`, async () => {
     const firstCategory = recipe.value?.categories?.[0]
 
@@ -50,7 +54,24 @@ const [{ data: commentsData }, { data: relatedRecipesData }] = await Promise.all
   })
 ])
 
+async function revealCreatedComment(payload: { comment: Comment, page: PaginatedList<Comment> }) {
+  commentsData.value = payload.page
+  await navigateTo({
+    ...pageLocation(`/recipes/${slug.value}`, route.query, payload.page.page, 'commentsPage'),
+    hash: `#comment-${payload.comment.id}`
+  })
+}
+
 const comments = computed(() => commentsData.value?.items ?? [])
+const commentsPagination = computed(() => paginationState({
+  currentPage: commentsData.value?.page ?? requestedCommentsPage.value,
+  itemsOnPage: comments.value.length,
+  pageSize: commentsData.value?.pageSize,
+  totalItems: commentsData.value?.totalItems ?? 0,
+  totalPages: commentsData.value?.totalPages ?? 0
+}))
+const commentsPreviousTo = computed(() => pageLocation(`/recipes/${slug.value}`, route.query, commentsPagination.value.previousPage, 'commentsPage'))
+const commentsNextTo = computed(() => pageLocation(`/recipes/${slug.value}`, route.query, commentsPagination.value.nextPage, 'commentsPage'))
 const relatedRecipes = computed(() => collectionItems(relatedRecipesData.value).filter(relatedRecipe => relatedRecipe.slug !== recipe.value?.slug).slice(0, 3))
 const sortedIngredients = computed(() => [...(recipe.value?.recipeIngredients ?? [])].sort((a, b) => a.position - b.position))
 const sortedSteps = computed(() => [...(recipe.value?.steps ?? [])].sort((a, b) => a.position - b.position))
@@ -150,7 +171,14 @@ function errorStatus(error: unknown): number {
       </div>
 
       <section class="mx-auto mt-14 max-w-3xl border-t pt-10">
-        <RecipeComments :comments="comments" :recipe-slug="recipe.slug" />
+        <RecipeComments
+          :comments="comments"
+          :next-to="commentsNextTo"
+          :pagination="commentsPagination"
+          :previous-to="commentsPreviousTo"
+          :recipe-slug="recipe.slug"
+          @resynced="revealCreatedComment"
+        />
       </section>
 
       <section v-if="relatedRecipes.length > 0" class="mt-16 border-t pt-10" aria-labelledby="related-recipes-title">

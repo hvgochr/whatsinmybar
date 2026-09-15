@@ -54,12 +54,15 @@ describe('social helpers', () => {
 function comment(overrides: Partial<Comment>): Comment {
   return {
     authorUsername: 'jane',
+    canReply: true,
     createdAt: '2026-07-20T12:00:00+00:00',
     deleted: false,
+    depth: 1,
     id: 1,
     message: 'Comment',
     moderationStatus: 'visible',
     parentId: null,
+    parentContext: null,
     recipeSlug: 'recipe',
     replyCount: 0,
     updatedAt: '2026-07-20T12:00:00+00:00',

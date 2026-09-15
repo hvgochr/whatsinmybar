@@ -193,6 +193,172 @@ final class AdminMutationApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
+    public function testLastActiveAdminCannotBeDeletedOrDemoted(): void
+    {
+        $client = static::createClient();
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        foreach ($entityManager->getRepository(User::class)->findAll() as $existingUser) {
+            $existingUser->setRoles([]);
+        }
+        $entityManager->flush();
+
+        $primary = $this->createUser(roles: ['ROLE_ADMIN']);
+        $secondary = $this->createUser(roles: ['ROLE_ADMIN']);
+        $primaryToken = $this->loginExistingUser($client, $primary)['token'];
+
+        $client->jsonRequest('PATCH', '/api/admin/users/'.$secondary->getId(), [
+            'roles' => [],
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$primaryToken,
+        ]);
+        self::assertResponseIsSuccessful();
+
+        foreach ([['deleted' => true], ['roles' => []]] as $payload) {
+            $client->jsonRequest('PATCH', '/api/admin/users/'.$primary->getId(), $payload, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$primaryToken,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+            self::assertSame('conflict', $this->jsonResponse($client)['error']['code']);
+        }
+
+        $entityManager->clear();
+        $storedPrimary = $entityManager->find(User::class, $primary->getId());
+        self::assertInstanceOf(User::class, $storedPrimary);
+        self::assertNull($storedPrimary->getDeletedAt());
+        self::assertContains('ROLE_ADMIN', $storedPrimary->getRoles());
+    }
+
+    public function testConcurrentDeletionAndDemotionCannotRemoveBothAdministrators(): void
+    {
+        static::createClient();
+        $this->removeAllAdminRoles();
+        $primary = $this->createUser(roles: ['ROLE_ADMIN']);
+        $secondary = $this->createUser(roles: ['ROLE_ADMIN']);
+
+        $results = $this->runAdminMutations([
+            [$primary, 'demote'],
+            [$secondary, 'delete'],
+        ]);
+
+        self::assertSame(['applied', 'conflict'], array_column($results, 'result'));
+        self::assertSame(1, $this->activeAdminCount());
+    }
+
+    public function testGuardReloadsAdministratorStateAfterLocking(): void
+    {
+        static::createClient();
+        $this->removeAllAdminRoles();
+        $previousAdmin = $this->createUser(roles: ['ROLE_ADMIN']);
+        $staleTarget = $this->createUser();
+        $connection = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+
+        $results = $this->runAdminMutations(
+            [[$staleTarget, 'delete']],
+            static function () use ($connection, $previousAdmin, $staleTarget): void {
+                $connection->transactional(static function () use ($connection, $previousAdmin, $staleTarget): void {
+                    $connection->executeStatement('UPDATE "user" SET roles = :roles WHERE id = :id', [
+                        'roles' => '["ROLE_ADMIN"]',
+                        'id' => $staleTarget->getId(),
+                    ]);
+                    $connection->executeStatement('UPDATE "user" SET roles = :roles WHERE id = :id', [
+                        'roles' => '[]',
+                        'id' => $previousAdmin->getId(),
+                    ]);
+                });
+            },
+        );
+
+        self::assertSame([['result' => 'conflict']], $results);
+        self::assertSame(1, $this->activeAdminCount());
+        self::assertSame(0, $connection->fetchOne('SELECT COUNT(*) FROM "user" WHERE id = :id AND deleted_at IS NOT NULL', [
+            'id' => $staleTarget->getId(),
+        ]));
+    }
+
+    /**
+     * @param list<array{User, 'delete'|'demote'}> $mutations
+     *
+     * @return list<array{result: string}>
+     */
+    private function runAdminMutations(array $mutations, ?callable $beforeRelease = null): array
+    {
+        $barrier = sys_get_temp_dir().'/admin-mutation-concurrency-'.bin2hex(random_bytes(8));
+        $processes = [];
+
+        try {
+            foreach ($mutations as $index => [$user, $action]) {
+                $pipes = [];
+                $process = proc_open([
+                    PHP_BINARY,
+                    dirname(__DIR__).'/Support/concurrent-admin-mutation-worker.php',
+                    (string) $user->getId(),
+                    $action,
+                    $barrier,
+                    (string) $index,
+                ], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname(__DIR__, 2));
+                self::assertIsResource($process);
+                $processes[] = [$process, $pipes];
+            }
+
+            $deadline = microtime(true) + 10;
+            foreach (array_keys($mutations) as $index) {
+                while (!is_file($barrier.'.ready.'.$index)) {
+                    self::assertLessThan($deadline, microtime(true), 'Concurrent administrator workers did not become ready.');
+                    usleep(1_000);
+                }
+            }
+
+            if (null !== $beforeRelease) {
+                $beforeRelease();
+            }
+            file_put_contents($barrier, 'go');
+
+            $results = [];
+            foreach ($processes as [$process, $pipes]) {
+                $stdout = stream_get_contents($pipes[1]);
+                $stderr = stream_get_contents($pipes[2]);
+                fclose($pipes[1]);
+                fclose($pipes[2]);
+                self::assertSame(0, proc_close($process), $stderr ?: $stdout);
+                $decoded = json_decode($stdout, true, 512, JSON_THROW_ON_ERROR);
+                self::assertIsArray($decoded);
+                $results[] = $decoded;
+            }
+
+            usort($results, static fn (array $left, array $right): int => $left['result'] <=> $right['result']);
+
+            return $results;
+        } finally {
+            foreach (array_keys($mutations) as $index) {
+                $readyFile = $barrier.'.ready.'.$index;
+                if (is_file($readyFile)) {
+                    unlink($readyFile);
+                }
+            }
+            if (is_file($barrier)) {
+                unlink($barrier);
+            }
+        }
+    }
+
+    private function removeAllAdminRoles(): void
+    {
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->getConnection()->executeStatement('UPDATE "user" SET roles = :roles', ['roles' => '[]']);
+        $entityManager->clear();
+    }
+
+    private function activeAdminCount(): int
+    {
+        return (int) static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne(<<<'SQL'
+            SELECT COUNT(*)
+            FROM "user"
+            WHERE deleted_at IS NULL
+              AND roles::jsonb @> CAST(:adminRole AS jsonb)
+            SQL, ['adminRole' => '["ROLE_ADMIN"]']);
+    }
+
     /**
      * @param list<string> $roles
      */

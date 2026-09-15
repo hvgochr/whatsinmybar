@@ -71,7 +71,7 @@ final class FavoriteController extends AbstractController
     {
         return [
             'recipeSlug' => $result->recipe->getSlug(),
-            'favoriteCount' => $result->recipe->getFavoriteCount(),
+            'favoriteCount' => $result->favoriteCount,
             'favorited' => $result->favorited,
             'changed' => $result->changed,
         ];

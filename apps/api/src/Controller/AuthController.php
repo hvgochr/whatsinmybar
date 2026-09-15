@@ -8,6 +8,7 @@ use App\Service\RefreshCookie;
 use App\Service\Upload\AvatarStorageInterface;
 use App\Service\Upload\ImageReplacement;
 use App\Service\UserAccountAccess;
+use App\Util\StrictDateParser;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -51,9 +52,11 @@ final class AuthController extends AbstractController
             return $this->validationErrorResponse($violations);
         }
 
-        $birthDate = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $payload['birthDate']);
-        if (!$birthDate instanceof \DateTimeImmutable) {
-            throw new BadRequestHttpException('Invalid birth date.');
+        $birthDate = StrictDateParser::yearMonthDay($payload['birthDate']);
+        if (null === $birthDate) {
+            return $this->validationErrorsResponse([
+                ['property' => '[birthDate]', 'message' => 'This value is not a valid date.'],
+            ]);
         }
 
         $user = new User((string) $payload['email'], (string) $payload['username'], $birthDate);
@@ -138,9 +141,11 @@ final class AuthController extends AbstractController
         }
 
         if (array_key_exists('birthDate', $payload)) {
-            $birthDate = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $payload['birthDate']);
-            if (!$birthDate instanceof \DateTimeImmutable) {
-                throw new BadRequestHttpException('Invalid birth date.');
+            $birthDate = StrictDateParser::yearMonthDay($payload['birthDate']);
+            if (null === $birthDate) {
+                return $this->validationErrorsResponse([
+                    ['property' => '[birthDate]', 'message' => 'This value is not a valid date.'],
+                ]);
             }
 
             $user->setBirthDate($birthDate);
@@ -249,6 +254,14 @@ final class AuthController extends AbstractController
             ];
         }
 
+        return $this->validationErrorsResponse($errors);
+    }
+
+    /**
+     * @param list<array{property: string, message: string}> $errors
+     */
+    private function validationErrorsResponse(array $errors): JsonResponse
+    {
         return $this->json([
             'error' => [
                 'status' => JsonResponse::HTTP_UNPROCESSABLE_ENTITY,

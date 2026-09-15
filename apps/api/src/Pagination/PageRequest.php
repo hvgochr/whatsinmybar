@@ -37,6 +37,15 @@ final readonly class PageRequest
         return ($this->page - 1) * $this->pageSize;
     }
 
+    public function atPage(int $page): self
+    {
+        if ($page < 1) {
+            throw new \LogicException('A page number must be positive.');
+        }
+
+        return new self($page, $this->pageSize);
+    }
+
     public function totalPages(int $totalItems): int
     {
         return (int) ceil($totalItems / $this->pageSize);

@@ -7,10 +7,10 @@ import type {
   AuthTokens,
   Category,
   Comment,
+  CommentPaginationParams,
   CommentPayload,
   FavoriteState,
   Ingredient,
-  ItemList,
   LoginPayload,
   ModerationStatus,
   PasswordChangePayload,
@@ -120,7 +120,7 @@ export interface ApiClient {
   comments: {
     create: (recipeSlug: string, payload: CommentPayload) => Promise<Comment>
     delete: (id: number) => Promise<Comment>
-    list: (recipeSlug: string) => Promise<ItemList<Comment>>
+    list: (recipeSlug: string, params?: CommentPaginationParams) => Promise<PaginatedList<Comment>>
     update: (id: number, payload: Partial<CommentPayload> & { moderationStatus?: string }) => Promise<Comment>
   }
   favorites: {
@@ -326,7 +326,10 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     comments: {
       create: (recipeSlug, payload) => request<Comment>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { body: payload, method: 'POST' }),
       delete: (id) => request<Comment>(`/comments/${id}`, { method: 'DELETE' }),
-      list: (recipeSlug) => request<ItemList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, { publicFallback: true }),
+      list: (recipeSlug, params = {}) => request<PaginatedList<Comment>>(`/recipes/${encodeURIComponent(recipeSlug)}/comments`, {
+        publicFallback: true,
+        query: { ...paginationQuery(params), around: params.around }
+      }),
       update: (id, payload) => request<Comment>(`/comments/${id}`, { body: payload, method: 'PATCH' })
     },
     favorites: {

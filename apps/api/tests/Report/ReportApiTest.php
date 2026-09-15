@@ -141,6 +141,7 @@ final class ReportApiTest extends WebTestCase
         self::assertSame('open', $payload['status']);
         self::assertNull($payload['reviewedByUsername']);
         self::assertNull($payload['reviewedAt']);
+        self::assertArrayNotHasKey('targetContext', $payload);
     }
 
     public function testAdminCanListAndReviewReports(): void
@@ -167,6 +168,16 @@ final class ReportApiTest extends WebTestCase
         self::assertIsArray($items);
         self::assertNotEmpty($items);
         self::assertSame($reportId, $items[0]['id']);
+        self::assertSame([
+            'type' => 'recipe',
+            'title' => $recipe->getTitle(),
+            'slug' => $recipe->getSlug(),
+            'authorUsername' => $recipe->getAuthorUsername(),
+            'description' => $recipe->getDescription(),
+            'status' => 'published',
+            'moderationStatus' => 'visible',
+            'deleted' => false,
+        ], $items[0]['targetContext']);
 
         $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
             'status' => 'reviewing',
@@ -239,6 +250,8 @@ final class ReportApiTest extends WebTestCase
 
         $payload = $this->jsonResponse($client);
         self::assertSame('resolved', $payload['status']);
+        self::assertSame('Comment to report.', $payload['targetContext']['message']);
+        self::assertSame('hidden', $payload['targetContext']['moderationStatus']);
 
         $entityManager = static::getContainer()->get(EntityManagerInterface::class);
         $entityManager->clear();
@@ -312,6 +325,39 @@ final class ReportApiTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testReportModerationCannotDeleteLastActiveAdmin(): void
+    {
+        $client = static::createClient();
+        $this->clearReportsAndContent();
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        foreach ($entityManager->getRepository(User::class)->findAll() as $existingUser) {
+            $existingUser->setRoles([]);
+        }
+        $entityManager->flush();
+
+        $reporterToken = $this->loginAsUser($client);
+        $admin = $this->createUser('very-secure-password', ['ROLE_ADMIN']);
+        $adminToken = $this->loginExistingUser($client, $admin)['token'];
+        $reportId = $this->createUserReport($client, $reporterToken, $admin);
+
+        $client->jsonRequest('PATCH', '/api/admin/reports/'.$reportId, [
+            'status' => 'resolved',
+            'moderationStatus' => 'removed',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$adminToken,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        self::assertSame('conflict', $this->jsonResponse($client)['error']['code']);
+        $entityManager->clear();
+        $storedAdmin = $entityManager->find(User::class, $admin->getId());
+        $storedReport = $entityManager->find(Report::class, $reportId);
+        self::assertInstanceOf(User::class, $storedAdmin);
+        self::assertInstanceOf(Report::class, $storedReport);
+        self::assertNull($storedAdmin->getDeletedAt());
+        self::assertSame('open', $storedReport->getStatus()->value);
     }
 
     public function testAdminReportListRejectsInvalidPaginationParameters(): void

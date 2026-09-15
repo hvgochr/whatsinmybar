@@ -203,6 +203,11 @@ Register payload:
 }
 ```
 
+`birthDate` must be an exact calendar date in `YYYY-MM-DD` form and cannot be
+in the future. Impossible dates and values that PHP could otherwise normalize
+(for example `2024-02-31`) return `422 validation_failed`. The same rules apply
+when the profile birth date is updated.
+
 Current user payload:
 
 ```json
@@ -307,10 +312,18 @@ accept the same JSON object:
 }
 ```
 
-`steps` and `ingredients` are required, non-empty arrays. Their array order is
-the stored position, starting at `1`; clients do not send child IDs or
-positions. Categories and ingredients are referenced by API IRI. Quantity is a
-positive decimal string with at most six integer digits and two decimal places.
+`categories`, `steps`, and `ingredients` must be JSON lists rather than keyed
+objects. `steps` and `ingredients` are required and non-empty. Aggregate writes
+accept at most 20 categories, 100 steps, and 100 ingredients, and validate every
+element before persistence. Their array order is the stored position, starting
+at `1`; clients do not send child IDs or positions. Categories and ingredients
+are referenced by API IRI. Quantity is a positive decimal string with at most
+six integer digits and two decimal places. Malformed aggregate input returns a
+controlled `422 validation_failed` response.
+
+All required aggregate fields, the three list values, their elements, and their
+required nested fields reject `null`. The optional ingredient `note` field
+remains nullable.
 
 The complete payload, including all saved categories, ordered `steps`, and
 ordered `recipeIngredients`, is validated before replacement. Metadata,
@@ -336,6 +349,9 @@ publishedAfter
 publishedBefore
 sort=popular|newest|oldest
 ```
+
+`publishedAfter` and `publishedBefore` accept exact `YYYY-MM-DD` calendar dates.
+Impossible or silently normalized dates return `400 invalid_query_parameter`.
 
 Recipe item and collection representations include `favorited`. It is `true`
 only when the authenticated viewer has saved that recipe; it is `false` for
@@ -378,6 +394,10 @@ Favorite response:
 }
 ```
 
+Favorite creation is idempotent, including concurrent identical requests.
+Counter updates are atomic: a newly inserted favorite increments the count
+once, while a duplicate request reports `changed: false` without changing it.
+
 Recipe image upload is multipart with the `image` file field.
 
 `containsAlcoholComputed` and `containsAlcoholOverride` are read-only on the
@@ -401,7 +421,11 @@ Comment payload:
   "id": 1,
   "recipeSlug": "negroni",
   "authorUsername": "jane_doe",
+  "authorAvatarPath": "/uploads/avatars/jane.png",
   "parentId": null,
+  "parentContext": null,
+  "depth": 1,
+  "canReply": true,
   "message": "Great recipe.",
   "moderationStatus": "visible",
   "replyCount": 0,
@@ -418,6 +442,27 @@ Blank or non-string messages and undeclared fields return a `422` validation
 error.
 
 Deleted or hidden comments return `message: null`.
+
+The comment collection is a chronological flat page and accepts `page` and
+`pageSize`. Passing `around={commentId}` overrides `page` and returns the page
+that contains that comment. It uses the standard paginated object (`items`, `page`, `pageSize`,
+`totalItems`, `totalPages`), defaults to 20 items, and caps `pageSize` at 100.
+`replyCount` is the number of direct replies, including replies outside the
+current page. A page can therefore contain a reply whose parent is on another
+page. Reply payloads include a public `parentContext` summary, and the frontend
+renders it as “Reply to …” rather than presenting the reply as an independent
+root comment. Hidden or deleted parent messages remain `null` in that summary.
+
+After creating a comment, the frontend requests the collection with `around`
+using the returned comment ID. It replaces both the collection and pagination
+metadata from that response, updates `commentsPage`, and anchors the URL to the
+created comment. Thus adding comment 21 to a 20-item first page displays it on
+page 2 rather than appending it to an already full page.
+
+New comment threads are limited to three levels (root, reply, nested reply).
+`depth` is one-based and `canReply` is false on the third level. Attempts to
+create a fourth level return a `422 validation_failed` response on `parentId`.
+Legacy deeper comments remain readable but cannot receive deeper replies.
 
 ## Reports
 
@@ -449,6 +494,14 @@ Report creation requires string `targetType` and `reason` fields plus a positive
 integer `targetId`. The optional `message` must be a string or `null` and is
 limited to 2,000 characters; blank messages are stored as `null`. Undeclared
 fields return a `422` validation error.
+
+Only the admin list and update responses add `targetContext`. The context is
+resolved from the current target and can include otherwise hidden or deleted
+content needed for moderation: recipe title/description/author and states,
+raw comment message/author/recipe and states, or profile username/email/bio,
+roles and deletion state. A missing target produces `targetContext: null`.
+Public report creation responses never contain this field, and no public
+endpoint gains access to hidden raw content.
 
 ## Admin
 
@@ -485,6 +538,13 @@ preserving the requested page and total metadata. Results use a stable
 descending timestamp order with the numeric ID as a descending tie-breaker.
 
 Admin mutations are always protected server-side with `ROLE_ADMIN`.
+Deleting or removing `ROLE_ADMIN` from the final active administrator returns
+`409 conflict`. The check is transactionally serialized so concurrent admin
+mutations cannot remove every active administrator. Every continuity check
+acquires the transaction lock before inspecting its proposal; for a mutation
+that would leave its target inactive, the target's current administrator state
+is then read from PostgreSQL. A stale Doctrine entity therefore cannot bypass
+the final-administrator check.
 
 ## Errors
 
@@ -499,6 +559,10 @@ Expected V1 custom error shape:
   }
 }
 ```
+
+Concurrent collisions on unique email, username, recipe slug, category slug or
+ingredient slug return `409 conflict`. Ordinary collisions detected before the
+database write remain `422 validation_failed` field errors.
 
 Validation errors include `violations`:
 

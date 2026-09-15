@@ -57,6 +57,22 @@ final class CurrentProfileApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
+    public function testProfileUpdateRejectsFutureAndSilentlyNormalizedBirthDates(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+
+        foreach (['2999-01-01', '2026-02-30'] as $birthDate) {
+            $client->jsonRequest('PATCH', '/api/me', [
+                'birthDate' => $birthDate,
+            ], server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+    }
+
     public function testProfileUpdateValidatesUniqueUsername(): void
     {
         $client = static::createClient();

@@ -165,6 +165,23 @@ compose logs --tail=100 api web postgres
 compose exec -T api php bin/console doctrine:migrations:status
 ```
 
+After the first successful migration, bootstrap the first administrator as a
+separate, one-time operation. Inject a strong secret from the operator's secret
+manager or a temporary environment variable; never add it to
+`.env.production`, Compose defaults, shell history or the development seed:
+
+```bash
+read -rs APP_ADMIN_PASSWORD
+export APP_ADMIN_PASSWORD
+compose exec -T -e APP_ADMIN_PASSWORD api php bin/console app:admin:bootstrap \
+  --email=owner@example.com --username=owner --birth-date=1990-01-01
+unset APP_ADMIN_PASSWORD
+```
+
+Rerunning the exact command is safe: an existing active administrator is left
+unchanged, including its password. Identifier collisions and deleted matching
+accounts fail closed and require manual review.
+
 For a failed first deployment, fix the cause and use .env.deploy.pending as the
 env file for manual diagnosis. Once understood, archive/remove that pending file
 under .ops.lock and rerun the failed deploy workflow. Never label it successful

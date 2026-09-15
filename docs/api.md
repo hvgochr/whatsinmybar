@@ -401,7 +401,10 @@ Comment payload:
   "id": 1,
   "recipeSlug": "negroni",
   "authorUsername": "jane_doe",
+  "authorAvatarPath": "/uploads/avatars/jane.png",
   "parentId": null,
+  "depth": 1,
+  "canReply": true,
   "message": "Great recipe.",
   "moderationStatus": "visible",
   "replyCount": 0,
@@ -418,6 +421,18 @@ Blank or non-string messages and undeclared fields return a `422` validation
 error.
 
 Deleted or hidden comments return `message: null`.
+
+The comment collection is a chronological flat page and accepts `page` and
+`pageSize`. It uses the standard paginated object (`items`, `page`, `pageSize`,
+`totalItems`, `totalPages`), defaults to 20 items, and caps `pageSize` at 100.
+`replyCount` is the number of direct replies, including replies outside the
+current page. A page can therefore contain a reply whose parent is on another
+page; the frontend renders that item without recursively fetching its ancestry.
+
+New comment threads are limited to three levels (root, reply, nested reply).
+`depth` is one-based and `canReply` is false on the third level. Attempts to
+create a fourth level return a `422 validation_failed` response on `parentId`.
+Legacy deeper comments remain readable but cannot receive deeper replies.
 
 ## Reports
 
@@ -499,6 +514,10 @@ Expected V1 custom error shape:
   }
 }
 ```
+
+Concurrent collisions on unique email, username, recipe slug, category slug or
+ingredient slug return `409 conflict`. Ordinary collisions detected before the
+database write remain `422 validation_failed` field errors.
 
 Validation errors include `violations`:
 

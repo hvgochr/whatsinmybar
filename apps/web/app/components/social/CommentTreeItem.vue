@@ -108,7 +108,7 @@ function submitReply() {
     </p>
 
     <div v-if="!isRemoved" class="flex min-h-10 flex-wrap items-center gap-1" aria-label="Comment actions">
-      <UiButton v-if="currentUser" type="button" size="sm" variant="ghost" @click="replyMode = !replyMode">
+      <UiButton v-if="currentUser && node.canReply" type="button" size="sm" variant="ghost" @click="replyMode = !replyMode">
         <HugeiconsIcon :icon="Message02Icon" :size="16" :stroke-width="1.75" aria-hidden="true" />Reply
       </UiButton>
       <UiButton v-if="canManage" type="button" size="sm" variant="ghost" @click="editMode = !editMode">

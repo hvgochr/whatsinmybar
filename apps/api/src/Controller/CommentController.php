@@ -7,6 +7,8 @@ use App\Entity\Recipe;
 use App\Entity\User;
 use App\Enum\CommentModerationStatus;
 use App\Enum\RecipeStatus;
+use App\Pagination\PageRequest;
+use App\Pagination\PaginatedResponse;
 use App\Repository\CommentRepository;
 use App\Repository\RecipeRepository;
 use App\Security\RecipeAccess;
@@ -23,18 +25,22 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class CommentController extends AbstractController
 {
+    private const MAX_DEPTH = 3;
+
     #[Route('/api/recipes/{slug}/comments', name: 'api_recipe_comments_list', methods: ['GET'])]
-    public function list(string $slug, RecipeRepository $recipeRepository, CommentRepository $commentRepository): JsonResponse
+    public function list(string $slug, Request $request, RecipeRepository $recipeRepository, CommentRepository $commentRepository): JsonResponse
     {
         $recipe = $this->findRecipe($slug, $recipeRepository);
         $this->denyAccessUnlessGranted(RecipeAccess::View, $recipe);
+        $pagination = PageRequest::fromRequest($request);
+        $page = $commentRepository->paginateForRecipe($recipe, $pagination);
+        $replyCounts = $commentRepository->replyCounts($page->items);
 
-        return $this->json([
-            'items' => array_map(
-                fn (Comment $comment): array => $this->payload($comment),
-                $commentRepository->findForRecipe($recipe),
-            ),
-        ]);
+        return $this->json(PaginatedResponse::from(
+            $page,
+            $pagination,
+            fn (Comment $comment): array => $this->payload($comment, $replyCounts[$comment->getId()] ?? 0),
+        ));
     }
 
     #[Route('/api/recipes/{slug}/comments', name: 'api_recipe_comments_create', methods: ['POST'])]
@@ -85,6 +91,11 @@ final class CommentController extends AbstractController
             $parent = $commentRepository->find((int) $payload['parentId']);
             if (!$parent instanceof Comment || $parent->getRecipe() !== $recipe) {
                 throw new BadRequestHttpException('Parent comment must belong to the same recipe.');
+            }
+            if ($parent->getDepth() >= self::MAX_DEPTH) {
+                return $this->validationErrorsResponse([
+                    ['property' => '[parentId]', 'message' => sprintf('Comments cannot be nested deeper than %d levels.', self::MAX_DEPTH)],
+                ]);
             }
 
             $comment->setParent($parent);
@@ -197,16 +208,19 @@ final class CommentController extends AbstractController
     /**
      * @return array<string, mixed>
      */
-    private function payload(Comment $comment): array
+    private function payload(Comment $comment, ?int $replyCount = null): array
     {
         return [
             'id' => $comment->getId(),
             'recipeSlug' => $comment->getRecipe()->getSlug(),
             'authorUsername' => $comment->getAuthor()->getUsername(),
+            'authorAvatarPath' => $comment->getAuthor()->getAvatarPath(),
             'parentId' => $comment->getParent()?->getId(),
+            'depth' => $comment->getDepth(),
+            'canReply' => $comment->getDepth() < self::MAX_DEPTH,
             'message' => $comment->getPublicMessage(),
             'moderationStatus' => $comment->getModerationStatus()->value,
-            'replyCount' => $comment->getReplies()->count(),
+            'replyCount' => $replyCount ?? $comment->getReplies()->count(),
             'deleted' => null !== $comment->getDeletedAt(),
             'createdAt' => $comment->getCreatedAt()->format(DATE_ATOM),
             'updatedAt' => $comment->getUpdatedAt()->format(DATE_ATOM),
@@ -247,6 +261,14 @@ final class CommentController extends AbstractController
             ];
         }
 
+        return $this->validationErrorsResponse($errors);
+    }
+
+    /**
+     * @param list<array{property: string, message: string}> $errors
+     */
+    private function validationErrorsResponse(array $errors): JsonResponse
+    {
         return $this->json([
             'error' => [
                 'status' => JsonResponse::HTTP_UNPROCESSABLE_ENTITY,

@@ -32,7 +32,7 @@ export function buildCommentTree(comments: Comment[]): CommentTreeNode[] {
 
     const parent = comment.parentId ? nodes.get(comment.parentId) : null
 
-    if (parent) {
+    if (parent && comment.depth <= 3) {
       parent.replies.push(node)
     } else {
       roots.push(node)

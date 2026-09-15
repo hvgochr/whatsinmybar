@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import type { Comment } from '../../types/api'
+import type { PaginationState } from '../../utils/pagination'
 import { buildCommentTree } from '../../utils/social'
 import { toFormErrors } from '../../utils/api-errors'
 import FormAlert from '../common/FormAlert.vue'
 import DestructiveConfirm from '../common/DestructiveConfirm.vue'
+import PaginationNav from '../common/PaginationNav.vue'
 import CommentTreeItem from './CommentTreeItem.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
 
 const props = defineProps<{
   comments: Comment[]
+  nextTo: Record<string, unknown>
+  pagination: PaginationState
+  previousTo: Record<string, unknown>
   recipeSlug: string
 }>()
 
@@ -17,6 +22,7 @@ const api = useApi()
 const auth = useAuth()
 const notifications = useNotifications()
 const comments = ref<Comment[]>([...props.comments])
+const totalItems = ref(props.pagination.totalItems)
 const message = ref('')
 const pending = ref(false)
 const pendingActionId = ref<number | null>(null)
@@ -31,6 +37,10 @@ watch(() => props.comments, (nextComments) => {
   comments.value = [...nextComments]
 })
 
+watch(() => props.pagination.totalItems, (nextTotal) => {
+  totalItems.value = nextTotal
+})
+
 async function createComment(payload: { message: string, parentId?: number | null }) {
   pending.value = true
   pendingActionId.value = payload.parentId ?? null
@@ -39,6 +49,7 @@ async function createComment(payload: { message: string, parentId?: number | nul
   try {
     const createdComment = await api.comments.create(props.recipeSlug, payload)
     comments.value = [...comments.value, createdComment]
+    totalItems.value++
     message.value = ''
     notifications.success(
       payload.parentId ? `comment-reply:${payload.parentId}` : `comment-create:${props.recipeSlug}`,
@@ -118,7 +129,7 @@ function socialErrorMessage(error: unknown, fallback: string): string {
         </p>
       </div>
       <p class="text-sm text-muted-foreground">
-        {{ comments.length }} comment{{ comments.length === 1 ? '' : 's' }}
+        {{ totalItems }} comment{{ totalItems === 1 ? '' : 's' }}
       </p>
     </div>
 
@@ -163,6 +174,13 @@ function socialErrorMessage(error: unknown, fallback: string): string {
     <p v-else class="mt-5 text-muted-foreground">
       No public comments yet.
     </p>
+
+    <PaginationNav
+      aria-label="Comment pagination"
+      :next-to="nextTo"
+      :pagination="{ ...pagination, totalItems }"
+      :previous-to="previousTo"
+    />
 
     <DestructiveConfirm
       v-model:open="deleteDialogOpen"

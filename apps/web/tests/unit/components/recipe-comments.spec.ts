@@ -70,15 +70,33 @@ function mountComments() {
         }
       }
     },
-    props: { comments: [comment()], recipeSlug: 'negroni' }
+    props: {
+      comments: [comment()],
+      nextTo: { path: '/recipes/negroni', query: { commentsPage: '2' } },
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        nextPage: 2,
+        previousPage: 1,
+        resultEnd: 1,
+        resultStart: 1,
+        totalItems: 1,
+        totalPages: 1
+      },
+      previousTo: { path: '/recipes/negroni', query: {} },
+      recipeSlug: 'negroni'
+    }
   })
 }
 
 function comment(overrides: Partial<Comment> = {}): Comment {
   return {
     authorUsername: 'jane_doe',
+    canReply: true,
     createdAt: '2026-01-01T00:00:00+00:00',
     deleted: false,
+    depth: 1,
     id: 1,
     message: 'Original.',
     moderationStatus: 'visible',

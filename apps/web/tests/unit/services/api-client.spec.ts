@@ -272,7 +272,11 @@ describe('api client', () => {
       accessToken: 'access-token'
     })
 
-    await api.comments.list('negroni')
+    await api.comments.list('negroni', { page: 2, pageSize: 50 })
+
+    expect(fetch).toHaveBeenCalledWith('/recipes/negroni/comments', expect.objectContaining({
+      query: { page: 2, pageSize: 50 }
+    }))
   })
 
   it('uploads recipe images as browser-owned multipart form data', async () => {

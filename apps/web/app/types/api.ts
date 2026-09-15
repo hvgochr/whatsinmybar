@@ -257,6 +257,8 @@ export interface Comment {
   recipeSlug: string
   authorUsername: string
   authorAvatarPath?: string | null
+  canReply: boolean
+  depth: number
   parentId: ApiId | null
   message: string | null
   moderationStatus: ModerationStatus

@@ -142,7 +142,10 @@ Comments are threaded:
 
 - a comment can have a nullable parent comment;
 - replies belong to the same recipe as their parent;
-- nested rendering depth can be limited in the frontend if needed.
+- new threads are limited to three levels and the API reports each comment's
+  one-based depth;
+- comment reads are paginated flat collections (20 by default, 100 maximum),
+  so rendering work and response size stay bounded.
 
 Authors can edit and soft-delete their own comments.
 
@@ -733,6 +736,7 @@ Security:
 Performance:
 
 - paginate recipe lists and admin lists;
+- paginate comment collections and batch direct-reply counts;
 - index common filters;
 - avoid N+1 queries for recipe detail pages;
 - cache public metadata where appropriate later.
@@ -779,6 +783,5 @@ Remaining before the V1 production launch:
 The following details still require a product or infrastructure decision:
 
 - whether recipe and category slugs become immutable after publication;
-- maximum comment nesting depth in the UI;
 - public recipe pagination versus infinite loading as the long-term interaction;
 - VPS provider, domain, monitoring provider, and off-site backup destination.

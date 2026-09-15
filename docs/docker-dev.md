@@ -75,6 +75,23 @@ not duplicate steps, replace existing instructions or reset moderation status.
 
 Seeded accounts use the password `very-secure-password`.
 
+The development seed is not an administrator bootstrap mechanism. To create a
+real local administrator without placing a password in shell history, use a
+temporary environment variable (or omit it and use the hidden interactive
+prompt):
+
+```bash
+read -rs APP_ADMIN_PASSWORD
+export APP_ADMIN_PASSWORD
+docker compose exec -e APP_ADMIN_PASSWORD api php bin/console app:admin:bootstrap \
+  --email=owner@example.com --username=owner --birth-date=1990-01-01
+unset APP_ADMIN_PASSWORD
+```
+
+The command is idempotent for the exact email/username pair. It creates a new
+account only when both identifiers are free, promotes an existing exact match
+without changing its password, and refuses deleted or colliding accounts.
+
 Uploaded files are stored in the `api_uploads` Docker volume mounted at:
 
 ```text

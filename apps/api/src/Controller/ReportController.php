@@ -256,6 +256,8 @@ final class ReportController extends AbstractController
     }
 
     /**
+     * @param array<string, mixed>|null $targetContext
+     *
      * @return array<string, mixed>
      */
     private function payload(Report $report, ?array $targetContext = null, bool $includeTargetContext = false): array

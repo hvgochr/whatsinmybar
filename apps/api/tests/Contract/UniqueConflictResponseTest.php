@@ -15,7 +15,7 @@ final class UniqueConflictResponseTest extends TestCase
     public function testConcurrentUniqueViolationUsesControlledConflictResponse(): void
     {
         $driverException = new class('duplicate key value violates unique constraint "uniq_user_email"') extends \RuntimeException implements DriverException {
-            public function getSQLState(): ?string
+            public function getSQLState(): string
             {
                 return '23505';
             }

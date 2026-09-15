@@ -4,6 +4,7 @@ use App\Entity\Recipe;
 use App\Entity\User;
 use App\Kernel;
 use App\Service\FavoriteManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Dotenv\Dotenv;
 
@@ -20,6 +21,7 @@ $kernel->boot();
 try {
     /** @var ManagerRegistry $doctrine */
     $doctrine = $kernel->getContainer()->get('doctrine');
+    /** @var EntityManagerInterface $entityManager */
     $entityManager = $doctrine->getManager();
     $user = $entityManager->find(User::class, (int) $userId);
     $recipe = $entityManager->find(Recipe::class, (int) $recipeId);

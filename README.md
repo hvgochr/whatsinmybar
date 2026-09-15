@@ -78,6 +78,7 @@ remain in the developer's local Codex configuration.
 
 - [Functional and technical specifications](docs/specifications.md)
 - [Internal API contract](docs/api.md)
+- [Account lifecycle recommendations](docs/account-lifecycle.md)
 - [Docker development](docs/docker-dev.md)
 - [Docker production deployment](docs/docker-prod.md)
 - [Backend quality baseline](docs/backend-quality.md)

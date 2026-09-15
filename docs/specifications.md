@@ -783,6 +783,11 @@ Remaining before the V1 production launch:
 5. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
 6. Run a final accessibility, responsive layout, security, and end-to-end acceptance pass.
 
+Account recovery, email verification and self-service deletion are deliberately
+deferred pending the delivery, identity and retention decisions documented in
+[`docs/account-lifecycle.md`](account-lifecycle.md). No public email credentials
+or default production administrator password are part of V1.
+
 ## 14. Open Decisions
 
 The following details still require a product or infrastructure decision:

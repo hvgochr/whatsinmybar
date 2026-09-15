@@ -536,10 +536,11 @@ descending timestamp order with the numeric ID as a descending tie-breaker.
 Admin mutations are always protected server-side with `ROLE_ADMIN`.
 Deleting or removing `ROLE_ADMIN` from the final active administrator returns
 `409 conflict`. The check is transactionally serialized so concurrent admin
-mutations cannot remove every active administrator. For a mutation that would
-leave its proposed target inactive, the target's current administrator state is
-read from PostgreSQL only after acquiring the transaction lock; a stale
-Doctrine entity therefore cannot bypass the final-administrator check.
+mutations cannot remove every active administrator. Every continuity check
+acquires the transaction lock before inspecting its proposal; for a mutation
+that would leave its target inactive, the target's current administrator state
+is then read from PostgreSQL. A stale Doctrine entity therefore cannot bypass
+the final-administrator check.
 
 ## Errors
 

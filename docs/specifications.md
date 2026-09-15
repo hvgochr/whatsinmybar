@@ -189,7 +189,8 @@ authenticated reporter response or any public content response.
 
 Deletion and demotion of administrators are serialized. The current persisted
 state must be reread after locking before deciding whether the target is the
-last active administrator.
+last active administrator; no entity state loaded before the lock decides
+whether that lock is acquired.
 
 Moderation statuses for content should be explicit rather than inferred only from deletion:
 

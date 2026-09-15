@@ -19,16 +19,16 @@ final readonly class ActiveAdminGuard
      */
     public function assertCanApply(User $user, array $proposedRoles, bool $proposedDeleted): void
     {
-        $willRemainActiveAdmin = !$proposedDeleted && in_array('ROLE_ADMIN', $proposedRoles, true);
-        if ($willRemainActiveAdmin) {
-            return;
-        }
-
         if (!$this->connection->isTransactionActive()) {
             throw new \LogicException('The active administrator guard requires a transaction.');
         }
 
         $this->connection->executeQuery('SELECT pg_advisory_xact_lock(:lockKey)', ['lockKey' => self::LOCK_KEY]);
+        $willRemainActiveAdmin = !$proposedDeleted && in_array('ROLE_ADMIN', $proposedRoles, true);
+        if ($willRemainActiveAdmin) {
+            return;
+        }
+
         $userId = $user->getId();
         if (null === $userId) {
             throw new \LogicException('The active administrator guard requires a persisted user.');

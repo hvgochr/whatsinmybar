@@ -465,6 +465,14 @@ integer `targetId`. The optional `message` must be a string or `null` and is
 limited to 2,000 characters; blank messages are stored as `null`. Undeclared
 fields return a `422` validation error.
 
+Only the admin list and update responses add `targetContext`. The context is
+resolved from the current target and can include otherwise hidden or deleted
+content needed for moderation: recipe title/description/author and states,
+raw comment message/author/recipe and states, or profile username/email/bio,
+roles and deletion state. A missing target produces `targetContext: null`.
+Public report creation responses never contain this field, and no public
+endpoint gains access to hidden raw content.
+
 ## Admin
 
 ```text
@@ -500,6 +508,9 @@ preserving the requested page and total metadata. Results use a stable
 descending timestamp order with the numeric ID as a descending tie-breaker.
 
 Admin mutations are always protected server-side with `ROLE_ADMIN`.
+Deleting or removing `ROLE_ADMIN` from the final active administrator returns
+`409 conflict`. The check is transactionally serialized so concurrent admin
+mutations cannot remove every active administrator.
 
 ## Errors
 

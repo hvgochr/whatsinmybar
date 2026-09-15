@@ -63,4 +63,27 @@ final class CommentRepository extends PaginatedRepository
 
         return $counts;
     }
+
+    /**
+     * @param list<int> $ids
+     *
+     * @return list<Comment>
+     */
+    public function findForReportContextByIds(array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('comment')
+            ->leftJoin('comment.author', 'author')
+            ->addSelect('author')
+            ->leftJoin('comment.recipe', 'recipe')
+            ->addSelect('recipe')
+            ->andWhere('comment.id IN (:ids)')
+            ->setParameter('ids', array_values(array_unique($ids)))
+            ->getQuery()
+            ->getResult()
+        ;
+    }
 }

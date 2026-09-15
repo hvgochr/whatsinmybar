@@ -193,6 +193,42 @@ final class AdminMutationApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
+    public function testLastActiveAdminCannotBeDeletedOrDemoted(): void
+    {
+        $client = static::createClient();
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        foreach ($entityManager->getRepository(User::class)->findAll() as $existingUser) {
+            $existingUser->setRoles([]);
+        }
+        $entityManager->flush();
+
+        $primary = $this->createUser(roles: ['ROLE_ADMIN']);
+        $secondary = $this->createUser(roles: ['ROLE_ADMIN']);
+        $primaryToken = $this->loginExistingUser($client, $primary)['token'];
+
+        $client->jsonRequest('PATCH', '/api/admin/users/'.$secondary->getId(), [
+            'roles' => [],
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$primaryToken,
+        ]);
+        self::assertResponseIsSuccessful();
+
+        foreach ([['deleted' => true], ['roles' => []]] as $payload) {
+            $client->jsonRequest('PATCH', '/api/admin/users/'.$primary->getId(), $payload, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$primaryToken,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+            self::assertSame('conflict', $this->jsonResponse($client)['error']['code']);
+        }
+
+        $entityManager->clear();
+        $storedPrimary = $entityManager->find(User::class, $primary->getId());
+        self::assertInstanceOf(User::class, $storedPrimary);
+        self::assertNull($storedPrimary->getDeletedAt());
+        self::assertContains('ROLE_ADMIN', $storedPrimary->getRoles());
+    }
+
     /**
      * @param list<string> $roles
      */

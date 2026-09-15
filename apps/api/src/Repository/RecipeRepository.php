@@ -96,6 +96,27 @@ final class RecipeRepository extends PaginatedRepository
         ;
     }
 
+    /**
+     * @param list<int> $ids
+     *
+     * @return list<Recipe>
+     */
+    public function findForReportContextByIds(array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('recipe')
+            ->leftJoin('recipe.author', 'author')
+            ->addSelect('author')
+            ->andWhere('recipe.id IN (:ids)')
+            ->setParameter('ids', array_values(array_unique($ids)))
+            ->getQuery()
+            ->getResult()
+        ;
+    }
+
     private function restrictAlcohol(\Doctrine\ORM\QueryBuilder $queryBuilder, bool $canAccessAlcohol): void
     {
         if ($canAccessAlcohol) {

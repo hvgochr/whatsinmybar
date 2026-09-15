@@ -11,6 +11,7 @@ use App\Enum\RecipeStatus;
 use App\Repository\CategoryRepository;
 use App\Repository\IngredientRepository;
 use App\Repository\RecipeRepository;
+use App\Service\ActiveAdminGuard;
 use App\Service\RecipeAlcoholClassificationUpdater;
 use App\Service\RecipePublicationValidator;
 use App\Service\UserAccountAccess;
@@ -26,21 +27,27 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 final class AdminMutationController extends AbstractController
 {
     #[Route('/api/admin/users/{id}', name: 'api_admin_users_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
-    public function updateUser(User $user, Request $request, EntityManagerInterface $entityManager, UserAccountAccess $userAccountAccess): JsonResponse
+    public function updateUser(User $user, Request $request, EntityManagerInterface $entityManager, UserAccountAccess $userAccountAccess, ActiveAdminGuard $activeAdminGuard): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
         $payload = $this->decodeJson($request);
+        $roles = array_key_exists('roles', $payload) ? $this->roles($payload['roles']) : $user->getRoles();
+        $deleted = array_key_exists('deleted', $payload) ? $this->boolean($payload['deleted'], 'deleted') : null !== $user->getDeletedAt();
 
-        if (array_key_exists('roles', $payload)) {
-            $user->setRoles($this->roles($payload['roles']));
-        }
+        $entityManager->wrapInTransaction(function () use ($activeAdminGuard, $deleted, $entityManager, $payload, $roles, $user, $userAccountAccess): void {
+            $activeAdminGuard->assertCanApply($user, $roles, $deleted);
 
-        if (array_key_exists('deleted', $payload)) {
-            $userAccountAccess->setDeleted($user, $this->boolean($payload['deleted'], 'deleted'));
-        }
+            if (array_key_exists('roles', $payload)) {
+                $user->setRoles($roles);
+            }
 
-        $entityManager->flush();
+            if (array_key_exists('deleted', $payload)) {
+                $userAccountAccess->setDeleted($user, $deleted);
+            }
+
+            $entityManager->flush();
+        });
 
         return $this->json($this->userPayload($user));
     }

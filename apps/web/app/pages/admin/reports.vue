@@ -129,6 +129,25 @@ function stringValue(value: FormDataEntryValue | null): string {
             <p v-if="report.message" class="mt-3 rounded-md border bg-background p-3 text-sm text-muted-foreground">
               {{ report.message }}
             </p>
+            <div v-if="report.targetContext" class="mt-3 rounded-md border bg-background p-3 text-sm">
+              <p class="font-medium text-foreground">
+                <template v-if="report.targetContext.type === 'recipe'">
+                  {{ report.targetContext.title }} · by {{ report.targetContext.authorUsername }}
+                </template>
+                <template v-else-if="report.targetContext.type === 'comment'">
+                  Comment by {{ report.targetContext.authorUsername }} on {{ report.targetContext.recipeSlug }}
+                </template>
+                <template v-else>
+                  {{ report.targetContext.username }} · {{ report.targetContext.email }}
+                </template>
+              </p>
+              <p v-if="report.targetContext.description || report.targetContext.message || report.targetContext.bio" class="mt-2 whitespace-pre-wrap text-muted-foreground">
+                {{ report.targetContext.description || report.targetContext.message || report.targetContext.bio }}
+              </p>
+              <p class="mt-2 text-xs text-muted-foreground">
+                {{ report.targetContext.deleted ? 'Deleted' : 'Active' }}<template v-if="report.targetContext.moderationStatus"> · {{ report.targetContext.moderationStatus }}</template>
+              </p>
+            </div>
             <p class="mt-2 text-xs text-muted-foreground">
               Submitted {{ new Date(report.createdAt).toLocaleDateString('en') }}
               <span v-if="report.reviewedByUsername"> · reviewed by {{ report.reviewedByUsername }}</span>

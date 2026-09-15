@@ -278,6 +278,7 @@ export interface Report {
   reporterUsername: string
   targetType: ReportTargetType
   targetId: ApiId
+  targetContext?: ReportTargetContext | null
   reason: ReportReason
   message: string | null
   status: ReportStatus
@@ -285,6 +286,23 @@ export interface Report {
   reviewedAt: ApiDateTime | null
   createdAt: ApiDateTime
   updatedAt: ApiDateTime
+}
+
+export interface ReportTargetContext {
+  type: ReportTargetType
+  authorUsername?: string | null
+  bio?: string | null
+  deleted: boolean
+  description?: string | null
+  email?: string
+  message?: string
+  moderationStatus?: ModerationStatus
+  recipeSlug?: string
+  roles?: string[]
+  slug?: string
+  status?: RecipeStatus
+  title?: string
+  username?: string
 }
 
 export interface ReportPayload {

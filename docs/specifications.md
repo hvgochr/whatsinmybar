@@ -180,6 +180,9 @@ Report status values:
 - `rejected`.
 
 Admins can list reports, review the target content, update report status, and apply moderation actions.
+Admin report responses include current target context, including the original
+message of a hidden or deleted comment. That context is never included in the
+authenticated reporter response or any public content response.
 
 Moderation statuses for content should be explicit rather than inferred only from deletion:
 
@@ -201,6 +204,8 @@ Admin features:
 - reports and moderation.
 
 The API must expose admin-only operations with role checks. The frontend admin routes are only a UI layer and must not be trusted for authorization.
+The last active administrator cannot be deleted or demoted; concurrent admin
+mutations are serialized around this invariant.
 
 ## 4. Alcohol Access Rules
 

@@ -321,6 +321,10 @@ are referenced by API IRI. Quantity is a positive decimal string with at most
 six integer digits and two decimal places. Malformed aggregate input returns a
 controlled `422 validation_failed` response.
 
+All required aggregate fields, the three list values, their elements, and their
+required nested fields reject `null`. The optional ingredient `note` field
+remains nullable.
+
 The complete payload, including all saved categories, ordered `steps`, and
 ordered `recipeIngredients`, is validated before replacement. Metadata,
 categories, steps, measured ingredients, and computed alcohol status are then

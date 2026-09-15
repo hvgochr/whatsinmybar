@@ -335,6 +335,101 @@ final class RecipeApiTest extends WebTestCase
         }
     }
 
+    public function testAggregateCreationRejectsNullRequiredValuesWithoutPersistingARecipe(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $ingredient = $this->createIngredient(false);
+        $recipeRepository = static::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(\App\Entity\Recipe::class);
+        $initialRecipeCount = $recipeRepository->count([]);
+        $validIngredient = $this->aggregateIngredient($ingredient, '10');
+        $basePayload = [
+            'title' => 'Null-safe Aggregate '.bin2hex(random_bytes(4)),
+            'description' => 'A recipe used to validate explicit null rejection.',
+            'difficulty' => 'easy',
+            'preparationTimeMinutes' => 5,
+            'servings' => 1,
+            'categories' => [],
+            'steps' => [['instruction' => 'Stir.']],
+            'ingredients' => [$validIngredient],
+        ];
+
+        $invalidOverrides = [
+            'null title' => ['title' => null],
+            'null description' => ['description' => null],
+            'null difficulty' => ['difficulty' => null],
+            'null preparation time' => ['preparationTimeMinutes' => null],
+            'null servings' => ['servings' => null],
+            'null categories list' => ['categories' => null],
+            'null category element' => ['categories' => [null]],
+            'null steps list' => ['steps' => null],
+            'null step element' => ['steps' => [null]],
+            'null step instruction' => ['steps' => [['instruction' => null]]],
+            'null ingredients list' => ['ingredients' => null],
+            'null ingredient element' => ['ingredients' => [null]],
+            'null ingredient reference' => ['ingredients' => [[...$validIngredient, 'ingredient' => null]]],
+            'null ingredient quantity' => ['ingredients' => [[...$validIngredient, 'quantity' => null]]],
+            'null ingredient unit' => ['ingredients' => [[...$validIngredient, 'unit' => null]]],
+        ];
+
+        foreach ($invalidOverrides as $case => $override) {
+            $client->jsonRequest('POST', '/api/recipes/aggregate', [...$basePayload, ...$override], server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ]);
+
+            self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY, $case);
+            self::assertSame('validation_failed', $this->jsonResponse($client)['error']['code'], $case);
+        }
+
+        self::assertSame($initialRecipeCount, $recipeRepository->count([]));
+    }
+
+    public function testAggregateUpdateRejectsNullStepAndLeavesTheStoredRecipeUnchanged(): void
+    {
+        $client = static::createClient();
+        $token = $this->loginAsUser($client);
+        $ingredient = $this->createIngredient(false);
+        $payload = [
+            'title' => 'Null-safe Update '.bin2hex(random_bytes(4)),
+            'description' => 'Keep this description.',
+            'difficulty' => 'easy',
+            'preparationTimeMinutes' => 5,
+            'servings' => 1,
+            'categories' => [],
+            'steps' => [['instruction' => 'Keep this step.']],
+            'ingredients' => [$this->aggregateIngredient($ingredient, '10')],
+        ];
+
+        $client->jsonRequest('POST', '/api/recipes/aggregate', $payload, server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $created = $this->jsonResponse($client);
+
+        $client->jsonRequest('PUT', '/api/recipes/'.$created['slug'].'/aggregate', [
+            ...$payload,
+            'description' => 'This must not be stored.',
+            'steps' => [null],
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSame('validation_failed', $this->jsonResponse($client)['error']['code']);
+
+        $client->request('GET', '/api/recipes/'.$created['slug'], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->jsonResponse($client);
+        self::assertSame('Keep this description.', $stored['description']);
+        self::assertSame(['Keep this step.'], array_column($stored['steps'], 'instruction'));
+        self::assertSame('10.00', $stored['recipeIngredients'][0]['quantity']);
+    }
+
     private function loginAsUser(KernelBrowser $client): string
     {
         $password = 'very-secure-password';

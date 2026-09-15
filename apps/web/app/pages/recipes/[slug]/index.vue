@@ -6,7 +6,7 @@ import FavoriteButton from '../../../components/social/FavoriteButton.vue'
 import RecipeComments from '../../../components/social/RecipeComments.vue'
 import ReportAction from '../../../components/social/ReportAction.vue'
 import UiButton from '../../../components/ui/button/Button.vue'
-import type { RecipeResource } from '../../../types/api'
+import type { Comment, PaginatedList, RecipeResource } from '../../../types/api'
 import { collectionItems } from '../../../utils/api-collections'
 import { pageFromQuery, pageLocation, paginationState } from '../../../utils/pagination'
 import {
@@ -53,6 +53,14 @@ const [{ data: commentsData }, { data: relatedRecipesData }] = await Promise.all
     })
   })
 ])
+
+async function revealCreatedComment(payload: { comment: Comment, page: PaginatedList<Comment> }) {
+  commentsData.value = payload.page
+  await navigateTo({
+    ...pageLocation(`/recipes/${slug.value}`, route.query, payload.page.page, 'commentsPage'),
+    hash: `#comment-${payload.comment.id}`
+  })
+}
 
 const comments = computed(() => commentsData.value?.items ?? [])
 const commentsPagination = computed(() => paginationState({
@@ -169,6 +177,7 @@ function errorStatus(error: unknown): number {
           :pagination="commentsPagination"
           :previous-to="commentsPreviousTo"
           :recipe-slug="recipe.slug"
+          @resynced="revealCreatedComment"
         />
       </section>
 

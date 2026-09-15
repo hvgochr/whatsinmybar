@@ -272,10 +272,10 @@ describe('api client', () => {
       accessToken: 'access-token'
     })
 
-    await api.comments.list('negroni', { page: 2, pageSize: 50 })
+    await api.comments.list('negroni', { around: 21, page: 2, pageSize: 50 })
 
     expect(fetch).toHaveBeenCalledWith('/recipes/negroni/comments', expect.objectContaining({
-      query: { page: 2, pageSize: 50 }
+      query: { around: 21, page: 2, pageSize: 50 }
     }))
   })
 

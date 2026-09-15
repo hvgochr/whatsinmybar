@@ -26,6 +26,10 @@ final class CommentRepository extends PaginatedRepository
         $query = $this->createQueryBuilder('comment')
             ->leftJoin('comment.author', 'author')
             ->addSelect('author')
+            ->leftJoin('comment.parent', 'parent')
+            ->addSelect('parent')
+            ->leftJoin('parent.author', 'parentAuthor')
+            ->addSelect('parentAuthor')
             ->andWhere('comment.recipe = :recipe')
             ->setParameter('recipe', $recipe)
             ->orderBy('comment.createdAt', 'ASC')
@@ -34,6 +38,27 @@ final class CommentRepository extends PaginatedRepository
         ;
 
         return $this->paginate($query, $pagination);
+    }
+
+    public function pageContaining(Comment $comment, PageRequest $pagination): int
+    {
+        $commentId = $comment->getId();
+        if (null === $commentId) {
+            throw new \LogicException('A comment must be persisted before its page can be located.');
+        }
+
+        $position = (int) $this->createQueryBuilder('preceding')
+            ->select('COUNT(preceding.id)')
+            ->andWhere('preceding.recipe = :recipe')
+            ->andWhere('(preceding.createdAt < :createdAt OR (preceding.createdAt = :createdAt AND preceding.id <= :commentId))')
+            ->setParameter('recipe', $comment->getRecipe())
+            ->setParameter('createdAt', $comment->getCreatedAt())
+            ->setParameter('commentId', $commentId)
+            ->getQuery()
+            ->getSingleScalarResult()
+        ;
+
+        return max(1, (int) ceil($position / $pagination->pageSize));
     }
 
     /**

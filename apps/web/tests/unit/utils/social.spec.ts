@@ -62,6 +62,7 @@ function comment(overrides: Partial<Comment>): Comment {
     message: 'Comment',
     moderationStatus: 'visible',
     parentId: null,
+    parentContext: null,
     recipeSlug: 'recipe',
     replyCount: 0,
     updatedAt: '2026-07-20T12:00:00+00:00',

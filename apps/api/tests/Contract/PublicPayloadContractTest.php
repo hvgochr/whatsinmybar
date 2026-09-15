@@ -110,6 +110,7 @@ final class PublicPayloadContractTest extends WebTestCase
             'authorUsername',
             'authorAvatarPath',
             'parentId',
+            'parentContext',
             'depth',
             'canReply',
             'message',

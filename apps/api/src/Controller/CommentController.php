@@ -33,6 +33,14 @@ final class CommentController extends AbstractController
         $recipe = $this->findRecipe($slug, $recipeRepository);
         $this->denyAccessUnlessGranted(RecipeAccess::View, $recipe);
         $pagination = PageRequest::fromRequest($request);
+        if ($request->query->has('around')) {
+            $focusedComment = $commentRepository->find($this->positiveQueryInteger($request, 'around'));
+            if (!$focusedComment instanceof Comment || $focusedComment->getRecipe() !== $recipe) {
+                throw $this->createNotFoundException('Comment not found for this recipe.');
+            }
+
+            $pagination = $pagination->atPage($commentRepository->pageContaining($focusedComment, $pagination));
+        }
         $page = $commentRepository->paginateForRecipe($recipe, $pagination);
         $replyCounts = $commentRepository->replyCounts($page->items);
 
@@ -210,12 +218,20 @@ final class CommentController extends AbstractController
      */
     private function payload(Comment $comment, ?int $replyCount = null): array
     {
+        $parent = $comment->getParent();
+
         return [
             'id' => $comment->getId(),
             'recipeSlug' => $comment->getRecipe()->getSlug(),
             'authorUsername' => $comment->getAuthor()->getUsername(),
             'authorAvatarPath' => $comment->getAuthor()->getAvatarPath(),
             'parentId' => $comment->getParent()?->getId(),
+            'parentContext' => $parent instanceof Comment ? [
+                'id' => $parent->getId(),
+                'authorUsername' => $parent->getAuthor()->getUsername(),
+                'message' => $parent->getPublicMessage(),
+                'deleted' => null !== $parent->getDeletedAt(),
+            ] : null,
             'depth' => $comment->getDepth(),
             'canReply' => $comment->getDepth() < self::MAX_DEPTH,
             'message' => $comment->getPublicMessage(),
@@ -248,6 +264,21 @@ final class CommentController extends AbstractController
     private function moderationStatus(string $value): CommentModerationStatus
     {
         return CommentModerationStatus::tryFrom($value) ?? throw new BadRequestHttpException('Invalid moderation status.');
+    }
+
+    private function positiveQueryInteger(Request $request, string $name): int
+    {
+        $value = $request->query->get($name);
+        if (!is_string($value) || 1 !== preg_match('/^[1-9]\d*$/', $value)) {
+            throw new BadRequestHttpException(sprintf('%s must be a positive integer.', $name));
+        }
+
+        $integer = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (false === $integer) {
+            throw new BadRequestHttpException(sprintf('%s is too large.', $name));
+        }
+
+        return $integer;
     }
 
     private function validationErrorResponse(ConstraintViolationListInterface $violations): JsonResponse

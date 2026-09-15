@@ -73,7 +73,11 @@ function submitReply() {
 </script>
 
 <template>
-  <article class="grid gap-3 border-l pl-4" :class="depth > 0 ? 'ml-2' : ''">
+  <article :id="`comment-${node.id}`" class="grid scroll-mt-6 gap-3 border-l pl-4" :class="depth > 0 ? 'ml-2' : ''">
+    <aside v-if="node.parentContext && depth === 0" class="rounded-sm border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      <p class="font-medium text-foreground">Reply to {{ node.parentContext.authorUsername }}</p>
+      <p class="mt-1 line-clamp-2">{{ node.parentContext.message || 'The parent comment is no longer visible.' }}</p>
+    </aside>
     <header class="flex items-start gap-3">
       <NuxtLink v-if="authorPath" :to="authorPath" class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`View ${node.authorUsername}'s profile`">
         <img v-if="authorAvatar" :src="authorAvatar" :alt="`${node.authorUsername}'s avatar`" class="size-full object-cover">

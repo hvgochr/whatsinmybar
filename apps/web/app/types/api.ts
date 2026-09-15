@@ -260,12 +260,20 @@ export interface Comment {
   canReply: boolean
   depth: number
   parentId: ApiId | null
+  parentContext: CommentParentContext | null
   message: string | null
   moderationStatus: ModerationStatus
   replyCount: number
   deleted: boolean
   createdAt: ApiDateTime
   updatedAt: ApiDateTime
+}
+
+export interface CommentParentContext {
+  id: ApiId
+  authorUsername: string
+  message: string | null
+  deleted: boolean
 }
 
 export interface CommentPayload {
@@ -326,4 +334,8 @@ export interface PaginatedList<T> extends ItemList<T> {
 export interface PaginationParams {
   page?: number
   pageSize?: number
+}
+
+export interface CommentPaginationParams extends PaginationParams {
+  around?: ApiId
 }

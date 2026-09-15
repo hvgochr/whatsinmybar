@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { Comment } from '../../types/api'
+import type { Comment, PaginatedList } from '../../types/api'
 import type { PaginationState } from '../../utils/pagination'
+import { paginationState } from '../../utils/pagination'
 import { buildCommentTree } from '../../utils/social'
 import { toFormErrors } from '../../utils/api-errors'
 import FormAlert from '../common/FormAlert.vue'
@@ -18,11 +19,15 @@ const props = defineProps<{
   recipeSlug: string
 }>()
 
+const emit = defineEmits<{
+  resynced: [payload: { comment: Comment, page: PaginatedList<Comment> }]
+}>()
+
 const api = useApi()
 const auth = useAuth()
 const notifications = useNotifications()
 const comments = ref<Comment[]>([...props.comments])
-const totalItems = ref(props.pagination.totalItems)
+const currentPagination = ref(props.pagination)
 const message = ref('')
 const pending = ref(false)
 const pendingActionId = ref<number | null>(null)
@@ -37,8 +42,8 @@ watch(() => props.comments, (nextComments) => {
   comments.value = [...nextComments]
 })
 
-watch(() => props.pagination.totalItems, (nextTotal) => {
-  totalItems.value = nextTotal
+watch(() => props.pagination, (nextPagination) => {
+  currentPagination.value = nextPagination
 })
 
 async function createComment(payload: { message: string, parentId?: number | null }) {
@@ -48,9 +53,21 @@ async function createComment(payload: { message: string, parentId?: number | nul
 
   try {
     const createdComment = await api.comments.create(props.recipeSlug, payload)
-    comments.value = [...comments.value, createdComment]
-    totalItems.value++
     message.value = ''
+    try {
+      const page = await api.comments.list(props.recipeSlug, { around: createdComment.id })
+      comments.value = [...page.items]
+      currentPagination.value = paginationState({
+        currentPage: page.page,
+        itemsOnPage: page.items.length,
+        pageSize: page.pageSize,
+        totalItems: page.totalItems,
+        totalPages: page.totalPages
+      })
+      emit('resynced', { comment: createdComment, page })
+    } catch {
+      formError.value = 'Your comment was posted, but the comment list could not be refreshed. Reload the page to find it.'
+    }
     notifications.success(
       payload.parentId ? `comment-reply:${payload.parentId}` : `comment-create:${props.recipeSlug}`,
       payload.parentId ? 'Reply posted.' : 'Comment posted.'
@@ -129,7 +146,7 @@ function socialErrorMessage(error: unknown, fallback: string): string {
         </p>
       </div>
       <p class="text-sm text-muted-foreground">
-        {{ totalItems }} comment{{ totalItems === 1 ? '' : 's' }}
+        {{ currentPagination.totalItems }} comment{{ currentPagination.totalItems === 1 ? '' : 's' }}
       </p>
     </div>
 
@@ -178,7 +195,7 @@ function socialErrorMessage(error: unknown, fallback: string): string {
     <PaginationNav
       aria-label="Comment pagination"
       :next-to="nextTo"
-      :pagination="{ ...pagination, totalItems }"
+      :pagination="currentPagination"
       :previous-to="previousTo"
     />
 

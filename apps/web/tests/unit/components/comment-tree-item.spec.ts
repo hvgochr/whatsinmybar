@@ -48,6 +48,22 @@ describe('CommentTreeItem', () => {
 
     expect(wrapper.get('[aria-label="Comment actions"]').findAll('button').map(button => button.text())).toEqual(['Edit', 'Delete', 'Report'])
   })
+
+  it('shows public parent context when a reply is isolated by pagination', () => {
+    const wrapper = mountComment({
+      depth: 2,
+      parentId: 42,
+      parentContext: {
+        id: 42,
+        authorUsername: 'parent_author',
+        message: 'The earlier part of the conversation.',
+        deleted: false
+      }
+    })
+
+    expect(wrapper.text()).toContain('Reply to parent_author')
+    expect(wrapper.text()).toContain('The earlier part of the conversation.')
+  })
 })
 
 function mountComment(overrides: Partial<CommentTreeNode> = {}) {
@@ -77,6 +93,7 @@ function comment(overrides: Partial<CommentTreeNode> = {}): CommentTreeNode {
     message: 'A useful note.',
     moderationStatus: 'visible',
     parentId: null,
+    parentContext: null,
     recipeSlug: 'negroni',
     replies: [],
     replyCount: 0,

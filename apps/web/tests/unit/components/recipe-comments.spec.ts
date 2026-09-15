@@ -7,11 +7,12 @@ import type { Comment } from '../../../app/types/api'
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   delete: vi.fn(),
+  list: vi.fn(),
   notifySuccess: vi.fn(),
   update: vi.fn()
 }))
 
-mockNuxtImport('useApi', () => () => ({ comments: { create: mocks.create, delete: mocks.delete, update: mocks.update } }))
+mockNuxtImport('useApi', () => () => ({ comments: { create: mocks.create, delete: mocks.delete, list: mocks.list, update: mocks.update } }))
 mockNuxtImport('useAuth', () => () => ({
   currentUser: { value: { roles: ['ROLE_USER'], username: 'jane_doe' } },
   isAuthenticated: { value: true }
@@ -24,6 +25,8 @@ describe('RecipeComments mutation feedback', () => {
   it('notifies after posting a comment and a reply', async () => {
     mocks.create.mockResolvedValueOnce(comment({ id: 2, message: 'New comment.' }))
       .mockResolvedValueOnce(comment({ id: 3, message: 'A reply.', parentId: 1 }))
+    mocks.list.mockResolvedValueOnce(commentPage([comment({ id: 2, message: 'New comment.' })], 2))
+      .mockResolvedValueOnce(commentPage([comment({ id: 3, message: 'A reply.', parentId: 1 })], 3))
     const wrapper = mountComments()
 
     await wrapper.get('#new-comment').setValue('New comment.')
@@ -34,6 +37,29 @@ describe('RecipeComments mutation feedback', () => {
 
     expect(mocks.notifySuccess).toHaveBeenCalledWith('comment-create:negroni', 'Comment posted.')
     expect(mocks.notifySuccess).toHaveBeenCalledWith('comment-reply:1', 'Reply posted.')
+    expect(mocks.list).toHaveBeenNthCalledWith(1, 'negroni', { around: 2 })
+    expect(mocks.list).toHaveBeenNthCalledWith(2, 'negroni', { around: 3 })
+  })
+
+  it('resynchronizes the collection and locates comment 21 on page 2', async () => {
+    const existingComments = Array.from({ length: 20 }, (_, index) => comment({ id: index + 1, message: `Comment ${index + 1}` }))
+    const created = comment({ id: 21, message: 'Comment 21' })
+    const focusedPage = commentPage([created], 21, 2)
+    mocks.create.mockResolvedValue(created)
+    mocks.list.mockResolvedValue(focusedPage)
+    const wrapper = mountComments({
+      comments: existingComments,
+      pagination: pagination({ totalItems: 20, totalPages: 1, resultEnd: 20 })
+    })
+
+    await wrapper.get('#new-comment').setValue('Comment 21')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(mocks.list).toHaveBeenCalledWith('negroni', { around: 21 })
+    expect(wrapper.text()).toContain('21 comments')
+    expect(wrapper.text()).toContain('Comment 21')
+    expect(wrapper.emitted('resynced')).toEqual([[{ comment: created, page: focusedPage }]])
   })
 
   it('notifies after editing and deleting a comment', async () => {
@@ -54,7 +80,7 @@ describe('RecipeComments mutation feedback', () => {
   })
 })
 
-function mountComments() {
+function mountComments(overrides: Record<string, unknown> = {}) {
   return mount(RecipeComments, {
     global: {
       stubs: {
@@ -67,27 +93,47 @@ function mountComments() {
         DestructiveConfirm: {
           emits: ['confirm'],
           template: '<button data-testid="confirm-delete" type="button" @click="$emit(\'confirm\')">Confirm</button>'
+        },
+        PaginationNav: {
+          props: ['pagination'],
+          template: '<nav>{{ pagination.totalItems }}</nav>'
         }
       }
     },
     props: {
       comments: [comment()],
       nextTo: { path: '/recipes/negroni', query: { commentsPage: '2' } },
-      pagination: {
-        currentPage: 1,
-        hasNextPage: false,
-        hasPreviousPage: false,
-        nextPage: 2,
-        previousPage: 1,
-        resultEnd: 1,
-        resultStart: 1,
-        totalItems: 1,
-        totalPages: 1
-      },
+      pagination: pagination(),
       previousTo: { path: '/recipes/negroni', query: {} },
-      recipeSlug: 'negroni'
+      recipeSlug: 'negroni',
+      ...overrides
     }
   })
+}
+
+function pagination(overrides: Record<string, number | boolean | null> = {}) {
+  return {
+    currentPage: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    nextPage: 2,
+    previousPage: 1,
+    resultEnd: 1,
+    resultStart: 1,
+    totalItems: 1,
+    totalPages: 1,
+    ...overrides
+  }
+}
+
+function commentPage(items: Comment[], totalItems: number, page = 1) {
+  return {
+    items,
+    page,
+    pageSize: 20,
+    totalItems,
+    totalPages: Math.ceil(totalItems / 20)
+  }
 }
 
 function comment(overrides: Partial<Comment> = {}): Comment {
@@ -101,6 +147,7 @@ function comment(overrides: Partial<Comment> = {}): Comment {
     message: 'Original.',
     moderationStatus: 'visible',
     parentId: null,
+    parentContext: null,
     recipeSlug: 'negroni',
     replyCount: 0,
     updatedAt: '2026-01-01T00:00:00+00:00',

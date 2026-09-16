@@ -22,8 +22,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   requestDelete: [comment: Comment]
-  reply: [payload: { message: string, parentId: number }]
-  update: [payload: { comment: Comment, message: string }]
+  reply: [payload: { complete: (succeeded: boolean) => void, message: string, parentId: number }]
+  update: [payload: { comment: Comment, complete: (succeeded: boolean) => void, message: string }]
 }>()
 
 const editMode = ref(false)
@@ -55,8 +55,13 @@ function submitEdit() {
     return
   }
 
-  emit('update', { comment: props.node, message })
-  editMode.value = false
+  emit('update', {
+    comment: props.node,
+    message,
+    complete(succeeded) {
+      if (succeeded) editMode.value = false
+    }
+  })
 }
 
 function submitReply() {
@@ -66,9 +71,15 @@ function submitReply() {
     return
   }
 
-  emit('reply', { message, parentId: props.node.id })
-  replyMessage.value = ''
-  replyMode.value = false
+  emit('reply', {
+    message,
+    parentId: props.node.id,
+    complete(succeeded) {
+      if (!succeeded) return
+      replyMessage.value = ''
+      replyMode.value = false
+    }
+  })
 }
 </script>
 
@@ -96,7 +107,8 @@ function submitReply() {
     </header>
 
     <form v-if="editMode" class="grid gap-3" @submit.prevent="submitEdit">
-      <UiTextarea v-model="editMessage" rows="3" />
+      <label class="sr-only" :for="`comment-${node.id}-edit`">Edit comment</label>
+      <UiTextarea :id="`comment-${node.id}-edit`" v-model="editMessage" rows="3" maxlength="2000" />
       <div class="flex flex-wrap gap-2">
         <UiButton type="submit" size="sm" :disabled="isPending || !editMessage.trim()">
           {{ isPending ? 'Saving...' : 'Save edit' }}
@@ -125,7 +137,8 @@ function submitReply() {
     </div>
 
     <form v-if="replyMode" class="grid gap-3 rounded-md border bg-card p-3" @submit.prevent="submitReply">
-      <UiTextarea v-model="replyMessage" rows="3" placeholder="Write a reply" />
+      <label class="sr-only" :for="`comment-${node.id}-reply`">Reply to {{ node.authorUsername }}</label>
+      <UiTextarea :id="`comment-${node.id}-reply`" v-model="replyMessage" rows="3" maxlength="2000" placeholder="Write a reply" />
       <div class="flex flex-wrap gap-2">
         <UiButton type="submit" size="sm" :disabled="isPending || !replyMessage.trim()">
           {{ isPending ? 'Posting...' : 'Post reply' }}

@@ -36,7 +36,7 @@ if (recipeError.value && errorStatus(recipeError.value) !== 403) {
   })
 }
 
-const [{ data: commentsData }, { data: relatedRecipesData }] = await Promise.all([
+const [{ data: commentsData, error: commentsError, status: commentsStatus, refresh: refreshComments }, { data: relatedRecipesData }] = await Promise.all([
   useAsyncData(`recipe:${slug.value}:comments:${route.fullPath}`, () => api.comments.list(slug.value, { page: requestedCommentsPage.value }), {
     watch: [() => route.fullPath]
   }),
@@ -173,10 +173,13 @@ function errorStatus(error: unknown): number {
       <section class="mx-auto mt-14 max-w-3xl border-t pt-10">
         <RecipeComments
           :comments="comments"
+          :load-failed="Boolean(commentsError)"
+          :loading="commentsStatus === 'pending'"
           :next-to="commentsNextTo"
           :pagination="commentsPagination"
           :previous-to="commentsPreviousTo"
           :recipe-slug="recipe.slug"
+          @retry="refreshComments"
           @resynced="revealCreatedComment"
         />
       </section>

@@ -1,18 +1,6 @@
 name: Production Containers CI
 
 on:
-  pull_request:
-    paths:
-      - ".dockerignore"
-      - ".env.production.example"
-      - ".github/workflows/containers.yml"
-      - ".github/workflows/docker.yml"
-      - ".github/workflows/deploy.yml"
-      - "Makefile"
-      - "apps/api/**"
-      - "apps/web/**"
-      - "compose.prod.yaml"
-      - "infra/**"
   workflow_call:
 
 permissions:
@@ -76,8 +64,15 @@ jobs:
           docker pull curlimages/curl:latest
           compose up -d --wait --wait-timeout 120 postgres
           compose run --rm --no-deps -T api php bin/console doctrine:migrations:migrate --no-interaction
+          compose run --rm --no-deps -T api php bin/console doctrine:migrations:status --no-interaction
           compose up -d --wait --wait-timeout 180 api web
-          
+
+          # Prove that both stateful production volumes survive real container
+          # replacement. Everything is removed by the disposable-project trap.
+          # shellcheck disable=SC2016
+          compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE TABLE ci_persistence_marker (value text PRIMARY KEY); INSERT INTO ci_persistence_marker VALUES ('\''database-survived'\'');"'
+          compose exec -T api sh -c 'printf %s upload-survived > /app/public/uploads/.ci-persistence-marker'
+
           request() {
             docker run --rm --network proxy --ip "$1" curlimages/curl:latest \
               --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' \
@@ -91,15 +86,20 @@ jobs:
           done
           [[ "$(request 172.30.73.10 "$url" 203.0.113.1)" == 429 ]]
           [[ "$(request 172.30.73.11 "$url" 203.0.113.1)" == 401 ]]
-          
+
           # Symfony must also ignore spoofed headers from another shared-network container.
           [[ "$(request 172.30.73.10 http://whatsinmybar-api:8080/api/auth/login 203.0.113.2)" == 429 ]]
           # The counter volume survives replacement, cache clearing and expired-entry pruning.
+          compose up -d --no-deps --force-recreate --wait --wait-timeout 120 postgres
           compose up -d --no-deps --force-recreate --wait --wait-timeout 180 api
+          # shellcheck disable=SC2016
+          compose exec -T postgres sh -c 'test "$(psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT value FROM ci_persistence_marker")" = database-survived'
+          # shellcheck disable=SC2016
+          compose exec -T api sh -c 'test "$(cat /app/public/uploads/.ci-persistence-marker)" = upload-survived'
           compose exec -T api php bin/console cache:clear --env=prod --no-debug
           compose exec -T api php bin/console app:abuse:prune
           [[ "$(request 172.30.73.10 "$url" 203.0.113.3)" == 429 ]]
-          
+
           # Smoke SSR through the real shared-proxy routes. Per-request header transport
           # and cookie/session behavior are asserted by the existing frontend tests.
           docker run --rm --network proxy curlimages/curl:latest \

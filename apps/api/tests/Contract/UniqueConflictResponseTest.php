@@ -21,7 +21,7 @@ final class UniqueConflictResponseTest extends TestCase
             }
         };
         $event = new ExceptionEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             Request::create('/api/auth/register', 'POST'),
             HttpKernelInterface::MAIN_REQUEST,
             new UniqueConstraintViolationException($driverException, null),

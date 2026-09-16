@@ -43,7 +43,7 @@ services:
       ABUSE_UPLOADS_LIMIT: ${ABUSE_UPLOADS_LIMIT:-10}
       ABUSE_UPLOADS_INTERVAL: ${ABUSE_UPLOADS_INTERVAL:-10 minutes}
       APP_ENV: dev
-      APP_SECRET: dev-only-change-me
+      APP_SECRET: ${APP_SECRET:-dev-only-change-me}
       CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
       DATABASE_URL: 'postgresql://app:app@postgres:5432/whatsinmybar?serverVersion=16&charset=utf8'
       DEFAULT_URI: 'http://localhost:8080'

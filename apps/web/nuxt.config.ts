@@ -41,6 +41,12 @@ export default defineNuxtConfig({
     prefix: 'Ui'
   },
   vite: {
+    server: {
+      // The real-stack Playwright suite reaches Nuxt through the Docker-only
+      // Caddy service name. Keep the allowlist explicit so Vite's DNS rebinding
+      // protection remains enabled for every other hostname.
+      allowedHosts: ['caddy']
+    },
     plugins: [
       tailwindcss()
     ]

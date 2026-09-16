@@ -6,6 +6,11 @@ migration is needed for this single-VPS application.
 
 ## Default budgets
 
+The table contains the application defaults used by both development and
+production Compose. Real-stack acceptance runs use a dedicated `APP_SECRET`
+counter namespace so repeated validation does not poison a developer's normal
+quota state. PHPUnit injects and asserts these exact production budgets.
+
 | Operation | Identity | Attempts / window | Environment variables |
 | --- | --- | --- | --- |
 | Login | Client IP | 40 / 15 minutes | `ABUSE_LOGIN_IP_LIMIT`, `ABUSE_LOGIN_INTERVAL` |
@@ -130,7 +135,9 @@ PHPUnit uses a per-process test directory and clears it between tests, while
 preserving quotas across kernel reboots within each test. `make check-containers`
 tests both Caddy configurations with forged headers against local echo upstreams
 inside a network-disabled disposable image. It also builds production images.
-No production load testing is involved.
+No production load testing is involved. The real-stack browser suite exercises
+normal product flows under production-equivalent login and registration
+ceilings; PHPUnit owns the exact budget boundary assertions.
 
 These application quotas do not stop distributed attacks across many IPs/accounts,
 slow connections, bandwidth floods, or uploads before PHP has received their

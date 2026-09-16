@@ -75,6 +75,11 @@ not duplicate steps, replace existing instructions or reset moderation status.
 
 Seeded accounts use the password `very-secure-password`.
 
+Development Compose uses the production login, registration and authenticated
+write ceilings. The documented real-stack acceptance command supplies a
+dedicated `APP_SECRET` so repeated runs get an isolated counter namespace while
+the developer's normal persistent counters remain untouched.
+
 The development seed is not an administrator bootstrap mechanism. To create a
 real local administrator without placing a password in shell history, use a
 temporary environment variable (or omit it and use the hidden interactive

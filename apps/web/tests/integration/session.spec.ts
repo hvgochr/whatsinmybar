@@ -1,10 +1,33 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
 import { createApiClient } from '../../app/services/api-client'
 
-async function login(request: APIRequestContext) {
-  const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 12)
-  const account = { email: `session-${suffix}@example.com`, username: `session_${suffix}`, password: 'very-secure-password', birthDate: '1990-01-01' }
-  expect((await request.post('/api/auth/register', { data: account })).status()).toBe(201)
+interface Account {
+  email: string
+  username: string
+  password: string
+  birthDate: string
+}
+
+const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 12)
+const primaryAccount: Account = {
+  email: `session-${suffix}@example.com`,
+  username: `session_${suffix}`,
+  password: 'very-secure-password',
+  birthDate: '1990-01-01'
+}
+const seededSecondAccount: Account = {
+  email: 'max@example.com',
+  username: 'max_mixer',
+  password: 'very-secure-password',
+  birthDate: '1990-01-01'
+}
+let primaryRegistered = false
+
+async function login(request: APIRequestContext, account = primaryAccount) {
+  if (account === primaryAccount && !primaryRegistered) {
+    expect((await request.post('/api/auth/register', { data: account })).status()).toBe(201)
+    primaryRegistered = true
+  }
   const response = await request.post('/api/auth/login', { data: account })
   expect(response.status()).toBe(200)
   return { account, cookie: response.headers()['set-cookie']!.split(';')[0]!, token: (await response.json()).token as string }
@@ -71,7 +94,7 @@ test('parallel SSR requests and browser tabs share rotation without leaking betw
   const other = await browser.newContext({ baseURL })
   try {
     const first = await login(context.request)
-    const second = await login(other.request)
+    const second = await login(other.request, seededSecondAccount)
     const pages = await Promise.all(Array.from({ length: 3 }, () => context.newPage()))
     const responses = await Promise.all([
       ...pages.map(page => page.goto('/')),
@@ -98,13 +121,15 @@ test('parallel SSR requests and browser tabs share rotation without leaking betw
     // Password change must clear local UI, notify the other tabs and require login.
     await pages[0]!.goto('/settings')
     await pages[0]!.getByLabel('Current password', { exact: true }).fill(first.account.password)
-    await pages[0]!.getByLabel('New password', { exact: true }).fill('new-very-secure-password')
+    const newPassword = 'session-password-after-browser-change'
+    await pages[0]!.getByLabel('New password', { exact: true }).fill(newPassword)
     await pages[0]!.getByRole('button', { name: 'Update password', exact: true }).click()
     await expect(pages[0]!).toHaveURL(/\/login$/)
     for (const page of pages.slice(1)) await expect(page.getByRole('link', { name: 'Log in', exact: true })).toBeVisible()
     expect((await context.request.post('/api/auth/refresh', { headers: { Cookie: first.cookie, ...csrf } })).status()).toBe(401)
     expect((await context.request.post('/api/auth/refresh', { headers: { Cookie: `refresh_token=${cookie.value}`, ...csrf } })).status()).toBe(401)
     expect((await other.request.post('/api/auth/refresh', { headers: csrf })).status()).toBe(200)
+    primaryAccount.password = newPassword
   } finally {
     await context.close()
     await other.close()
@@ -113,6 +138,7 @@ test('parallel SSR requests and browser tabs share rotation without leaking betw
 
 test('password revocation wins against concurrent rotations and covers another device', async ({ request, playwright, baseURL }) => {
   const first = await login(request)
+  const newPassword = 'session-password-after-race'
   const device = await playwright.request.newContext({ baseURL })
   try {
     const secondLogin = await device.post('/api/auth/login', { data: first.account })
@@ -122,7 +148,7 @@ test('password revocation wins against concurrent rotations and covers another d
       ...Array.from({ length: 4 }, () => request.post('/api/auth/refresh', { headers: { Cookie: first.cookie, ...csrf } })),
       request.patch('/api/me/password', {
         headers: { Authorization: `Bearer ${first.token}` },
-        data: { currentPassword: first.account.password, newPassword: 'new-very-secure-password' }
+        data: { currentPassword: first.account.password, newPassword }
       })
     ])
     expect(results[4]!.status()).toBe(200)
@@ -134,6 +160,7 @@ test('password revocation wins against concurrent rotations and covers another d
     for (const cookie of cookies) {
       expect((await request.post('/api/auth/refresh', { headers: { Cookie: cookie, ...csrf } })).status()).toBe(401)
     }
+    primaryAccount.password = newPassword
   } finally {
     await device.dispose()
   }
@@ -154,7 +181,7 @@ test('does not replay a comment prepared by A when the real refresh cookie ident
   const first = await login(request)
   const profile = await request.get('/api/me', { headers: { Authorization: `Bearer ${first.token}` } })
   let viewer = await profile.json()
-  const second = await login(request)
+  const second = await login(request, seededSecondAccount)
   let token: string | null = 'expired-access-token'
   let revision = 0
   let commentCalls = 0

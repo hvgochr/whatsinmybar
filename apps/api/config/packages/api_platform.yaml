@@ -1,5 +1,6 @@
 api_platform:
-    title: Hello API Platform
+    title: What's In My Bar API
+    description: API for cocktail discovery, recipe authoring, community features, and moderation.
     version: 1.0.0
     formats:
         json:

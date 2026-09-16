@@ -106,14 +106,13 @@ No API image routing configuration or authorization is loosened by this change.
 
 ## GitHub Actions: validation, publication and deployment
 
-On every push to main, docker.yml calls the existing backend.yml, frontend.yml
-and containers.yml through workflow_call. Local workflow references and checkout
-use the caller's exact commit. The publish job needs all three CI jobs to succeed
-before building and publishing the API and web SHA tags. The CI workflows retain
-their path-filtered pull_request triggers; their main push triggers are replaced
-by these calls, so main validation runs once and cannot be bypassed by path filters.
-Workflow changes also exercise the reusable CI graph on pull requests, with
-publication skipped.
+On every pull request and push to main, docker.yml calls backend.yml,
+frontend.yml and containers.yml through workflow_call. Local workflow references
+and checkout use the caller's exact commit. The stable `Release gate` job fails
+unless all three jobs succeed; configure that one job as the required main check.
+The publish job depends on the gate and runs only for a push, so validation runs
+once and cannot be bypassed by path filters. It then builds and publishes the API
+and web SHA tags.
 
 deploy.yml listens for successful completion of docker.yml, checks out that exact
 commit and uploads only Compose. No SSH deployment runs for a pull request.
@@ -375,9 +374,10 @@ unset RESTORE_PASSWORD
 ## Validation
 
 Container CI checks workflow syntax/embedded Bash, Compose, both image builds,
-actual upload/proxy routing and a disposable production stack. The latter tests
-distinct IP budgets, forged headers, direct untrusted API callers, counter
-persistence after recreation/cache/pruning and an SSR page request.
+actual upload/proxy routing and a disposable production stack. The database is
+migrated before API/web startup. The latter tests distinct IP budgets, forged
+headers, direct untrusted API callers, database/upload/counter persistence after
+container recreation, cache clearing and pruning, plus an SSR page request.
 The smoke scenario is inline in containers.yml, not an operational script.
 Backend/frontend CI preserve existing authorization, session and SSR tests.
 

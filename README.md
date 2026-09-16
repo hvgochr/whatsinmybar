@@ -5,11 +5,10 @@ discovering, publishing, saving, discussing, and moderating recipes. It is a
 Docker-first monorepo built as a production-oriented personal project rather
 than a UI-only demonstration.
 
-The public deployment endpoint is provisioned but still returns a deployment
-pending page. A live-demo link will be added only after the real production
-acceptance pass succeeds. The repository currently contains no representative
-launch screenshots; fixture or placeholder captures are deliberately not
-presented as production images.
+Live application: <https://whatsinmybar.charradehugo.com>
+
+The application runs on a VPS with Docker Compose, a shared Caddy reverse proxy, 
+and automated deployments through GitHub Actions.
 
 ## Product highlights
 
@@ -69,16 +68,16 @@ and service URLs.
 
 Useful commands:
 
-| Command | Purpose |
-| --- | --- |
-| `make up` / `make down` | Start or stop the development stack without deleting volumes |
-| `make logs` / `make ps` | Inspect the local stack |
-| `make seed` | Migrate and load idempotent development fixtures |
-| `make check-api` | Composer validation/audit, style, PHPStan, PHPUnit, migrations, schema |
-| `make check-web` | ESLint, typecheck, Vitest, Nuxt build, Playwright Chromium smoke tests |
-| `make check` | Run both application baselines |
-| `make check-containers` | Validate and build production images and routing helpers |
-| `make check-integration` | Seed and run the real-stack release journey with isolated quotas |
+| Command                  | Purpose                                                                |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `make up` / `make down`  | Start or stop the development stack without deleting volumes           |
+| `make logs` / `make ps`  | Inspect the local stack                                                |
+| `make seed`              | Migrate and load idempotent development fixtures                       |
+| `make check-api`         | Composer validation/audit, style, PHPStan, PHPUnit, migrations, schema |
+| `make check-web`         | ESLint, typecheck, Vitest, Nuxt build, Playwright Chromium smoke tests |
+| `make check`             | Run both application baselines                                         |
+| `make check-containers`  | Validate and build production images and routing helpers               |
+| `make check-integration` | Seed and run the real-stack release journey with isolated quotas       |
 
 The real-stack session and release journey is intentionally separate from the
 fixture browser suite because it uses the running development database:

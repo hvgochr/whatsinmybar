@@ -1,12 +1,6 @@
 name: Backend CI
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/backend.yml"
-      - "apps/api/**"
-      - "compose.prod.yaml"
-      - "infra/**"
   workflow_call:
 
 jobs:

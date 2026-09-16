@@ -1,12 +1,6 @@
 name: Frontend CI
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/frontend.yml"
-      - "apps/web/**"
-      - "compose.prod.yaml"
-      - "infra/**"
   workflow_call:
 
 permissions:

@@ -1,9 +1,7 @@
 name: docker
 
 on:
-  # Exercise the reusable CI graph on workflow changes without publishing.
   pull_request:
-    paths: [".github/workflows/**"]
   push:
     branches: [main]
 
@@ -21,8 +19,23 @@ jobs:
     uses: ./.github/workflows/frontend.yml
   containers:
     uses: ./.github/workflows/containers.yml
-  publish:
+  gate:
+    name: Release gate
+    if: ${{ always() }}
     needs: [backend, frontend, containers]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation job
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          CONTAINERS_RESULT: ${{ needs.containers.result }}
+        run: |
+          test "$BACKEND_RESULT" = success
+          test "$FRONTEND_RESULT" = success
+          test "$CONTAINERS_RESULT" = success
+  publish:
+    needs: [gate]
     if: github.event_name == 'push'
     permissions:
       contents: read

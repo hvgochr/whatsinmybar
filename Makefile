@@ -7,7 +7,7 @@ PROD_COMPOSE := API_IMAGE=whatsinmybar-api:check WEB_IMAGE=whatsinmybar-web:chec
 .PHONY: up down logs ps seed \
 	check check-api check-web check-containers \
 	test-api lint-api analyse-api \
-	test-web lint-web typecheck-web build-web e2e-web
+	test-web lint-web typecheck-web build-web e2e-web check-integration
 
 up:
 	$(COMPOSE) up -d --build
@@ -64,3 +64,12 @@ build-web:
 
 e2e-web:
 	$(WEB_CHECK_COMPOSE) run --rm web pnpm test:e2e:install
+
+check-integration: up seed
+	@set -eu; \
+	restore_api() { $(COMPOSE) up -d --no-deps --force-recreate --wait --wait-timeout 120 api; }; \
+	trap restore_api EXIT; \
+	integration_secret="release-acceptance-$$(date +%s)-$$$$"; \
+	APP_SECRET="$$integration_secret" $(COMPOSE) up -d --no-deps --force-recreate --wait --wait-timeout 120 api; \
+	$(COMPOSE) exec -T web pnpm exec playwright install --with-deps chromium; \
+	$(COMPOSE) exec -T web pnpm exec playwright test --config playwright.integration.config.ts

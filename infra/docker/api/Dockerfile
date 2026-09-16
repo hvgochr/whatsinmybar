@@ -58,4 +58,4 @@ USER www-data
 
 EXPOSE 8080
 
-CMD ["sh", "-lc", "php bin/console cache:clear --env=prod --no-debug --no-interaction && frankenphp run --config /etc/frankenphp/Caddyfile"]
+CMD ["sh", "-lc", "php bin/console cache:clear --env=prod --no-debug --no-interaction && exec frankenphp run --config /etc/frankenphp/Caddyfile"]

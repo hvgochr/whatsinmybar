@@ -41,7 +41,8 @@ docker compose run --rm web pnpm test:e2e:install
 
 ## CI
 
-GitHub Actions runs `.github/workflows/frontend.yml` on pull requests and pushes to `main` when frontend files change.
+GitHub Actions calls `.github/workflows/frontend.yml` from the top-level
+`docker.yml` validation graph on every pull request and push to `main`.
 
 The CI job runs:
 
@@ -102,15 +103,15 @@ validate real refresh rotation. Run the additional suite against the running
 Docker API, PostgreSQL, Nuxt and Caddy (development data only):
 
 ```bash
-make up
-docker compose exec api php bin/console doctrine:migrations:migrate --no-interaction
-make seed
-docker compose exec web pnpm exec playwright install --with-deps chromium
-docker compose exec web pnpm exec playwright test --config playwright.integration.config.ts
+make check-integration
 ```
 
-`SESSION_TEST_BASE_URL` overrides the default `http://caddy`. The suite creates
-unique `session_*` accounts in the development database and, when necessary,
+`SESSION_TEST_BASE_URL` overrides the default `http://caddy`. Vite explicitly
+allows only that Docker service hostname in addition to its safe defaults. The
+target rebuilds/starts and seeds the development stack, gives the test run a
+unique abuse-counter namespace, and restores the normal API container even when
+Playwright fails. The suite creates one unique `session_*` adult and one unique
+minor account in the development database and, when necessary,
 published zero-proof `Sitemap Pagination` recipes until the anonymous collection
 spans at least two API pages; it does not delete existing data. The sitemap check
 then compares the first and last real API pages with `/sitemap.xml` and verifies
@@ -119,7 +120,10 @@ concurrent refresh requests, real predecessor expiry, concurrent 401 recovery
 in shared/independent API clients, three browser tabs plus independent SSR
 requests, cache headers, two-user isolation and password-change
 notification/revocation, a race between password revocation and refresh, and
-explicit logout notification across tabs. It waits 11 real seconds to prove
+explicit logout notification across tabs. A real release journey additionally
+covers anonymous/minor/adult visibility, aggregate recipe creation, PNG upload
+and protected delivery, publication, idempotent favorites, comment creation,
+reporting, and administrator moderation. It waits 11 real seconds to prove
 that an old token cannot refresh indefinitely. Chromium is tested;
 Firefox/WebKit, production HTTPS cookies, extended offline suspension and
 responses delayed beyond the grace window require separate acceptance testing.

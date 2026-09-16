@@ -35,7 +35,8 @@ docker compose run --rm api composer migrations:dry-run
 
 ## CI
 
-GitHub Actions runs `.github/workflows/backend.yml` on pull requests and pushes to `main` when backend files change.
+GitHub Actions calls `.github/workflows/backend.yml` from the top-level
+`docker.yml` validation graph on every pull request and push to `main`.
 
 The CI job starts PostgreSQL 16 and runs:
 

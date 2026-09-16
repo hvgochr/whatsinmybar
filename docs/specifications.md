@@ -466,7 +466,9 @@ Preferred frontend security approach:
 - invalidate refresh tokens on logout.
 
 The final V1 transport keeps the access token in Nuxt memory and the refresh
-token in a host-only, HttpOnly cookie scoped to `/api/auth`. The cookie uses
+token in a host-only, HttpOnly cookie scoped to `Path=/`. The root path lets
+Nuxt receive the cookie during a page request and restore the viewer before SSR;
+the API reads it only on authentication endpoints. The cookie uses
 `SameSite=Strict` and is `Secure` in production. Refresh tokens rotate on refresh
 with a fixed 10-second repeat window for concurrent requests (see `docs/api.md`); their values are omitted from JSON responses. Refresh
 and logout require a custom anti-CSRF header and credentialed, origin-restricted
@@ -668,12 +670,15 @@ The repository now includes:
 
 - multi-stage production targets for Symfony/FrankenPHP and Nuxt/Nitro;
 - `compose.prod.yaml` with no application source bind mounts;
-- Caddy automatic HTTPS and reverse proxy routing;
+- a site block for the separately managed shared Caddy HTTPS proxy;
 - private PostgreSQL networking;
 - service healthchecks and restart policies;
-- named volumes for PostgreSQL, Caddy data, and current local uploads;
-- a production environment template and manual deployment runbook;
-- a targeted CI workflow that validates Compose/Caddy and builds both production images.
+- named volumes for PostgreSQL, uploads, and abuse counters (shared Caddy owns
+  its own data outside this Compose project);
+- a production environment template, automated image/deployment workflows, and
+  a manual recovery runbook;
+- a CI workflow that validates Compose/Caddy, builds both production images,
+  migrates a disposable database, starts the images, and checks persistence.
 
 Optional later services:
 
@@ -693,7 +698,10 @@ Caddy responsibilities:
 
 CI runs on GitHub Actions.
 
-No automated deployment is required for V1.
+The repository implements automated SHA-tagged GHCR publication and SSH
+deployment after the complete `main` validation graph. Enabling it still
+requires explicit production environment secrets, variables, approvals, shared
+proxy configuration, and host provisioning.
 
 ### 11.1 Backend CI
 
@@ -772,7 +780,8 @@ Accessibility:
 Implemented:
 
 1. Docker development environment with PostgreSQL, Caddy, FrankenPHP, and Nuxt.
-2. Backend and frontend quality baselines with GitHub Actions CI.
+2. Backend, frontend, and production-container quality baselines with a stable
+   pull-request release gate.
 3. JWT authentication, refresh, profile management, avatar upload, and password change.
 4. Ingredients, categories, measurement units, recipes, workflow states, steps, and measured ingredients.
 5. Alcohol computation, admin override, collection filtering, and item access enforcement.
@@ -780,17 +789,23 @@ Implemented:
 7. Favorites, threaded comments, reports, moderation, and Nuxt administration.
 8. Public SSR pages with canonical and OpenGraph metadata.
 9. Local avatar and recipe image storage behind storage interfaces.
-10. Multi-stage production images, production Compose, Caddy HTTPS routing, healthchecks, and a manual VPS runbook.
+10. Multi-stage production images, production Compose, shared Caddy HTTPS
+    routing, healthchecks, GHCR publication, guarded SSH deployment, and a VPS
+    recovery runbook.
 11. Anonymous-only dynamic sitemap, private-route noindex policy, and integrated error pages.
 12. Public-content readiness checklist.
 
 Remaining before the V1 production launch:
 
 1. Configure off-site backups and retention for the accepted local upload storage.
-2. Provision the VPS and complete DNS, firewall, SSH hardening, real TLS, monitoring, log retention, and off-site backups.
-3. Test database and upload restoration on an isolated environment.
-4. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
-5. Complete the production accessibility, responsive layout, security, and end-to-end acceptance pass on real target devices.
+2. Provision and accept the VPS: shared proxy address, DNS, firewall, SSH
+   hardening, real TLS, monitoring, log retention, GHCR access, and alerts.
+3. Restore an actual production backup pair in an isolated acceptance stack;
+   local disposable restore drills do not validate production backup freshness.
+4. Complete the production accessibility, responsive layout, security, and
+   end-to-end acceptance pass on real target devices.
+5. Prepare the editorial launch dataset and capture representative screenshots
+   only after that data is accepted.
 
 Account recovery, email verification and self-service deletion are deliberately
 deferred pending the delivery, identity and retention decisions documented in

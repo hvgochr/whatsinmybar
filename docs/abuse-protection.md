@@ -135,6 +135,6 @@ No production load testing is involved.
 These application quotas do not stop distributed attacks across many IPs/accounts,
 slow connections, bandwidth floods, or uploads before PHP has received their
 body. Existing upload size/type limits remain required. Fixed-window bursts and
-NAT sharing are accepted tradeoffs for a low-traffic portfolio. Observe actual
+NAT sharing are accepted tradeoffs for a low-traffic deployment. Observe actual
 429 frequency and resource usage before tightening limits or adding edge-level
 defenses, CAPTCHA, shared storage or account-wide risk controls.

@@ -4,7 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import type { Comment } from '../../types/api'
 import type { CommentTreeNode, SocialUser } from '../../utils/social'
 import { canManageComment } from '../../utils/social'
-import { imageUrl } from '../../utils/public-content'
+import UserAvatar from '../common/UserAvatar.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
 import ReportAction from './ReportAction.vue'
@@ -22,25 +22,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   requestDelete: [comment: Comment]
-  reply: [payload: { message: string, parentId: number }]
-  update: [payload: { comment: Comment, message: string }]
+  reply: [payload: { complete: (succeeded: boolean) => void, message: string, parentId: number }]
+  update: [payload: { comment: Comment, complete: (succeeded: boolean) => void, message: string }]
 }>()
 
 const editMode = ref(false)
 const replyMode = ref(false)
 const editMessage = ref(props.node.message ?? '')
 const replyMessage = ref('')
-const runtimeConfig = useRuntimeConfig()
-
 const depth = computed(() => props.depth ?? 0)
 const canManage = computed(() => canManageComment(props.node, props.currentUser))
 const isPending = computed(() => props.pendingActionId === props.node.id)
 const isRemoved = computed(() => props.node.deleted || !props.node.message)
 const authorPath = computed(() => isRemoved.value || !props.node.authorUsername ? null : `/users/${props.node.authorUsername}`)
-const authorAvatar = computed(() => imageUrl(
+const authorAvatarPath = computed(() => (
   props.node.authorAvatarPath
-    ?? (props.currentUser?.username === props.node.authorUsername ? props.currentUser.avatarPath : null),
-  runtimeConfig.public.apiBaseUrl
+    ?? (props.currentUser?.username === props.node.authorUsername ? props.currentUser.avatarPath : null)
 ))
 const authorInitial = computed(() => props.node.authorUsername?.slice(0, 1).toUpperCase() || '?')
 
@@ -55,8 +52,13 @@ function submitEdit() {
     return
   }
 
-  emit('update', { comment: props.node, message })
-  editMode.value = false
+  emit('update', {
+    comment: props.node,
+    message,
+    complete(succeeded) {
+      if (succeeded) editMode.value = false
+    }
+  })
 }
 
 function submitReply() {
@@ -66,9 +68,15 @@ function submitReply() {
     return
   }
 
-  emit('reply', { message, parentId: props.node.id })
-  replyMessage.value = ''
-  replyMode.value = false
+  emit('reply', {
+    message,
+    parentId: props.node.id,
+    complete(succeeded) {
+      if (!succeeded) return
+      replyMessage.value = ''
+      replyMode.value = false
+    }
+  })
 }
 </script>
 
@@ -80,8 +88,7 @@ function submitReply() {
     </aside>
     <header class="flex items-start gap-3">
       <NuxtLink v-if="authorPath" :to="authorPath" class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`View ${node.authorUsername}'s profile`">
-        <img v-if="authorAvatar" :src="authorAvatar" :alt="`${node.authorUsername}'s avatar`" class="size-full object-cover">
-        <span v-else aria-hidden="true">{{ authorInitial }}</span>
+        <UserAvatar class="size-full" :path="authorAvatarPath" sizes="2.25rem" :username="node.authorUsername" />
       </NuxtLink>
       <div v-else class="grid size-9 shrink-0 place-items-center rounded-full border bg-muted text-xs font-semibold" aria-hidden="true">{{ authorInitial }}</div>
       <div class="min-w-0">
@@ -96,7 +103,8 @@ function submitReply() {
     </header>
 
     <form v-if="editMode" class="grid gap-3" @submit.prevent="submitEdit">
-      <UiTextarea v-model="editMessage" rows="3" />
+      <label class="sr-only" :for="`comment-${node.id}-edit`">Edit comment</label>
+      <UiTextarea :id="`comment-${node.id}-edit`" v-model="editMessage" rows="3" maxlength="2000" />
       <div class="flex flex-wrap gap-2">
         <UiButton type="submit" size="sm" :disabled="isPending || !editMessage.trim()">
           {{ isPending ? 'Saving...' : 'Save edit' }}
@@ -125,7 +133,8 @@ function submitReply() {
     </div>
 
     <form v-if="replyMode" class="grid gap-3 rounded-md border bg-card p-3" @submit.prevent="submitReply">
-      <UiTextarea v-model="replyMessage" rows="3" placeholder="Write a reply" />
+      <label class="sr-only" :for="`comment-${node.id}-reply`">Reply to {{ node.authorUsername }}</label>
+      <UiTextarea :id="`comment-${node.id}-reply`" v-model="replyMessage" rows="3" maxlength="2000" placeholder="Write a reply" />
       <div class="flex flex-wrap gap-2">
         <UiButton type="submit" size="sm" :disabled="isPending || !replyMessage.trim()">
           {{ isPending ? 'Posting...' : 'Post reply' }}

@@ -101,6 +101,11 @@ export function imageUrl(path: string | null | undefined, apiBaseUrl: string): s
   return path
 }
 
+export function absoluteImageUrl(path: string | null | undefined, apiBaseUrl: string, siteUrl: string): string | undefined {
+  const source = imageUrl(path, apiBaseUrl)
+  return source ? publicUrl(siteUrl, source) : undefined
+}
+
 function trimQuantity(quantity: string | null): string {
   if (!quantity) {
     return ''

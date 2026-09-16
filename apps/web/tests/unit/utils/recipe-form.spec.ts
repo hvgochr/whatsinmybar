@@ -3,6 +3,8 @@ import type { RecipeResource } from '../../../app/types/api'
 import {
   buildRecipePayload,
   createEmptyRecipeForm,
+  ingredientRowError,
+  ingredientUnitOptions,
   recipeToForm,
   toggleCategory
 } from '../../../app/utils/recipe-form'
@@ -75,5 +77,20 @@ describe('recipe form helpers', () => {
 
     toggleCategory(form, category, false)
     expect(form.categories).toEqual([])
+  })
+
+  it('offers every backend unit including litres', () => {
+    expect(ingredientUnitOptions.map(option => option.value)).toContain('l')
+  })
+
+  it('distinguishes empty ingredient rows from partially completed rows', () => {
+    const form = createEmptyRecipeForm()
+
+    expect(ingredientRowError(form.ingredients[0]!)).toBeNull()
+    form.ingredients[0]!.note = 'chilled'
+    expect(ingredientRowError(form.ingredients[0]!)).toContain('Choose an ingredient')
+    form.ingredients[0]!.ingredientSlug = 'soda'
+    form.ingredients[0]!.quantity = '0'
+    expect(ingredientRowError(form.ingredients[0]!)).toContain('greater than zero')
   })
 })

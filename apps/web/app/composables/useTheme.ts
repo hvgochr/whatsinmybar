@@ -2,12 +2,16 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 
 export function useTheme() {
   const preference = useState<ThemePreference>('theme.preference', () => 'system')
+  const systemDark = useState('theme.system-dark', () => false)
   let media: MediaQueryList | undefined
-  const onMediaChange = () => preference.value === 'system' && applyTheme()
+  const onMediaChange = (event: MediaQueryListEvent) => {
+    systemDark.value = event.matches
+    if (preference.value === 'system') applyTheme()
+  }
 
   function resolve(value = preference.value): 'light' | 'dark' {
     if (value !== 'system') return value
-    return import.meta.client && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    return systemDark.value ? 'dark' : 'light'
   }
 
   function applyTheme(value = preference.value): void {
@@ -27,8 +31,9 @@ export function useTheme() {
   onMounted(() => {
     const stored = localStorage.getItem('theme')
     preference.value = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
-    applyTheme()
     media = window.matchMedia('(prefers-color-scheme: dark)')
+    systemDark.value = media.matches
+    applyTheme()
     media.addEventListener('change', onMediaChange)
   })
 

@@ -79,6 +79,22 @@ The application design system uses shadcn-nuxt primitives, Hugeicons and
 monochrome zinc-compatible semantic tokens. Theme preference supports light,
 dark and system modes without changing the color of recipe photography.
 
+Recipe and avatar rendering includes intrinsic dimensions, appropriate loading
+and decoding hints, display-size guidance, and visible fallbacks. Uploaded files
+are normalized by the existing backend image pipeline, but the frontend does
+not yet provide `srcset` candidates or request viewport-specific variants.
+Browsers therefore download the same processed asset at every display size;
+this is not complete responsive image delivery.
+
+`/sitemap.xml` is generated from anonymous API requests. It contains static
+public discovery routes, public categories, anonymously visible recipes, and
+the public profiles referenced by those recipes. It cannot include private,
+archived, moderated, or alcohol-restricted recipes that the anonymous API does
+not return. Each upstream request has a five-second timeout and retries are
+disabled; any upstream failure returns 503 instead of a partial sitemap. Private
+routes also emit `noindex, nofollow` metadata and an `X-Robots-Tag` response
+header.
+
 ## Real session integration
 
 The ordinary Playwright suite uses fixtures for UI/error scenarios; it does not
@@ -88,20 +104,25 @@ Docker API, PostgreSQL, Nuxt and Caddy (development data only):
 ```bash
 make up
 docker compose exec api php bin/console doctrine:migrations:migrate --no-interaction
+make seed
 docker compose exec web pnpm exec playwright install --with-deps chromium
 docker compose exec web pnpm exec playwright test --config playwright.integration.config.ts
 ```
 
 `SESSION_TEST_BASE_URL` overrides the default `http://caddy`. The suite creates
-unique `session_*` accounts in the development database; it does not delete
-existing data. It covers six concurrent refresh requests, real predecessor
-expiry, concurrent 401 recovery in shared/independent API clients, three browser
-tabs plus independent SSR requests, cache headers, two-user isolation and
-password-change notification/revocation, a race between password revocation and
-refresh, and explicit logout notification across tabs. It waits 11 real seconds
-to prove that an old token cannot refresh indefinitely. Chromium is tested; Firefox/WebKit,
-production HTTPS cookies, extended offline suspension and responses delayed
-beyond the grace window require separate acceptance testing.
+unique `session_*` accounts in the development database and, when necessary,
+published zero-proof `Sitemap Pagination` recipes until the anonymous collection
+spans at least two API pages; it does not delete existing data. The sitemap check
+then compares the first and last real API pages with `/sitemap.xml` and verifies
+that the seeded alcoholic recipe stays absent. The session checks cover six
+concurrent refresh requests, real predecessor expiry, concurrent 401 recovery
+in shared/independent API clients, three browser tabs plus independent SSR
+requests, cache headers, two-user isolation and password-change
+notification/revocation, a race between password revocation and refresh, and
+explicit logout notification across tabs. It waits 11 real seconds to prove
+that an old token cannot refresh indefinitely. Chromium is tested;
+Firefox/WebKit, production HTTPS cookies, extended offline suspension and
+responses delayed beyond the grace window require separate acceptance testing.
 
 Unit tests cover transient/network/rate-limit/timeout classification, effective
 cancellation deadlines, late responses, state/cache coordination and the SSR

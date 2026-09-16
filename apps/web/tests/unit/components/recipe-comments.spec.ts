@@ -78,6 +78,16 @@ describe('RecipeComments mutation feedback', () => {
     expect(mocks.notifySuccess).toHaveBeenCalledWith('comment-update:1', 'Comment updated.')
     expect(mocks.notifySuccess).toHaveBeenCalledWith('comment-delete:1', 'Comment deleted.')
   })
+
+  it('separates a failed load from an empty conversation and retries', async () => {
+    const wrapper = mountComments({ comments: [], loadFailed: true })
+
+    expect(wrapper.text()).toContain('Comments could not be loaded.')
+    expect(wrapper.text()).not.toContain('No public comments yet.')
+    const retry = wrapper.findAll('button').find(button => button.text() === 'Retry comments')
+    await retry!.trigger('click')
+    expect(wrapper.emitted('retry')).toHaveLength(1)
+  })
 })
 
 function mountComments(overrides: Record<string, unknown> = {}) {

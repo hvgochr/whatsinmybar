@@ -104,6 +104,19 @@ describe('RecipeEditor aggregate saves', () => {
     expect(mocks.image).not.toHaveBeenCalled()
     expect(wrapper.find('img[alt="Highball"]').attributes('src')).toContain('/api/recipe-images/existing.jpg')
   })
+
+  it('does not silently discard a partially completed ingredient row', async () => {
+    const wrapper = mountEditor()
+    const addIngredient = wrapper.findAll('button').find(button => button.text() === 'Add ingredient')
+    await addIngredient!.trigger('click')
+    const notes = wrapper.findAll('input[aria-label^="Ingredient note"]')
+    await notes.at(-1)!.setValue('chilled')
+
+    await wrapper.get('form').trigger('submit')
+
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Choose an ingredient and enter its quantity, or remove this row.')
+  })
 })
 
 function mountEditor(recipe = existingRecipe()) {

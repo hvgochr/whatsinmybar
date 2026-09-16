@@ -18,6 +18,7 @@ import {
   createEmptyIngredientRow,
   createEmptyRecipeForm,
   createEmptyStepRow,
+  ingredientRowError,
   ingredientUnitOptions,
   recipeToForm,
   toggleCategory,
@@ -336,7 +337,10 @@ function validateForm(): Record<string, string> {
     errors.steps = 'Add at least one preparation step.'
   }
 
-  if (!form.ingredients.some(recipeIngredient => recipeIngredient.ingredientSlug && recipeIngredient.quantity !== '')) {
+  const incompleteIngredient = form.ingredients.findIndex(recipeIngredient => ingredientRowError(recipeIngredient) !== null)
+  if (incompleteIngredient >= 0) {
+    errors.ingredients = `Ingredient ${incompleteIngredient + 1}: ${ingredientRowError(form.ingredients[incompleteIngredient]!)}`
+  } else if (!form.ingredients.some(recipeIngredient => recipeIngredient.ingredientSlug && recipeIngredient.quantity !== '')) {
     errors.ingredients = 'Add at least one measured ingredient.'
   }
 

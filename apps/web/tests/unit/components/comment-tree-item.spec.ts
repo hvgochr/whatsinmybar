@@ -64,6 +64,29 @@ describe('CommentTreeItem', () => {
     expect(wrapper.text()).toContain('Reply to parent_author')
     expect(wrapper.text()).toContain('The earlier part of the conversation.')
   })
+
+  it('keeps reply and edit drafts open when their request fails', async () => {
+    const wrapper = mountComment()
+
+    await wrapper.get('button').trigger('click')
+    const reply = wrapper.get('textarea[placeholder="Write a reply"]')
+    await reply.setValue('Keep this reply')
+    await wrapper.findAll('form').at(-1)!.trigger('submit')
+    const replyPayload = wrapper.emitted('reply')?.[0]?.[0] as { complete: (succeeded: boolean) => void }
+    replyPayload.complete(false)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('textarea[placeholder="Write a reply"]').element).toHaveProperty('value', 'Keep this reply')
+
+    const editButton = wrapper.findAll('button').find(button => button.text() === 'Edit')!
+    await editButton.trigger('click')
+    const edit = wrapper.get('textarea[id$="-edit"]')
+    await edit.setValue('Keep this edit')
+    await wrapper.findAll('form').find(form => form.find('textarea[id$="-edit"]').exists())!.trigger('submit')
+    const editPayload = wrapper.emitted('update')?.[0]?.[0] as { complete: (succeeded: boolean) => void }
+    editPayload.complete(false)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('textarea[id$="-edit"]').element).toHaveProperty('value', 'Keep this edit')
+  })
 })
 
 function mountComment(overrides: Partial<CommentTreeNode> = {}) {

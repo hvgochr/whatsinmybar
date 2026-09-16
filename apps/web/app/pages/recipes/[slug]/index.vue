@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import EmptyState from '../../../components/common/EmptyState.vue'
 import RecipeCard from '../../../components/recipes/RecipeCard.vue'
 import RecipeImage from '../../../components/recipes/RecipeImage.vue'
 import FavoriteButton from '../../../components/social/FavoriteButton.vue'
@@ -15,7 +14,7 @@ import {
   formatIngredientAmount,
   formatPublicDate,
   formatRecipeMeta,
-  imageUrl,
+  absoluteImageUrl,
   publicDescription,
   publicUrl
 } from '../../../utils/public-content'
@@ -29,14 +28,14 @@ const requestedCommentsPage = computed(() => pageFromQuery(route.query, 'comment
 
 const { data: recipe, error: recipeError } = await useAsyncData(`recipe:${slug.value}`, () => api.recipes.get(slug.value))
 
-if (recipeError.value && errorStatus(recipeError.value) !== 403) {
+if (recipeError.value || !recipe.value) {
   throw createError({
     statusCode: errorStatus(recipeError.value),
-    statusMessage: 'Recipe not found'
+    statusMessage: errorStatus(recipeError.value) === 403 ? 'Recipe unavailable' : 'Recipe not found'
   })
 }
 
-const [{ data: commentsData }, { data: relatedRecipesData }] = await Promise.all([
+const [{ data: commentsData, error: commentsError, status: commentsStatus, refresh: refreshComments }, { data: relatedRecipesData }] = await Promise.all([
   useAsyncData(`recipe:${slug.value}:comments:${route.fullPath}`, () => api.comments.list(slug.value, { page: requestedCommentsPage.value }), {
     watch: [() => route.fullPath]
   }),
@@ -77,7 +76,7 @@ const sortedIngredients = computed(() => [...(recipe.value?.recipeIngredients ??
 const sortedSteps = computed(() => [...(recipe.value?.steps ?? [])].sort((a, b) => a.position - b.position))
 const pageDescription = computed(() => publicDescription(recipe.value?.description, 'A community cocktail recipe on What\'s In My Bar.'))
 const canonicalUrl = computed(() => publicUrl(runtimeConfig.public.siteUrl, `/recipes/${slug.value}`))
-const ogImage = computed(() => imageUrl(recipe.value?.imagePath, runtimeConfig.public.apiBaseUrl))
+const ogImage = computed(() => absoluteImageUrl(recipe.value?.imagePath, runtimeConfig.public.apiBaseUrl, runtimeConfig.public.siteUrl))
 const canEditRecipe = computed(() => {
   const user = auth.currentUser.value
 
@@ -173,10 +172,13 @@ function errorStatus(error: unknown): number {
       <section class="mx-auto mt-14 max-w-3xl border-t pt-10">
         <RecipeComments
           :comments="comments"
+          :load-failed="Boolean(commentsError)"
+          :loading="commentsStatus === 'pending'"
           :next-to="commentsNextTo"
           :pagination="commentsPagination"
           :previous-to="commentsPreviousTo"
           :recipe-slug="recipe.slug"
+          @retry="refreshComments"
           @resynced="revealCreatedComment"
         />
       </section>
@@ -190,12 +192,4 @@ function errorStatus(error: unknown): number {
     </article>
   </main>
 
-  <main v-else class="page-main">
-    <EmptyState
-      action-label="Browse recipes"
-      action-to="/recipes"
-      :description="errorStatus(recipeError) === 403 ? 'This recipe is not available to you.' : 'This recipe is unavailable.'"
-      :title="errorStatus(recipeError) === 403 ? 'Recipe restricted' : 'Recipe unavailable'"
-    />
-  </main>
 </template>

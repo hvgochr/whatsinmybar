@@ -35,6 +35,7 @@ export interface RecipeFormState {
 export const ingredientUnitOptions: Array<{ label: string, value: IngredientUnit }> = [
   { label: 'ml', value: 'ml' },
   { label: 'cl', value: 'cl' },
+  { label: 'l', value: 'l' },
   { label: 'oz', value: 'oz' },
   { label: 'dash', value: 'dash' },
   { label: 'bar spoon', value: 'bar_spoon' },
@@ -97,7 +98,7 @@ export function buildRecipePayload(form: RecipeFormState): RecipeAggregatePayloa
     description: form.description.trim(),
     difficulty: form.difficulty,
     ingredients: form.ingredients
-      .filter(row => row.ingredientSlug && row.quantity !== '')
+      .filter(row => !ingredientRowIsEmpty(row))
       .map(row => ({
         ingredient: ingredientIri(row.ingredientSlug),
         note: row.note.trim() || null,
@@ -112,6 +113,18 @@ export function buildRecipePayload(form: RecipeFormState): RecipeAggregatePayloa
       .map(instruction => ({ instruction })),
     title: form.title.trim()
   }
+}
+
+export function ingredientRowIsEmpty(row: RecipeIngredientFormRow): boolean {
+  return !row.ingredientSlug && !row.quantity.trim() && !row.note.trim()
+}
+
+export function ingredientRowError(row: RecipeIngredientFormRow): string | null {
+  if (ingredientRowIsEmpty(row)) return null
+  if (!row.ingredientSlug || !row.quantity.trim()) return 'Choose an ingredient and enter its quantity, or remove this row.'
+
+  const quantity = Number(row.quantity)
+  return Number.isFinite(quantity) && quantity > 0 ? null : 'Ingredient quantity must be greater than zero.'
 }
 
 export function categoryIri(slug: string): string {

@@ -2,6 +2,7 @@
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
 import PaginationNav from '../../components/common/PaginationNav.vue'
+import UserAvatar from '../../components/common/UserAvatar.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
 import ReportAction from '../../components/social/ReportAction.vue'
 import UiButton from '../../components/ui/button/Button.vue'
@@ -9,7 +10,7 @@ import { ApiRequestError } from '../../services/api-client'
 import type { RecipeResource } from '../../types/api'
 import { collectionItems, collectionLastPage, collectionTotal } from '../../utils/api-collections'
 import { paginationState } from '../../utils/pagination'
-import { formatPublicDate, imageUrl, publicDescription, publicUrl } from '../../utils/public-content'
+import { absoluteImageUrl, formatPublicDate, publicDescription, publicUrl } from '../../utils/public-content'
 
 const api = useApi()
 const auth = useAuth()
@@ -44,7 +45,7 @@ const { data: favoritesData, pending: favoritesPending, error: favoritesError } 
 const publicRecipes = computed(() => collectionItems(publicRecipesData.value))
 const ownedRecipes = computed(() => ownedData.value?.items ?? [])
 const favorites = computed(() => favoritesData.value?.items ?? [])
-const avatarSrc = computed(() => imageUrl(profile.value?.avatarPath, runtimeConfig.public.apiBaseUrl))
+const avatarOgImage = computed(() => absoluteImageUrl(profile.value?.avatarPath, runtimeConfig.public.apiBaseUrl, runtimeConfig.public.siteUrl))
 const description = computed(() => publicDescription(profile.value?.bio, `${username.value} shares cocktail recipes on What's In My Bar.`))
 const canonicalUrl = computed(() => publicUrl(runtimeConfig.public.siteUrl, `/users/${username.value}`))
 const actionPending = ref<Record<string, boolean>>({})
@@ -75,7 +76,7 @@ useSeoMeta({
   title: () => `${profile.value?.username ?? username.value} | What's In My Bar`,
   description: () => description.value,
   ogDescription: () => description.value,
-  ogImage: () => avatarSrc.value,
+  ogImage: () => avatarOgImage.value,
   ogTitle: () => `${profile.value?.username ?? username.value} | What's In My Bar`,
   ogType: 'profile',
   ogUrl: () => canonicalUrl.value
@@ -119,10 +120,7 @@ function errorStatus(error: unknown): number {
 <template>
   <main class="page-main">
     <section v-if="profile" class="grid gap-6 border-b pb-10 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center">
-      <div class="grid size-28 place-items-center overflow-hidden rounded-full border bg-muted text-3xl font-semibold">
-        <img v-if="avatarSrc" class="h-full w-full object-cover" :alt="`${profile.username}'s avatar`" :src="avatarSrc">
-        <span v-else aria-hidden="true">{{ profile.username.slice(0, 1).toUpperCase() }}</span>
-      </div>
+      <UserAvatar class="size-28 rounded-full border text-3xl" eager :path="profile.avatarPath" sizes="7rem" :username="profile.username" />
       <div>
         <p class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{{ isOwner ? 'Your profile' : 'Public profile' }}</p>
         <div class="flex flex-wrap items-center gap-3"><h1 class="page-heading">{{ profile.username }}</h1><ReportAction v-if="!isOwner" :login-redirect="`/users/${profile.username}`" :target-id="profile.id" target-type="user" /></div>

@@ -2,7 +2,7 @@
     "name": "whatsinmybar/api",
     "description": "Symfony API Platform backend for whatsinmybar.",
     "type": "project",
-    "license": "proprietary",
+    "license": "MIT",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {

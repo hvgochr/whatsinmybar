@@ -106,7 +106,7 @@ jobs:
             candidate=compose.prod.yaml
 
             compose up -d --no-recreate --wait --wait-timeout 120 postgres
-            compose run --rm --no-deps -T api php bin/console doctrine:migrations:migrate --no-interaction
+            compose run --rm --no-deps --interactive=false -T api php bin/console doctrine:migrations:migrate --no-interaction </dev/null
             compose up -d --no-deps --force-recreate --wait --wait-timeout 180 api web
             for service in api web; do
               container=$(compose ps -q "$service")

@@ -39,7 +39,8 @@ The frontend must expose SEO-friendly pages:
 - recipe detail page;
 - category list;
 - category detail page;
-- public user profile page.
+- public user profile page;
+- public project presentation page.
 
 Public URLs must use clean slugs:
 
@@ -48,6 +49,7 @@ Public URLs must use clean slugs:
 - `/categories`
 - `/categories/{categorySlug}`
 - `/users/{username}`
+- `/about`
 
 Each public page must provide:
 
@@ -781,15 +783,16 @@ Implemented:
 8. Public SSR pages with canonical and OpenGraph metadata.
 9. Local avatar and recipe image storage behind storage interfaces.
 10. Multi-stage production images, production Compose, Caddy HTTPS routing, healthchecks, and a manual VPS runbook.
+11. Anonymous-only dynamic sitemap, private-route noindex policy, and integrated error pages.
+12. Public project presentation and a documented demo-content readiness checklist.
 
 Remaining before the V1 production launch:
 
-1. Implement the dynamic sitemap required by the SEO specification.
-2. Configure off-site backups and retention for the accepted local upload storage.
-3. Provision the VPS and complete DNS, firewall, SSH hardening, real TLS, monitoring, log retention, and off-site backups.
-4. Test database and upload restoration on an isolated environment.
-5. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
-6. Run a final accessibility, responsive layout, security, and end-to-end acceptance pass.
+1. Configure off-site backups and retention for the accepted local upload storage.
+2. Provision the VPS and complete DNS, firewall, SSH hardening, real TLS, monitoring, log retention, and off-site backups.
+3. Test database and upload restoration on an isolated environment.
+4. Define an immutable image registry and rollback process if deployments move beyond manual source builds.
+5. Complete the production accessibility, responsive layout, security, and end-to-end acceptance pass on real target devices.
 
 Account recovery, email verification and self-service deletion are deliberately
 deferred pending the delivery, identity and retention decisions documented in

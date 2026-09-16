@@ -63,7 +63,7 @@ middleware and backend authorization.
 
 | Area | Routes |
 | --- | --- |
-| Discovery | `/`, `/recipes`, `/recipes/:slug`, `/categories`, `/categories/:slug` |
+| Discovery | `/`, `/about`, `/recipes`, `/recipes/:slug`, `/categories`, `/categories/:slug` |
 | Authentication | `/login`, `/register`, `/logout` |
 | Profiles and personal content | `/users/:username`, `/settings`; owner-only recipes and favorites live within the authenticated user's profile |
 | Recipe authoring | `/recipes/new`, `/recipes/:slug/edit` |
@@ -78,6 +78,13 @@ the moderation-report feed instead of inventing an incomplete comment index.
 The application design system uses shadcn-nuxt primitives, Hugeicons and
 monochrome zinc-compatible semantic tokens. Theme preference supports light,
 dark and system modes without changing the color of recipe photography.
+
+`/sitemap.xml` is generated from anonymous API requests. It contains static
+public discovery routes, public categories, anonymously visible recipes, and
+the public profiles referenced by those recipes. It cannot include private,
+archived, moderated, or alcohol-restricted recipes that the anonymous API does
+not return. Private routes also emit `noindex, nofollow` metadata and an
+`X-Robots-Tag` response header.
 
 ## Real session integration
 

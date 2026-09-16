@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatIngredientAmount, imageUrl, publicDescription, publicUrl } from '../../../app/utils/public-content'
+import { absoluteImageUrl, formatIngredientAmount, imageUrl, publicDescription, publicUrl } from '../../../app/utils/public-content'
 
 describe('public content helpers', () => {
   it('formats measured ingredients', () => {
@@ -28,6 +28,11 @@ describe('public content helpers', () => {
 
   it('returns absolute image URLs unchanged', () => {
     expect(imageUrl('https://cdn.example.com/recipes/negroni.jpg', '/api')).toBe('https://cdn.example.com/recipes/negroni.jpg')
+  })
+
+  it('creates absolute OpenGraph image URLs from protected image paths', () => {
+    expect(absoluteImageUrl('/uploads/recipes/negroni.jpg', '/api', 'https://bar.example')).toBe('https://bar.example/api/recipe-images/negroni.jpg')
+    expect(absoluteImageUrl('/uploads/avatars/jane.jpg', '/api', 'https://bar.example')).toBe('https://bar.example/uploads/avatars/jane.jpg')
   })
 
   it('returns non-upload paths unchanged', () => {

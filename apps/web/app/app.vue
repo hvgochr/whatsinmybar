@@ -3,7 +3,12 @@ import UiSonner from './components/ui/sonner/Sonner.vue'
 
 const auth = useAuth()
 const session = useSessionState()
+const route = useRoute()
 const retrying = ref(false)
+
+useSeoMeta({
+  robots: () => isNoIndexRoute(route.path) ? 'noindex, nofollow' : undefined
+})
 async function retrySession() {
   retrying.value = true
   try {

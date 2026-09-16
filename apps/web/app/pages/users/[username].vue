@@ -10,7 +10,7 @@ import { ApiRequestError } from '../../services/api-client'
 import type { RecipeResource } from '../../types/api'
 import { collectionItems, collectionLastPage, collectionTotal } from '../../utils/api-collections'
 import { paginationState } from '../../utils/pagination'
-import { formatPublicDate, imageUrl, publicDescription, publicUrl } from '../../utils/public-content'
+import { absoluteImageUrl, formatPublicDate, publicDescription, publicUrl } from '../../utils/public-content'
 
 const api = useApi()
 const auth = useAuth()
@@ -45,7 +45,7 @@ const { data: favoritesData, pending: favoritesPending, error: favoritesError } 
 const publicRecipes = computed(() => collectionItems(publicRecipesData.value))
 const ownedRecipes = computed(() => ownedData.value?.items ?? [])
 const favorites = computed(() => favoritesData.value?.items ?? [])
-const avatarSrc = computed(() => imageUrl(profile.value?.avatarPath, runtimeConfig.public.apiBaseUrl))
+const avatarOgImage = computed(() => absoluteImageUrl(profile.value?.avatarPath, runtimeConfig.public.apiBaseUrl, runtimeConfig.public.siteUrl))
 const description = computed(() => publicDescription(profile.value?.bio, `${username.value} shares cocktail recipes on What's In My Bar.`))
 const canonicalUrl = computed(() => publicUrl(runtimeConfig.public.siteUrl, `/users/${username.value}`))
 const actionPending = ref<Record<string, boolean>>({})
@@ -76,7 +76,7 @@ useSeoMeta({
   title: () => `${profile.value?.username ?? username.value} | What's In My Bar`,
   description: () => description.value,
   ogDescription: () => description.value,
-  ogImage: () => avatarSrc.value,
+  ogImage: () => avatarOgImage.value,
   ogTitle: () => `${profile.value?.username ?? username.value} | What's In My Bar`,
   ogType: 'profile',
   ogUrl: () => canonicalUrl.value

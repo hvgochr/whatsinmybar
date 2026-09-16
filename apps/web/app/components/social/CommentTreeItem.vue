@@ -4,7 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import type { Comment } from '../../types/api'
 import type { CommentTreeNode, SocialUser } from '../../utils/social'
 import { canManageComment } from '../../utils/social'
-import { imageUrl } from '../../utils/public-content'
+import UserAvatar from '../common/UserAvatar.vue'
 import UiButton from '../ui/button/Button.vue'
 import UiTextarea from '../ui/textarea/Textarea.vue'
 import ReportAction from './ReportAction.vue'
@@ -30,17 +30,14 @@ const editMode = ref(false)
 const replyMode = ref(false)
 const editMessage = ref(props.node.message ?? '')
 const replyMessage = ref('')
-const runtimeConfig = useRuntimeConfig()
-
 const depth = computed(() => props.depth ?? 0)
 const canManage = computed(() => canManageComment(props.node, props.currentUser))
 const isPending = computed(() => props.pendingActionId === props.node.id)
 const isRemoved = computed(() => props.node.deleted || !props.node.message)
 const authorPath = computed(() => isRemoved.value || !props.node.authorUsername ? null : `/users/${props.node.authorUsername}`)
-const authorAvatar = computed(() => imageUrl(
+const authorAvatarPath = computed(() => (
   props.node.authorAvatarPath
-    ?? (props.currentUser?.username === props.node.authorUsername ? props.currentUser.avatarPath : null),
-  runtimeConfig.public.apiBaseUrl
+    ?? (props.currentUser?.username === props.node.authorUsername ? props.currentUser.avatarPath : null)
 ))
 const authorInitial = computed(() => props.node.authorUsername?.slice(0, 1).toUpperCase() || '?')
 
@@ -91,8 +88,7 @@ function submitReply() {
     </aside>
     <header class="flex items-start gap-3">
       <NuxtLink v-if="authorPath" :to="authorPath" class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`View ${node.authorUsername}'s profile`">
-        <img v-if="authorAvatar" :src="authorAvatar" :alt="`${node.authorUsername}'s avatar`" class="size-full object-cover">
-        <span v-else aria-hidden="true">{{ authorInitial }}</span>
+        <UserAvatar class="size-full" :path="authorAvatarPath" sizes="2.25rem" :username="node.authorUsername" />
       </NuxtLink>
       <div v-else class="grid size-9 shrink-0 place-items-center rounded-full border bg-muted text-xs font-semibold" aria-hidden="true">{{ authorInitial }}</div>
       <div class="min-w-0">

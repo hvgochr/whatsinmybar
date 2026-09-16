@@ -1,11 +1,22 @@
 import tailwindcss from '@tailwindcss/vite'
 
+const themeInitializer = `(() => {
+  try {
+    const stored = localStorage.getItem('theme')
+    const preference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+    const dark = preference === 'dark' || (preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+    document.documentElement.dataset.theme = preference
+    document.documentElement.classList.toggle('dark', dark)
+  } catch {}
+})()`
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+      script: [{ innerHTML: themeInitializer, tagPosition: 'head' }],
       meta: [
         { name: 'color-scheme', content: 'light dark' },
         { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#ffffff' },

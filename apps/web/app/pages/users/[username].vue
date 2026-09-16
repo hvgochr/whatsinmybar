@@ -2,6 +2,7 @@
 import EmptyState from '../../components/common/EmptyState.vue'
 import FormAlert from '../../components/common/FormAlert.vue'
 import PaginationNav from '../../components/common/PaginationNav.vue'
+import UserAvatar from '../../components/common/UserAvatar.vue'
 import RecipeCard from '../../components/recipes/RecipeCard.vue'
 import ReportAction from '../../components/social/ReportAction.vue'
 import UiButton from '../../components/ui/button/Button.vue'
@@ -119,10 +120,7 @@ function errorStatus(error: unknown): number {
 <template>
   <main class="page-main">
     <section v-if="profile" class="grid gap-6 border-b pb-10 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center">
-      <div class="grid size-28 place-items-center overflow-hidden rounded-full border bg-muted text-3xl font-semibold">
-        <img v-if="avatarSrc" class="h-full w-full object-cover" :alt="`${profile.username}'s avatar`" :src="avatarSrc">
-        <span v-else aria-hidden="true">{{ profile.username.slice(0, 1).toUpperCase() }}</span>
-      </div>
+      <UserAvatar class="size-28 rounded-full border text-3xl" eager :path="profile.avatarPath" sizes="7rem" :username="profile.username" />
       <div>
         <p class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{{ isOwner ? 'Your profile' : 'Public profile' }}</p>
         <div class="flex flex-wrap items-center gap-3"><h1 class="page-heading">{{ profile.username }}</h1><ReportAction v-if="!isOwner" :login-redirect="`/users/${profile.username}`" :target-id="profile.id" target-type="user" /></div>

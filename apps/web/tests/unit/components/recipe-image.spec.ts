@@ -38,6 +38,8 @@ describe('RecipeImage', () => {
   it('renders public delivery URLs without fetching a blob', () => {
     const wrapper = mount(RecipeImage, { props: { recipe } })
     expect(wrapper.get('img').attributes('src')).toBe(`/api/recipe-images/${'a'.repeat(32)}.png`)
+    expect(wrapper.get('img').attributes('width')).toBe('800')
+    expect(wrapper.get('img').attributes('height')).toBe('600')
     expect(mocks.imageFile).not.toHaveBeenCalled()
     wrapper.unmount()
   })

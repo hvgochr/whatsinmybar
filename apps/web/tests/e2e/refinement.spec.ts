@@ -46,6 +46,17 @@ test('theme choices remain available in settings and provide feedback', async ({
   await expect(page.getByRole('group', { name: 'Appearance' }).getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true')
 })
 
+test('system theme is applied on first render and follows operating system changes', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.addInitScript(() => localStorage.setItem('theme', 'system'))
+  await page.goto('/')
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'system')
+
+  await page.emulateMedia({ colorScheme: 'light' })
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+})
+
 test('account mutations provide concise completion feedback', async ({ context, page }) => {
   await useAdultSession(context)
   await page.goto('/settings')

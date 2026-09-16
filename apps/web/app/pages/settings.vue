@@ -1,16 +1,15 @@
 <script setup lang="ts">
+import UserAvatar from '../components/common/UserAvatar.vue'
+import ThemeControl from '../components/navigation/ThemeControl.vue'
 import UiButton from '../components/ui/button/Button.vue'
 import UiInput from '../components/ui/input/Input.vue'
 import UiTextarea from '../components/ui/textarea/Textarea.vue'
-import ThemeControl from '../components/navigation/ThemeControl.vue'
-import { imageUrl } from '../utils/public-content'
-import { toFormErrors } from '../utils/api-errors'
 import { announceSessionChange } from '../services/session-events'
+import { toFormErrors } from '../utils/api-errors'
 
 const api = useApi()
 const auth = useAuth()
 const notifications = useNotifications()
-const runtimeConfig = useRuntimeConfig()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -39,8 +38,6 @@ const passwordError = ref<string | null>(null)
 const passwordPending = ref(false)
 
 const user = computed(() => auth.currentUser.value)
-const avatarInitial = computed(() => user.value?.username.slice(0, 1).toUpperCase() ?? '?')
-const avatarSrc = computed(() => imageUrl(user.value?.avatarPath, runtimeConfig.public.apiBaseUrl))
 
 useSeoMeta({
   title: 'Settings | What\'s In My Bar',
@@ -181,10 +178,7 @@ function onAvatarChange(event: Event) {
 
     <section v-else-if="user" class="mt-10 grid items-start gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]" aria-label="Account settings">
       <aside class="rounded-md border bg-card p-5 lg:sticky lg:top-24" aria-label="Current profile">
-        <div class="grid size-20 place-items-center overflow-hidden rounded-full border bg-muted text-2xl font-semibold">
-          <img v-if="avatarSrc" class="h-full w-full object-cover" :alt="`${user.username}'s avatar`" :src="avatarSrc">
-          <span v-else>{{ avatarInitial }}</span>
-        </div>
+        <UserAvatar class="size-20 rounded-full border text-2xl" eager :path="user.avatarPath" sizes="5rem" :username="user.username" />
 
         <h2 class="mt-4 text-lg font-semibold">
           {{ user.username }}

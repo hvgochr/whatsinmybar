@@ -94,6 +94,8 @@ final class PublicPayloadContractTest extends WebTestCase
         $client = static::createClient();
         $this->clearRecipes();
         $user = $this->createUser();
+        $user->setAvatarPath('/uploads/avatars/contract.png');
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
         $token = $this->loginAsUser($client, $user);
         $recipe = $this->createRecipe($user, RecipeStatus::Published);
 
@@ -104,6 +106,7 @@ final class PublicPayloadContractTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $payload = $this->jsonResponse($client);
         self::assertSame([
             'id',
             'recipeSlug',
@@ -119,7 +122,8 @@ final class PublicPayloadContractTest extends WebTestCase
             'deleted',
             'createdAt',
             'updatedAt',
-        ], array_keys($this->jsonResponse($client)));
+        ], array_keys($payload));
+        self::assertSame('/uploads/avatars/contract.png', $payload['authorAvatarPath']);
     }
 
     private function loginAsUser(KernelBrowser $client, User $user): string

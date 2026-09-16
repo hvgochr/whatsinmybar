@@ -17,6 +17,16 @@ const failed = ref(false)
 const src = computed(() => failed.value ? undefined : currentUser.value
   ? objectUrl.value
   : imageUrl(props.recipe.imagePath, runtimeConfig.public.apiBaseUrl))
+const dimensions = computed(() => props.variant === 'card'
+  ? { height: 800, width: 640 }
+  : props.variant === 'detail'
+    ? { height: 1000, width: 1600 }
+    : { height: 600, width: 800 })
+const responsiveSizes = computed(() => props.variant === 'card'
+  ? '(min-width: 1280px) 280px, (min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw'
+  : props.variant === 'detail'
+    ? '(min-width: 1280px) 1152px, calc(100vw - 2rem)'
+    : '(min-width: 768px) 220px, 100vw')
 
 // Public images remain SSR-rendered. Authenticated images use the existing
 // Bearer/refresh client after mount, without exposing a token in an image URL.
@@ -74,8 +84,12 @@ onUnmounted(() => stop?.())
       v-if="src"
       :alt="recipe.title"
       class="h-full w-full object-cover"
+      decoding="async"
+      :height="dimensions.height"
       :loading="eager ? 'eager' : 'lazy'"
+      :sizes="responsiveSizes"
       :src="src"
+      :width="dimensions.width"
       @error="failed = true"
     >
     <div v-else class="grid h-full place-items-center bg-muted p-6 text-center">

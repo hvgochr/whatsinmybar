@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test'
 
 const publicPages = [
   { path: '/', heading: 'Find a recipe worth making.' },
-  { path: '/about', heading: 'Thoughtful discovery, reliable boundaries.' },
   { path: '/recipes', heading: 'Recipes' },
   { path: '/recipes/citrus-spritz', heading: 'Citrus Spritz' },
   { path: '/categories', heading: 'Categories' },

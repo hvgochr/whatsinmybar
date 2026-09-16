@@ -39,8 +39,7 @@ The frontend must expose SEO-friendly pages:
 - recipe detail page;
 - category list;
 - category detail page;
-- public user profile page;
-- public project presentation page.
+- public user profile page.
 
 Public URLs must use clean slugs:
 
@@ -49,7 +48,6 @@ Public URLs must use clean slugs:
 - `/categories`
 - `/categories/{categorySlug}`
 - `/users/{username}`
-- `/about`
 
 Each public page must provide:
 
@@ -784,7 +782,7 @@ Implemented:
 9. Local avatar and recipe image storage behind storage interfaces.
 10. Multi-stage production images, production Compose, Caddy HTTPS routing, healthchecks, and a manual VPS runbook.
 11. Anonymous-only dynamic sitemap, private-route noindex policy, and integrated error pages.
-12. Public project presentation and a documented demo-content readiness checklist.
+12. Public-content readiness checklist.
 
 Remaining before the V1 production launch:
 

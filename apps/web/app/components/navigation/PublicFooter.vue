@@ -10,7 +10,6 @@ import Wordmark from '../brand/Wordmark.vue'
         <p class="mt-2 text-sm text-muted-foreground">Cocktail recipes, shared clearly.</p>
       </div>
       <nav class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground" aria-label="Footer navigation">
-        <NuxtLink class="hover:text-foreground" to="/about">About</NuxtLink>
         <NuxtLink class="hover:text-foreground" to="/recipes">Recipes</NuxtLink>
         <NuxtLink class="hover:text-foreground" to="/categories">Categories</NuxtLink>
         <NuxtLink class="hover:text-foreground" to="/register">Create an account</NuxtLink>

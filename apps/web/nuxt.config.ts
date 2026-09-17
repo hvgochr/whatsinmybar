@@ -16,7 +16,19 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'en' },
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
-      script: [{ innerHTML: themeInitializer, tagPosition: 'head' }],
+      script: [
+        { 
+          innerHTML: themeInitializer, 
+          tagPosition: 'head' 
+        },
+        {
+          src: 'https://umami.charradehugo.com/script.js',
+          defer: true,
+          'data-website-id': '190f9cd6-cee3-4cf3-8768-2403f7a4e4b4',
+          'data-domains': 'whatsinmybar.charradehugo.com',
+          'data-exclude-search': 'true',
+        }
+      ],
       meta: [
         { name: 'color-scheme', content: 'light dark' },
         { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#ffffff' },
